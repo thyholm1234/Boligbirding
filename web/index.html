@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <title>Boligbirding</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#228B22">
-    <link rel="icon" href="icon-192.png">
 </head>
 <body>
     <button class="theme-toggle" id="themeToggle">🌙/☀️</button>
@@ -18,12 +15,5 @@
     <div id="result"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
-    <script>
-    if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js');
-    });
-    }
-    </script>
 </body>
 </html>
