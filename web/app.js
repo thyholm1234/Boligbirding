@@ -11,6 +11,16 @@ function visMatrix(data) {
     totalRow.innerHTML = `<td><b>Total</b></td>` + data.totals.map(t => `<td><b>${t}</b></td>`).join('');
     thead.appendChild(totalRow);
 
+    // Tid brugt-række
+    const tidRow = document.createElement('tr');
+    tidRow.innerHTML = `<td><b>Tid brugt</b></td>` + (data.tid_brugt || data.tid_brugt_minutter || []).map(t => `<td>${t}</td>`).join('');
+    thead.appendChild(tidRow);
+
+    // Antal ture-række
+    const tureRow = document.createElement('tr');
+    tureRow.innerHTML = `<td><b>Antal ture</b></td>` + (data.antal_observationer || []).map(t => `<td>${t}</td>`).join('');
+    thead.appendChild(tureRow);
+
     table.appendChild(thead);
 
     // Body

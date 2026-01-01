@@ -21,6 +21,9 @@ class Observation(Base):
     obserkode = Column(String, index=True)
     artnavn = Column(String, index=True)
     dato = Column(Date)
+    turid = Column(String, index=True)         # NYT
+    turtidfra = Column(String, nullable=True)  # NYT
+    turtidtil = Column(String, nullable=True)  # NYT
 
 class Obserkode(Base):
     __tablename__ = "obserkoder"
@@ -77,27 +80,25 @@ async def fetch_and_store(obserkode, aar=None):
     df = pd.read_csv(io.StringIO(resp.content.decode("latin1")), sep=";", dtype=str)
     if filter_:
         df = df[df["Turnoter"].fillna("").str.contains(filter_)]
-    first_obs = df.groupby("Artnavn")["Dato"].min().reset_index()
-
-    # Skriv til CSV-fil i /server/downloads/OBSERKODE.csv
-    downloads_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(downloads_dir, exist_ok=True)
-    csv_path = os.path.join(downloads_dir, f"{obserkode}.csv")
-    first_obs.to_csv(csv_path, sep=";", index=False, columns=["Artnavn", "Dato"])
-
+    # Gem alle observationer med Turid og tid
     async with SessionLocal() as session:
-        # Slet eksisterende observationer for denne kode
         await session.execute(
             Observation.__table__.delete().where(
                 Observation.obserkode == obserkode
             )
         )
-        for _, row in first_obs.iterrows():
-            dato = datetime.datetime.strptime(row["Dato"], "%Y-%m-%d").date()
+        for _, row in df.iterrows():
+            try:
+                dato = datetime.datetime.strptime(row["Dato"], "%Y-%m-%d").date()
+            except Exception:
+                continue
             obs = Observation(
                 obserkode=obserkode,
                 artnavn=row["Artnavn"],
-                dato=dato
+                dato=dato,
+                turid=row.get("Turid"),
+                turtidfra=row.get("Turtidfra"),
+                turtidtil=row.get("Turtidtil")
             )
             session.add(obs)
         await session.commit()
@@ -146,20 +147,24 @@ async def get_matrix():
     data = {}
     all_arter = set()
     all_koder = set()
-    # NYT: Saml hovedart og udelad sp./slash
     def hovedart(artnavn):
         navn = artnavn.split('(')[0].split(',')[0].strip()
         return navn
 
     hovedart_data = {}
+    kode_obs = {}
+    kode_ture = {}  # kode -> turid -> (fra, til)
     for obs in rows:
         ha = hovedart(obs.artnavn)
-        # Udelad arter med "sp.", "/", eller " x "
         if "sp." in ha or "/" in ha or " x " in ha:
             continue
         all_arter.add(ha)
         all_koder.add(obs.obserkode)
         hovedart_data.setdefault(ha, {}).setdefault(obs.obserkode, []).append(obs.dato)
+        kode_obs.setdefault(obs.obserkode, set()).add(obs.dato)
+        # Saml turid og tid for hver kode
+        if obs.turid and obs.turtidfra and obs.turtidtil:
+            kode_ture.setdefault(obs.obserkode, {})[obs.turid] = (obs.turtidfra, obs.turtidtil)
 
     matrix = []
     arter = sorted(all_arter)
@@ -175,7 +180,36 @@ async def get_matrix():
                 row.append("")
         matrix.append(row)
     totals = [sum(1 for art in arter if hovedart_data.get(art, {}).get(kode)) for kode in koder]
-    return {"arter": arter, "koder": koder, "matrix": matrix, "totals": totals}
+
+    # Udregn samlet tid brugt på observation for hver kode (sum af alle tures varighed)
+    def tid_i_minutter(tidfra, tidtil):
+        try:
+            t1 = datetime.datetime.strptime(tidfra, "%H:%M")
+            t2 = datetime.datetime.strptime(tidtil, "%H:%M")
+            diff = (t2 - t1).total_seconds() / 60
+            return max(0, int(diff))
+        except Exception:
+            return 0
+
+    tid_brugt = []
+    antal_obs = []
+    for kode in koder:
+        ture = kode_ture.get(kode, {})
+        total_min = sum(tid_i_minutter(fra, til) for fra, til in ture.values())
+        # Konverter til HH:MM
+        hours = total_min // 60
+        minutes = total_min % 60
+        tid_brugt.append(f"{hours:02}:{minutes:02}")
+        antal_obs.append(len(ture))
+
+    return {
+        "arter": arter,
+        "koder": koder,
+        "matrix": matrix,
+        "totals": totals,
+        "tid_brugt": tid_brugt,
+        "antal_observationer": antal_obs
+    }
 
 @app.post("/sync_obserkode")
 async def sync_obserkode(
