@@ -1,4 +1,14 @@
 server/boligbirding.db
-server/Downloads/
 server/__pycache__/
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+.env
+.env.*
+/server/downloads/
+.vscode/
+.idea/
+.DS_Store
