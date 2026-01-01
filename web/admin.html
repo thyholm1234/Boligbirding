@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Boligbirding Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <button class="theme-toggle" id="themeToggle">🌙/☀️</button>
+    <h1>Admin – Boligbirding</h1>
+    <form id="addForm">
+        <label>Obserkode: <input type="text" id="addKode" required></label>
+        <button type="submit">Tilføj</button>
+    </form>
+    <form id="filterForm">
+        <label>Globalt filter: <input type="text" id="globalFilter"></label>
+        <button type="submit">Opdater filter</button>
+    </form>
+    <form id="yearForm">
+        <label>År: <input type="number" id="syncYear" min="2000" max="2100" value="" required></label>
+        <button type="submit">Sæt år</button>
+    </form>
+    <button id="syncAllBtn" style="margin-bottom:1em;">Sync alle</button>
+    <div id="obserkodeList"></div>
+    <script src="admin.js"></script>
+</body>
+</html>

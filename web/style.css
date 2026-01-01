@@ -1,0 +1,81 @@
+:root,
+:root[data-theme="light"] {
+    --card-bg: #fff;
+    --card-border: #d0d0d0;
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --text-main: #222;
+    --text-muted: #888;
+    --btn-bg: #f5f5f5;
+    --btn-border: #bbb;
+    --btn-hover: #e0e0e0;
+}
+:root[data-theme="dark"] {
+    --card-bg: #23272e;
+    --card-border: #444;
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    --text-main: #f5f5f5;
+    --text-muted: #aaa;
+    --btn-bg: #2d313a;
+    --btn-border: #555;
+    --btn-hover: #3a3f48;
+}
+body {
+    background: var(--card-bg);
+    color: var(--text-main);
+    font-family: Arial, sans-serif;
+    margin: 2em;
+}
+h1 {
+    margin-bottom: 1em;
+}
+.card.obserkode-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    max-width: 400px;
+    transition: background 0.2s, border 0.2s;
+}
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.card-top .left {
+    font-size: 1.1em;
+}
+.card-top .right.admin-btn-wrap {
+    display: flex;
+    gap: 8px;
+}
+.muted {
+    color: var(--text-muted);
+    font-size: 0.95em;
+}
+button {
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 5px;
+    padding: 4px 12px;
+    cursor: pointer;
+    color: var(--text-main);
+    transition: background 0.2s, border 0.2s;
+}
+button:hover {
+    background: var(--btn-hover);
+}
+.theme-toggle {
+    float: right;
+    margin-top: -2.5em;
+    margin-bottom: 1em;
+}
+.bg-red { background: #ffcccc; }
+.bg-orange { background: #ffe5b4; }
+.bg-darkgreen { background: #228B22; color: #fff; }
+.bg-lightgreen { background: #b6ffb6; }
+table { border-collapse: collapse; }
+td, th { border: 1px solid #ccc; padding: 4px 8px; }
