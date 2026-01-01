@@ -1,4 +1,4 @@
-// Version: 1.1.9 - 2026-01-02 00.52.00
+// Version: 1.1.10 - 2026-01-02 00.53.03
 // © Christian Vemmelund Helligsø
 function visMatrix(data) {
     const table = document.createElement('table');
@@ -20,7 +20,7 @@ function visMatrix(data) {
 
     // Antal ture-række
     const tureRow = document.createElement('tr');
-    tureRow.innerHTML = `<td><b>Antal ture</b></td>` + (data.antal_observationer || []).map(t => `<td>${t}</td>`).join('');
+    tureRow.innerHTML = `<td><b>Antal lister</b></td>` + (data.antal_observationer || []).map(t => `<td>${t}</td>`).join('');
     thead.appendChild(tureRow);
 
     table.appendChild(thead);
