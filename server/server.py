@@ -144,16 +144,15 @@ async def get_matrix():
     async with SessionLocal() as session:
         result = await session.execute(select(Observation))
         rows = result.scalars().all()
-    data = {}
     all_arter = set()
     all_koder = set()
+    hovedart_data = {}
+    kode_ture = {}  # kode -> set af turid
+
     def hovedart(artnavn):
         navn = artnavn.split('(')[0].split(',')[0].strip()
         return navn
 
-    hovedart_data = {}
-    kode_obs = {}
-    kode_ture = {}  # kode -> turid -> (fra, til)
     for obs in rows:
         ha = hovedart(obs.artnavn)
         if "sp." in ha or "/" in ha or " x " in ha:
@@ -161,10 +160,9 @@ async def get_matrix():
         all_arter.add(ha)
         all_koder.add(obs.obserkode)
         hovedart_data.setdefault(ha, {}).setdefault(obs.obserkode, []).append(obs.dato)
-        kode_obs.setdefault(obs.obserkode, set()).add(obs.dato)
-        # Saml turid og tid for hver kode
-        if obs.turid and obs.turtidfra and obs.turtidtil:
-            kode_ture.setdefault(obs.obserkode, {})[obs.turid] = (obs.turtidfra, obs.turtidtil)
+        # Saml unikke turid for hver kode
+        if obs.turid:
+            kode_ture.setdefault(obs.obserkode, set()).add(obs.turid)
 
     matrix = []
     arter = sorted(all_arter)
@@ -181,34 +179,15 @@ async def get_matrix():
         matrix.append(row)
     totals = [sum(1 for art in arter if hovedart_data.get(art, {}).get(kode)) for kode in koder]
 
-    # Udregn samlet tid brugt på observation for hver kode (sum af alle tures varighed)
-    def tid_i_minutter(tidfra, tidtil):
-        try:
-            t1 = datetime.datetime.strptime(tidfra, "%H:%M")
-            t2 = datetime.datetime.strptime(tidtil, "%H:%M")
-            diff = (t2 - t1).total_seconds() / 60
-            return max(0, int(diff))
-        except Exception:
-            return 0
-
-    tid_brugt = []
-    antal_obs = []
-    for kode in koder:
-        ture = kode_ture.get(kode, {})
-        total_min = sum(tid_i_minutter(fra, til) for fra, til in ture.values())
-        # Konverter til HH:MM
-        hours = total_min // 60
-        minutes = total_min % 60
-        tid_brugt.append(f"{hours:02}:{minutes:02}")
-        antal_obs.append(len(ture))
+    # Antal ture = antal unikke turid pr. kode
+    antal_ture = [len(kode_ture.get(kode, set())) for kode in koder]
 
     return {
         "arter": arter,
         "koder": koder,
         "matrix": matrix,
         "totals": totals,
-        "tid_brugt": tid_brugt,
-        "antal_observationer": antal_obs
+        "antal_observationer": antal_ture  # eller brug "antal_ture" hvis du vil ændre navnet i frontend
     }
 
 @app.post("/sync_obserkode")
