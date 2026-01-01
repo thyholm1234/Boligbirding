@@ -1,4 +1,4 @@
-// Version: 1.1.8 - 2026-01-02 00.50.40
+// Version: 1.1.9 - 2026-01-02 00.52.00
 // © Christian Vemmelund Helligsø
 function visMatrix(data) {
     const table = document.createElement('table');

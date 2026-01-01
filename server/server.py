@@ -148,6 +148,7 @@ async def get_matrix():
     all_koder = set()
     hovedart_data = {}
     kode_ture = {}  # kode -> turid -> (fra, til)
+    kode_turid_set = {}  # kode -> set af turid
 
     def hovedart(artnavn):
         navn = artnavn.split('(')[0].split(',')[0].strip()
@@ -163,6 +164,9 @@ async def get_matrix():
         # Saml turid og tid for hver kode
         if obs.turid and obs.turtidfra and obs.turtidtil:
             kode_ture.setdefault(obs.obserkode, {})[obs.turid] = (obs.turtidfra, obs.turtidtil)
+        # Saml alle unikke turid for antal ture
+        if obs.turid:
+            kode_turid_set.setdefault(obs.obserkode, set()).add(obs.turid)
 
     matrix = []
     arter = sorted(all_arter)
@@ -180,7 +184,7 @@ async def get_matrix():
     totals = [sum(1 for art in arter if hovedart_data.get(art, {}).get(kode)) for kode in koder]
 
     # Antal ture = antal unikke turid pr. kode
-    antal_ture = [len(kode_ture.get(kode, {})) for kode in koder]
+    antal_ture = [len(kode_turid_set.get(kode, set())) for kode in koder]
 
     # Tid brugt: sum af alle tures varighed for hver kode
     def tid_i_minutter(tidfra, tidtil):
