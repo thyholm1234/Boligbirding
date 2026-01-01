@@ -2,12 +2,15 @@
 <html lang="da">
 <head>
     <meta charset="UTF-8">
-    <title>Boligbirding Unikke Arter</title>
+    <title>Boligbirding</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#228B22">
+    <link rel="icon" href="icon-192.png">
 </head>
 <body>
     <button class="theme-toggle" id="themeToggle">🌙/☀️</button>
-    <h1>Boligbirding Unikke Arter</h1>
+    <h1>Boligbirding - Østjyderne</h1>
     <button id="refreshMatrixBtn" style="margin-bottom:1em;">Opdater stilling</button>
     <div id="chart-container" style="max-width:900px;margin-bottom:2em;">
         <canvas id="leaderChart"></canvas>
@@ -15,5 +18,12 @@
     <div id="result"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js');
+    });
+    }
+    </script>
 </body>
 </html>
