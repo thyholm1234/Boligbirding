@@ -8,6 +8,7 @@ import requests
 import datetime
 import os
 import io
+import asyncio
 
 DATABASE_URL = "sqlite+aiosqlite:///./boligbirding.db"
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -38,10 +39,28 @@ class GlobalYear(Base):
 
 app = FastAPI()
 
+def start_periodic_sync():
+    loop = asyncio.get_event_loop()
+    loop.create_task(periodic_sync())
+
+async def periodic_sync():
+    while True:
+        print("Starter automatisk sync_all")
+        try:
+            # Brug en dummy BackgroundTasks, da vi ikke har en request-context
+            class DummyBG:
+                def add_task(self, func, *args, **kwargs):
+                    asyncio.create_task(func(*args, **kwargs))
+            await sync_all(background_tasks=DummyBG())
+        except Exception as e:
+            print("Fejl i automatisk sync:", e)
+        await asyncio.sleep(1800)  # 30 minutter
+
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    start_periodic_sync()
 
 async def fetch_and_store(obserkode, aar=None):
     if aar is None:
