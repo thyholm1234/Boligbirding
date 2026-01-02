@@ -1,4 +1,4 @@
-/* Version: 1.2.23 - 2026-01-03 00.18.11 */
+/* Version: 1.2.24 - 2026-01-03 00.19.56 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -377,7 +377,6 @@ td {
 
 /* Container: tillad sticky i lodret retning og stabil layout */
 .matrix-table {
-  display: block;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: visible;      /* sticky header kræver Y = visible */
@@ -388,13 +387,18 @@ td {
 }
 
 /* Kun første header-række sticky (ellers overlapper dine 4 thead-rækker) */
+.matrix-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100vw;
+}
 
-.matrix-table thead tr:nth-child(1) th { position: sticky; top: calc(0 * var(--th-h)); z-index: 40; }
-.matrix-table thead tr:nth-child(2) th { position: sticky; top: calc(1 * var(--th-h)); z-index: 39; }
-.matrix-table thead tr:nth-child(3) th { position: sticky; top: calc(2 * var(--th-h)); z-index: 38; }
-.matrix-table thead tr:nth-child(4) th { position: sticky; top: calc(3 * var(--th-h)); z-index: 37; }
-
-
+.matrix-table th {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--table-header, #def2f1);
+}
 
 /* Celler måler med border/padding, så bredder matcher */
 .matrix-table th,
