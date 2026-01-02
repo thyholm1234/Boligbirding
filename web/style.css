@@ -1,4 +1,4 @@
-/* Version: 1.2.12 - 2026-01-02 23.47.33 */
+/* Version: 1.2.13 - 2026-01-02 23.48.53 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -373,9 +373,9 @@ td {
 .matrix-table {
     border-collapse: separate;
     border-spacing: 0;
-    overflow: auto;
     width: 100%;
     display: block;
+    overflow-x: auto;
     max-width: 100vw;
 }
 
