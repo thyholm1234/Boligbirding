@@ -1,4 +1,4 @@
-// Version: 1.1.28 - 2026-01-02 14.38.53
+// Version: 1.1.29 - 2026-01-02 14.40.43
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -104,17 +104,22 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     let selectedKodeSort = false;
 
     function renderRows(order, kodeSortIdx = null) {
-        // Byg header dynamisk afhængigt af om der isoleres på én kode
         thead.innerHTML = "";
         if (kodeSortIdx !== null) {
-            // Kun én obserkode vises
+            // Kun én obserkode vises - gør headeren klikbar!
             const kodeNavn = data.koder[kodeSortIdx];
+            const th = document.createElement('th');
+            th.className = "obserkode";
+            th.setAttribute("data-idx", kodeSortIdx);
+            th.style.cursor = "pointer";
+            th.textContent = kodeNavn;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<th style="width:32px">#</th><th>Art</th>`;
+            tr.appendChild(th);
+            thead.appendChild(tr);
+
             thead.innerHTML += `
-                <tr>
-                    <th style="width:32px">#</th>
-                    <th>Art</th>
-                    <th>${kodeNavn}</th>
-                </tr>
                 <tr>
                     <td></td>
                     <td><b>Total</b></td>
@@ -132,7 +137,6 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 </tr>
             `;
         } else {
-            // Alle valgte koder vises
             thead.appendChild(hrow);
             thead.appendChild(totalRow);
             thead.appendChild(tidRow);
@@ -167,6 +171,16 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 row.innerHTML += `<td>${val || ""}</td>`;
             }
             tbody.appendChild(row);
+        }
+
+        // --- Tilføj klik-handler på single-obserkode header ---
+        if (kodeSortIdx !== null) {
+            thead.querySelector('.obserkode').addEventListener('click', function () {
+                // Gå tilbage til observerkode-filtrering og vis de valgte obserkoder
+                selectedKodeIdx = null;
+                selectedKodeSort = false;
+                visMatrix(data, "alphabetical", kodeFilter);
+            });
         }
     }
 
