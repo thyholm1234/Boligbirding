@@ -1,4 +1,4 @@
-/* Version: 1.2.16 - 2026-01-02 23.59.22 */
+/* Version: 1.2.17 - 2026-01-03 00.02.41 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -391,7 +391,6 @@ td {
 /* Fast bredde til kolonne 1 (#) og 2 (Art) */
 :root {
   --col-1: 56px;
-  --col-2: 220px; /* justér efter behov */
 }
 .matrix-table th:nth-child(1),
 .matrix-table td:nth-child(1) {
