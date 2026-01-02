@@ -1,4 +1,4 @@
-/* Version: 1.2.22 - 2026-01-03 00.16.52 */
+/* Version: 1.2.23 - 2026-01-03 00.18.11 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -388,12 +388,12 @@ td {
 }
 
 /* Kun første header-række sticky (ellers overlapper dine 4 thead-rækker) */
-.matrix-table thead tr:first-child th {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: var(--table-header, #def2f1);
-}
+
+.matrix-table thead tr:nth-child(1) th { position: sticky; top: calc(0 * var(--th-h)); z-index: 40; }
+.matrix-table thead tr:nth-child(2) th { position: sticky; top: calc(1 * var(--th-h)); z-index: 39; }
+.matrix-table thead tr:nth-child(3) th { position: sticky; top: calc(2 * var(--th-h)); z-index: 38; }
+.matrix-table thead tr:nth-child(4) th { position: sticky; top: calc(3 * var(--th-h)); z-index: 37; }
+
 
 
 /* Celler måler med border/padding, så bredder matcher */
