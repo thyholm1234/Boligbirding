@@ -1,4 +1,4 @@
-// Version: 1.1.25 - 2026-01-02 14.29.54
+// Version: 1.1.26 - 2026-01-02 14.33.20
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -8,25 +8,13 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     hentLeadChart(kodeFilter);
 
     // --- Blockers og seneste kryds tabel ---
-    // Sæt blockersDiv INDEN matrix og knapper
     let blockersDiv = document.getElementById('blockersTabel');
     if (!blockersDiv) {
         blockersDiv = document.createElement('div');
         blockersDiv.id = 'blockersTabel';
     }
-    // Indsæt blockersDiv øverst i resultDiv
     resultDiv.appendChild(blockersDiv);
     visBlockersTabel(kodeFilter);
-
-    // --- Sorteringsknap ---
-    let sortBtn = document.getElementById('sortBtn');
-    if (!sortBtn) {
-        sortBtn = document.createElement('button');
-        sortBtn.id = "sortBtn";
-        sortBtn.style.marginBottom = "8px";
-        sortBtn.textContent = "Sortér: Alfabetisk";
-        resultDiv.appendChild(sortBtn);
-    }
 
     // --- Filterknap ---
     let filterBtn = document.getElementById('kodeFilterBtn');
@@ -63,40 +51,11 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         document.body.appendChild(modal);
     }
 
-    // --- Sortering ---
-    let indices = [...Array(data.arter.length).keys()];
-    if (sortMode === "alphabetical") {
-        indices.sort((a, b) => data.arter[a].localeCompare(data.arter[b], 'da'));
-    } else if (sortMode === "latest") {
-        indices.sort((a, b) => {
-            function getLatest(idx) {
-                let dates = data.matrix[idx]
-                    .map(val => {
-                        if (!val) return null;
-                        // DD-MM-YYYY eller YYYY-MM-DD
-                        if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                            const [dd, mm, yyyy] = val.split('-');
-                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-                        } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                            const [yyyy, mm, dd] = val.split('-');
-                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-                        }
-                        return new Date(val);
-                    })
-                    .filter(d => d && !isNaN(d));
-                if (!dates.length) return new Date(0); // meget gammel hvis ingen dato
-                return new Date(Math.max(...dates.map(d => d.getTime())));
-            }
-            return getLatest(b) - getLatest(a);
-        });
-    }
-
     // --- Matrix tabel ---
     const table = document.createElement('table');
     // Header
     const thead = document.createElement('thead');
     const hrow = document.createElement('tr');
-    // Filtrer koder hvis kodeFilter er sat
     let koderVis = data.koder;
     let koderIdx = data.koder.map((k, i) => i);
     if (kodeFilter && kodeFilter.length > 0) {
@@ -108,7 +67,7 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
 
     // Total-række (direkte under header)
     const totalRow = document.createElement('tr');
-    totalRow.innerHTML = `<td></td><td><b>Total</b></td>` + koderIdx.map(i => `<td><b>${data.totals[i]}</b></td>`).join('');
+    totalRow.innerHTML = `<td></td><td><b>Total</b></td>` + koderIdx.map(i => `<td class="total-antal"><b>${data.totals[i]}</b></td>`).join('');
     thead.appendChild(totalRow);
 
     // Tid brugt-række
@@ -125,8 +84,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
 
     // Body
     const tbody = document.createElement('tbody');
-    for (let n = 0; n < indices.length; n++) {
-        const i = indices[n];
+    let filteredRows = [];
+    for (let i = 0; i < data.arter.length; i++) {
         // Hvis der er kodeFilter, så tjek om rækken har mindst én observation i de viste koder
         let hasObs = true;
         if (koderIdx.length > 0 && koderIdx.length !== data.koder.length) {
@@ -134,92 +93,107 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         }
         if (!hasObs) continue; // spring rækker uden obs over
 
-        const row = document.createElement('tr');
-        row.innerHTML = `<td style="text-align:center;width:32px">${n + 1}</td><td>${data.arter[i]}</td>`;
-        for (let idx = 0; idx < koderIdx.length; idx++) {
-            let j = koderIdx[idx];
-            let val = data.matrix[i][j];
-            let seen = data.matrix[i].filter(x => x).length;
-            let color = "";
-            if (seen === 1) color = "bg-red";
-            else if (seen === 2) color = "bg-orange";
-            else if (seen === 3) color = "bg-green";
-            else if (seen >= 4) color = "bg-lightgreen";
-            row.innerHTML += `<td class="${color}">${val || ""}</td>`;
-        }
-        tbody.appendChild(row);
+        filteredRows.push(i);
     }
+
+    // Standard sortering: alfabetisk
+    let rowOrder = [...filteredRows];
+
+    // --- Filterfunktion for klik på obserkode ---
+    let selectedKodeIdx = null;
+    let selectedKodeSort = false;
+
+    function renderRows(order, kodeSortIdx = null) {
+        tbody.innerHTML = "";
+        let rowNum = 1;
+        for (const i of order) {
+            // Hvis vi sorterer på én kode, vis kun den kolonne og kun rækker med obs
+            if (kodeSortIdx !== null) {
+                let val = data.matrix[i][kodeSortIdx];
+                if (!val) continue;
+            }
+            const row = document.createElement('tr');
+            row.innerHTML = `<td style="text-align:center;width:32px">${rowNum++}</td><td>${data.arter[i]}</td>`;
+            if (kodeSortIdx === null) {
+                // Vis alle valgte koder
+                for (let idx = 0; idx < koderIdx.length; idx++) {
+                    let j = koderIdx[idx];
+                    let val = data.matrix[i][j];
+                    let seen = data.matrix[i].filter(x => x).length;
+                    let color = "";
+                    if (seen === 1) color = "bg-red";
+                    else if (seen === 2) color = "bg-orange";
+                    else if (seen === 3) color = "bg-green";
+                    else if (seen >= 4) color = "bg-lightgreen";
+                    row.innerHTML += `<td class="${color}">${val || ""}</td>`;
+                }
+            } else {
+                // Vis kun én kodekolonne
+                let val = data.matrix[i][kodeSortIdx];
+                row.innerHTML += `<td>${val || ""}</td>`;
+            }
+            tbody.appendChild(row);
+        }
+        // Opdater total antal i header
+        if (kodeSortIdx !== null) {
+            // Find antal rækker med obs for denne kode
+            let antal = order.filter(i => data.matrix[i][kodeSortIdx]).length;
+            // Sæt antal i total-rækken
+            thead.querySelectorAll('.total-antal').forEach((td, idx) => {
+                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? `<b>${antal}</b>` : "";
+            });
+        } else {
+            // Standard: vis total fra data
+            thead.querySelectorAll('.total-antal').forEach((td, idx) => {
+                td.innerHTML = `<b>${data.totals[koderIdx[idx]]}</b>`;
+            });
+        }
+    }
+
+    renderRows(rowOrder);
+
     table.appendChild(tbody);
     resultDiv.appendChild(table);
 
-    // --- Filterfunktion ---
-    let selectedKodeIdx = null;
+    // --- Klik på obserkode for kronologisk sortering ---
     table.querySelectorAll('.obserkode').forEach(th => {
         th.addEventListener('click', function () {
             const idx = Number(this.dataset.idx);
             if (selectedKodeIdx === idx) {
-                // Fjern filter
+                // Fjern filter/sortering
                 selectedKodeIdx = null;
-                Array.from(tbody.rows).forEach(row => row.style.display = "");
-                table.querySelectorAll('.obserkode').forEach(th2 => th2.style.background = "");
-                // Vis alle kolonner igen
-                Array.from(tbody.rows).forEach(row => {
-                    for (let i = 2; i < row.cells.length; i++) {
-                        row.cells[i].style.display = "";
-                    }
-                });
-                table.querySelectorAll('thead tr').forEach(tr => {
-                    for (let i = 2; i < tr.cells.length; i++) {
-                        tr.cells[i].style.display = "";
-                    }
-                });
-                // Opdater grafen med nuværende kodeFilter
-                hentLeadChart(kodeFilter);
+                selectedKodeSort = false;
+                // Vis alle kolonner og rækker i alfabetisk rækkefølge
+                hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th>` + koderVis.map((k, idx2) => `<th class="obserkode" data-idx="${koderIdx[idx2]}" style="cursor:pointer">${k}</th>`).join('');
+                renderRows(rowOrder, null);
             } else {
                 selectedKodeIdx = idx;
-                // Marker valgt kode
-                table.querySelectorAll('.obserkode').forEach(th2 => th2.style.background = "");
-                this.style.background = "#ffe";
-                // Vis kun kolonne for valgt kode, skjul de andre
-                table.querySelectorAll('thead tr').forEach(tr => {
-                    for (let i = 2; i < tr.cells.length; i++) {
-                        tr.cells[i].style.display = (i === 2 + koderIdx.indexOf(idx)) ? "" : "none";
+                selectedKodeSort = true;
+                // Sortér rækker for denne kode, nyeste øverst
+                let rowsWithObs = filteredRows.filter(i => data.matrix[i][idx]);
+                rowsWithObs.sort((a, b) => {
+                    let va = data.matrix[a][idx];
+                    let vb = data.matrix[b][idx];
+                    // Parse dato
+                    function parseDate(val) {
+                        if (!val) return new Date(0);
+                        if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                            const [dd, mm, yyyy] = val.split('-');
+                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+                        } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            const [yyyy, mm, dd] = val.split('-');
+                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+                        }
+                        return new Date(val);
                     }
+                    return parseDate(vb) - parseDate(va);
                 });
-                Array.from(tbody.rows).forEach(row => {
-                    // Skjul alle kolonner undtagen valgt kode
-                    for (let i = 2; i < row.cells.length; i++) {
-                        row.cells[i].style.display = (i === 2 + koderIdx.indexOf(idx)) ? "" : "none";
-                    }
-                    // Skjul rækker uden obs i valgt kode
-                    const cell = row.cells[2 + koderIdx.indexOf(idx)];
-                    if (cell && cell.textContent.trim()) {
-                        row.style.display = "";
-                    } else {
-                        row.style.display = "none";
-                    }
-                });
-                // Opdater grafen med kun denne kode
-                hentLeadChart([data.koder[idx]]);
+                // Opdater header så kun denne kode vises
+                hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th><th>${data.koder[idx]}</th>`;
+                renderRows(rowsWithObs, idx);
             }
         });
     });
-
-    // --- Sorteringsknap event ---
-    sortBtn.onclick = () => {
-        if (sortBtn.dataset.mode === "latest") {
-            sortBtn.textContent = "Sortér: Alfabetisk";
-            sortBtn.dataset.mode = "alphabetical";
-            visMatrix(data, "alphabetical", kodeFilter);
-        } else {
-            sortBtn.textContent = "Sortér: Nyeste observation";
-            sortBtn.dataset.mode = "latest";
-            visMatrix(data, "latest", kodeFilter);
-        }
-    };
-    // Sæt initial state
-    sortBtn.dataset.mode = sortMode;
-    sortBtn.textContent = sortMode === "latest" ? "Sortér: Nyeste observation" : "Sortér: Alfabetisk";
 
     // --- Filterknap event ---
     filterBtn.onclick = () => {
@@ -250,10 +224,9 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         modal.style.display = "none";
         visMatrix(
             data,
-            sortBtn.dataset.mode || "alphabetical",
+            "alphabetical",
             checked.length === data.koder.length ? null : checked
         );
-        // Opdater grafen med valgte koder
         hentLeadChart(checked.length === data.koder.length ? null : checked);
     };
     modal.querySelector('#kodeModalCancel').onclick = () => {
@@ -266,15 +239,13 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
             const kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
             if (kodePrefs.length && kodePrefs.length !== data.koder.length) {
                 setTimeout(() => {
-                    visMatrix(data, sortMode, kodePrefs);
+                    visMatrix(data, "alphabetical", kodePrefs);
                     hentLeadChart(kodePrefs);
                 }, 0);
                 return;
             }
         } catch {}
     }
-
-    // Opdater grafen ved første load
     hentLeadChart(kodeFilter);
     visBlockersTabel(kodeFilter);
 }
@@ -531,7 +502,7 @@ async function visBlockersTabel(kodeFilter = null) {
     }
 
     // Byg tabel
-    let html = `<table style="margin-top:24px; margin-bottom:10px"><thead><tr>`;
+    let html = `<table style="margin-top:24px; margin-bottom:10wpx"><thead><tr>`;
     html += koderVis.map(k => `<th>${k}</th>`).join('');
     html += `</tr></thead><tbody>`;
 
