@@ -1,4 +1,4 @@
-// Version: 1.1.26 - 2026-01-02 14.33.20
+// Version: 1.1.27 - 2026-01-02 14.35.56
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -72,12 +72,12 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
 
     // Tid brugt-række
     const tidRow = document.createElement('tr');
-    tidRow.innerHTML = `<td></td><td><b>Tid brugt</b></td>` + koderIdx.map(i => `<td>${(data.tid_brugt || data.tid_brugt_minutter || [])[i] || ""}</td>`).join('');
+    tidRow.innerHTML = `<td></td><td><b>Tid brugt</b></td>` + koderIdx.map(i => `<td class="tid-brugt">${(data.tid_brugt || data.tid_brugt_minutter || [])[i] || ""}</td>`).join('');
     thead.appendChild(tidRow);
 
     // Antal ture-række
     const tureRow = document.createElement('tr');
-    tureRow.innerHTML = `<td></td><td><b>Antal lister</b></td>` + koderIdx.map(i => `<td>${(data.antal_observationer || [])[i] || ""}</td>`).join('');
+    tureRow.innerHTML = `<td></td><td><b>Antal lister</b></td>` + koderIdx.map(i => `<td class="antal-lister">${(data.antal_observationer || [])[i] || ""}</td>`).join('');
     thead.appendChild(tureRow);
 
     table.appendChild(thead);
@@ -138,14 +138,27 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         if (kodeSortIdx !== null) {
             // Find antal rækker med obs for denne kode
             let antal = order.filter(i => data.matrix[i][kodeSortIdx]).length;
-            // Sæt antal i total-rækken
+            // Sæt antal i total-rækken og fjern for de andre
             thead.querySelectorAll('.total-antal').forEach((td, idx) => {
                 td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? `<b>${antal}</b>` : "";
+            });
+            // Fjern tid brugt og antal lister for de andre
+            thead.querySelectorAll('.tid-brugt').forEach((td, idx) => {
+                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? ((data.tid_brugt || data.tid_brugt_minutter || [])[kodeSortIdx] || "") : "";
+            });
+            thead.querySelectorAll('.antal-lister').forEach((td, idx) => {
+                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? ((data.antal_observationer || [])[kodeSortIdx] || "") : "";
             });
         } else {
             // Standard: vis total fra data
             thead.querySelectorAll('.total-antal').forEach((td, idx) => {
                 td.innerHTML = `<b>${data.totals[koderIdx[idx]]}</b>`;
+            });
+            thead.querySelectorAll('.tid-brugt').forEach((td, idx) => {
+                td.innerHTML = (data.tid_brugt || data.tid_brugt_minutter || [])[koderIdx[idx]] || "";
+            });
+            thead.querySelectorAll('.antal-lister').forEach((td, idx) => {
+                td.innerHTML = (data.antal_observationer || [])[koderIdx[idx]] || "";
             });
         }
     }
@@ -166,6 +179,10 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 // Vis alle kolonner og rækker i alfabetisk rækkefølge
                 hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th>` + koderVis.map((k, idx2) => `<th class="obserkode" data-idx="${koderIdx[idx2]}" style="cursor:pointer">${k}</th>`).join('');
                 renderRows(rowOrder, null);
+                // --- Vis filter igen ---
+                // Genskab filteret (matrix) med det aktuelle kodeFilter
+                // (genindlæs hele visMatrix for at sikre alt er korrekt)
+                visMatrix(data, "alphabetical", kodeFilter);
             } else {
                 selectedKodeIdx = idx;
                 selectedKodeSort = true;
