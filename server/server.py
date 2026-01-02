@@ -129,8 +129,12 @@ async def get_obserkoder():
 @app.post("/add_obserkode")
 async def add_obserkode(
     kode: str,
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
+    request: Request = None
 ):
+    # --- Kun admin ---
+    if not request or not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan tilføje obserkoder")
     async with SessionLocal() as session:
         exists = await session.execute(select(Obserkode).where(Obserkode.kode == kode))
         if exists.scalar():
@@ -142,7 +146,10 @@ async def add_obserkode(
     return {"msg": "Obserkode tilføjet og synkroniseres"}
 
 @app.delete("/delete_obserkode")
-async def delete_obserkode(kode: str):
+async def delete_obserkode(kode: str, request: Request = None):
+    # --- Kun admin ---
+    if not request or not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan slette obserkoder")
     async with SessionLocal() as session:
         result = await session.execute(select(Obserkode).where(Obserkode.kode == kode))
         obserkode = result.scalar()
