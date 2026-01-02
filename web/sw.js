@@ -1,61 +1,59 @@
-// Version: 1.2.31 - 2026-01-03 00.48.25
+// Version: 1.2.32 - 2026-01-03 00.55.18
 // © Christian Vemmelund Helligsø
 
-const CACHE_NAME = 'boligbirding-v1.2.31';
+const CACHE_NAME = 'boligbirding-v1.2.32';
 const PRECACHE_URLS = [
-  '/',              // startside
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest',
+  '/icons/icon-192.png', '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      // Brug addAll i et try/catch, så en enkelt 404 ikke vælter installationen
-      try {
-        await cache.addAll(PRECACHE_URLS);
-      } catch (e) {
-        console.warn('Nogle filer kunne ikke caches ved install:', e);
-      }
-      self.skipWaiting();
-    })()
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+
+    // >>> VIGTIGT: bypass browserens HTTP-cache <<<
+    const requests = PRECACHE_URLS.map(
+      (url) => new Request(url, { cache: 'reload' })
+    );
+
+    try {
+      await cache.addAll(requests);
+    } catch (e) {
+      console.warn('Nogle filer kunne ikke caches ved install:', e);
+    }
+    self.skipWaiting(); // behold
+  })());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    (async () => {
-      // Ryd gamle caches
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      );
-      self.clients.claim();
-    })()
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    self.clients.claim(); // behold
+  })());
 });
 
+// Optionelt: network-first for navigationer, så index.html altid kan opdatere hurtigt
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  // HTML navigationer (SPA/MPA) — hent netværk først, fald tilbage til cache ved offline
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(request).then((cached) => {
-      // Cache-first med netværks-fallback
+    caches.match(request /*, { ignoreSearch: true } */).then((cached) => {
       return cached || fetch(request).then((resp) => {
-        // (valgfrit) dynamisk cache af GET-requests
         if (request.method === 'GET' && resp && resp.status === 200 && resp.type === 'basic') {
           const respClone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, respClone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, respClone));
         }
         return resp;
-      }).catch(() => {
-        // (valgfrit) returnér en offline-side eller et fallback-ikon her
-        return cached; // sidste udvej
-      });
+      }).catch(() => cached); // sidste udvej
     })
   );
 });

@@ -13,6 +13,8 @@ import secrets
 import hashlib
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import FileResponse
+
 
 DATABASE_URL = "sqlite+aiosqlite:///./boligbirding.db"
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -335,6 +337,12 @@ async def is_admin(request: Request):
 async def admin_logout(request: Request):
     request.session.clear()
     return {"ok": True}
+
+@app.get("/sw.js")
+async def sw():
+    sw_path = os.path.join(static_dir, "sw.js")
+    headers = {"Cache-Control": "no-cache"}
+    return FileResponse(sw_path, headers=headers, media_type="application/javascript")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 static_dir = os.path.join(BASE_DIR, "web")
