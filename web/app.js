@@ -1,4 +1,4 @@
-// Version: 1.1.22 - 2026-01-02 14.20.46
+// Version: 1.1.23 - 2026-01-02 14.23.46
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -262,6 +262,7 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
 
     // Opdater grafen ved første load
     hentLeadChart(kodeFilter);
+    visBlockersTabel(kodeFilter);
 }
 
 async function hentMatrixMedPolling(maxTries = 10) {
