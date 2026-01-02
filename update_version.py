@@ -106,6 +106,12 @@ def update_file(filepath, version):
             r'\1"',
             new_content
         )
+        # --- Tilføj denne blok for at opdatere service worker-registrering ---
+        new_content = re.sub(
+            r"(navigator\.serviceWorker\.register\(\s*['\"]\/sw\.js)(\?v=[\d\.]+)?(['\"])",
+            rf"\1?v={version}\3",
+            new_content
+        )
     elif ext == '.css':
         new_content, n = re.subn(r'^/\* Version:.*?\*/\s*(/\*.*?\*/\s*)?', version_line(ext, version) + '\n', content, count=1, flags=re.MULTILINE)
         if n == 0:
