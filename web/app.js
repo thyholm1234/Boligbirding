@@ -1,4 +1,4 @@
-// Version: 1.1.21 - 2026-01-02 14.15.42
+// Version: 1.1.22 - 2026-01-02 14.20.46
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -455,3 +455,111 @@ async function hentLeadChart(kodeFilter = null) {
         }
     });
 }
+
+// Blockers og seneste kryds tabel
+async function visBlockersTabel(kodeFilter = null) {
+    // Hent matrix-data
+    const res = await fetch('/matrix');
+    const data = await res.json();
+    if (!data.arter.length || !data.koder.length) return;
+
+    // Filtrer koder hvis kodeFilter er sat
+    let koderVis = data.koder;
+    let koderIdx = data.koder.map((k, i) => i);
+    if (kodeFilter && kodeFilter.length > 0) {
+        koderVis = data.koder.filter((k, i) => kodeFilter.includes(k));
+        koderIdx = data.koder.map((k, i) => kodeFilter.includes(k) ? i : -1).filter(i => i !== -1);
+    }
+
+    // Find blockers for hver kode
+    // Blocker: art som kun er set af én kode
+    const blockers = {};
+    koderVis.forEach(kode => blockers[kode] = []);
+    for (let i = 0; i < data.arter.length; i++) {
+        // Find hvilke koder der har set denne art
+        const seenBy = [];
+        for (let idx = 0; idx < koderIdx.length; idx++) {
+            let j = koderIdx[idx];
+            if (data.matrix[i][j]) seenBy.push(koderVis[idx]);
+        }
+        if (seenBy.length === 1) {
+            blockers[seenBy[0]].push(data.arter[i]);
+        }
+    }
+
+    // Find seneste 5 kryds for hver kode
+    // Kryds = observation (dato) for en art
+    const latestCrossings = {};
+    koderVis.forEach(kode => latestCrossings[kode] = []);
+    for (let idx = 0; idx < koderIdx.length; idx++) {
+        let j = koderIdx[idx];
+        const kryds = [];
+        for (let i = 0; i < data.arter.length; i++) {
+            const val = data.matrix[i][j];
+            if (val) {
+                // Find dato som Date-objekt
+                let d;
+                if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const [dd, mm, yyyy] = val.split('-');
+                    d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+                } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const [yyyy, mm, dd] = val.split('-');
+                    d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+                } else {
+                    d = new Date(val);
+                }
+                kryds.push({ art: data.arter[i], dato: d, datoStr: val });
+            }
+        }
+        kryds.sort((a, b) => b.dato - a.dato);
+        latestCrossings[koderVis[idx]] = kryds.slice(0, 5);
+    }
+
+    // Byg tabel
+    let html = `<table style="margin-top:24px"><thead><tr>`;
+    html += koderVis.map(k => `<th>${k}</th>`).join('');
+    html += `</tr></thead><tbody>`;
+
+    // Blockers antal
+    html += `<tr>`;
+    koderVis.forEach(k => {
+        html += `<td><b>Blockers:</b> ${blockers[k].length}</td>`;
+    });
+    html += `</tr>`;
+
+    // Blockers arter
+    html += `<tr>`;
+    koderVis.forEach(k => {
+        html += `<td>${blockers[k].length ? blockers[k].join('<br>') : '<span style="color:#888">Ingen</span>'}</td>`;
+    });
+    html += `</tr>`;
+
+    // Seneste 5 kryds
+    html += `<tr>`;
+    koderVis.forEach(k => {
+        html += `<td><b>Seneste 5 kryds:</b><br>`;
+        latestCrossings[k].forEach(kryds => {
+            html += `${kryds.datoStr}: ${kryds.art}<br>`;
+        });
+        html += `</td>`;
+    });
+    html += `</tr>`;
+
+    html += `</tbody></table>`;
+
+    // Indsæt i DOM (efter matrix)
+    let blockersDiv = document.getElementById('blockersTabel');
+    if (!blockersDiv) {
+        blockersDiv = document.createElement('div');
+        blockersDiv.id = 'blockersTabel';
+        document.getElementById('result').parentNode.appendChild(blockersDiv);
+    }
+    blockersDiv.innerHTML = `<h3>Blockers & Seneste kryds</h3>${html}`;
+}
+
+// Kald denne efter visMatrix og når kodeFilter ændres:
+window.visBlockersTabel = visBlockersTabel;
+
+// Tilføj i visMatrix efter hentLeadChart:
+    // hentLeadChart(kodeFilter);
+    // visBlockersTabel(kodeFilter);
