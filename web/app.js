@@ -1,4 +1,4 @@
-// Version: 1.1.19 - 2026-01-02 14.07.50
+// Version: 1.1.20 - 2026-01-02 14.11.48
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -141,13 +141,34 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 selectedKodeIdx = null;
                 Array.from(tbody.rows).forEach(row => row.style.display = "");
                 table.querySelectorAll('.obserkode').forEach(th2 => th2.style.background = "");
+                // Vis alle kolonner igen
+                Array.from(tbody.rows).forEach(row => {
+                    for (let i = 2; i < row.cells.length; i++) {
+                        row.cells[i].style.display = "";
+                    }
+                });
+                table.querySelectorAll('thead tr').forEach(tr => {
+                    for (let i = 2; i < tr.cells.length; i++) {
+                        tr.cells[i].style.display = "";
+                    }
+                });
             } else {
                 selectedKodeIdx = idx;
                 // Marker valgt kode
                 table.querySelectorAll('.obserkode').forEach(th2 => th2.style.background = "");
                 this.style.background = "#ffe";
-                // Vis kun rækker hvor der er dato i valgt kode
+                // Vis kun kolonne for valgt kode, skjul de andre
+                table.querySelectorAll('thead tr').forEach(tr => {
+                    for (let i = 2; i < tr.cells.length; i++) {
+                        tr.cells[i].style.display = (i === 2 + koderIdx.indexOf(idx)) ? "" : "none";
+                    }
+                });
                 Array.from(tbody.rows).forEach(row => {
+                    // Skjul alle kolonner undtagen valgt kode
+                    for (let i = 2; i < row.cells.length; i++) {
+                        row.cells[i].style.display = (i === 2 + koderIdx.indexOf(idx)) ? "" : "none";
+                    }
+                    // Skjul rækker uden obs i valgt kode
                     const cell = row.cells[2 + koderIdx.indexOf(idx)];
                     if (cell && cell.textContent.trim()) {
                         row.style.display = "";
@@ -182,7 +203,12 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         const kodeForm = modal.querySelector('#kodeForm');
         kodeForm.innerHTML = "";
         data.koder.forEach((kode, i) => {
-            const checked = !kodeFilter || kodeFilter.includes(kode) ? "checked" : "";
+            // Hent preferencer fra localStorage
+            let kodePrefs = [];
+            try {
+                kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
+            } catch {}
+            const checked = (!kodeFilter && (!kodePrefs.length || kodePrefs.includes(kode))) || (kodeFilter && kodeFilter.includes(kode)) ? "checked" : "";
             kodeForm.innerHTML += `<label style="display:block;margin-bottom:4px"><input type="checkbox" name="kode" value="${kode}" ${checked}> ${kode}</label>`;
         });
     };
@@ -194,12 +220,29 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     // OK/Annullér knapper
     modal.querySelector('#kodeModalOk').onclick = () => {
         const checked = Array.from(modal.querySelectorAll('input[name="kode"]:checked')).map(cb => cb.value);
+        // Gem preferencer i localStorage
+        localStorage.setItem('kodeFilterPrefs', JSON.stringify(checked));
         modal.style.display = "none";
-        visMatrix(data, sortBtn.dataset.mode || "alphabetical", checked.length === data.koder.length ? null : checked);
+        visMatrix(
+            data,
+            sortBtn.dataset.mode || "alphabetical",
+            checked.length === data.koder.length ? null : checked
+        );
     };
     modal.querySelector('#kodeModalCancel').onclick = () => {
         modal.style.display = "none";
     };
+
+    // --- Hent filter preferencer fra localStorage ved første load ---
+    if (!kodeFilter) {
+        try {
+            const kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
+            if (kodePrefs.length && kodePrefs.length !== data.koder.length) {
+                setTimeout(() => visMatrix(data, sortMode, kodePrefs), 0);
+                return;
+            }
+        } catch {}
+    }
 }
 
 async function hentMatrixMedPolling(maxTries = 10) {
