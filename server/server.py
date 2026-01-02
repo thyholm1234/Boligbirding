@@ -338,4 +338,7 @@ async def admin_logout(request: Request):
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 static_dir = os.path.join(BASE_DIR, "web")
+if not os.path.isdir(static_dir):
+    # Fallback: prøv i samme mappe som server.py (hvis man kører alt fra /server)
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
