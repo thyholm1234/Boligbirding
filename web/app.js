@@ -1,4 +1,4 @@
-// Version: 1.1.14 - 2026-01-02 01.08.51
+// Version: 1.1.15 - 2026-01-02 01.10.35
 // © Christian Vemmelund Helligsø
 function visMatrix(data) {
     const table = document.createElement('table');
@@ -66,12 +66,6 @@ async function hentMatrixMedPolling(maxTries = 10) {
     resultDiv.textContent = "Ingen data fundet (prøv igen senere)";
 }
 
-document.getElementById('themeToggle').onclick = function() {
-    const root = document.documentElement;
-    const current = root.getAttribute('data-theme');
-    root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
-    localStorage.setItem('theme', root.getAttribute('data-theme'));
-};
 // Sæt theme ved load
 window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem('theme');
