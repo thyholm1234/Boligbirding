@@ -1,409 +1,320 @@
-/* Version: 1.2.24 - 2026-01-03 00.19.56 */
+
+/* Version: 1.2.25 - 2026-01-03 00.23.25 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
 
 :root,
 :root[data-theme="light"] {
-    --primary: #2b7a78;
-    --primary-dark: #20504f;
-    --accent: #3aafa9;
-    --bg: #f8f9fa;
-    --card-bg: #fff;
-    --card-border: #e0e0e0;
-    --card-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
-    --text-main: #222;
-    --text-muted: #888;
-    --btn-bg: var(--primary);
-    --btn-border: var(--primary-dark);
-    --btn-hover: var(--accent);
-    --table-header: #def2f1;
-    --table-row: #ffffff;
-    --table-row-alt: #f4f8fb;
-    --modal-bg: rgba(44,62,80,0.18);
-}
-:root[data-theme="dark"] {
-    --primary: #3aafa9;
-    --primary-dark: #20504f;
-    --accent: #2b7a78;
-    --bg: #181c1f;
-    --card-bg: #23272e;
-    --card-border: #444;
-    --card-shadow: 0 4px 24px rgba(44, 62, 80, 0.18);
-    --text-main: #f5f5f5;
-    --text-muted: #aaa;
-    --btn-bg: var(--primary);
-    --btn-border: var(--primary-dark);
-    --btn-hover: var(--accent);
-    --table-header: #22343c;
-    --table-row: #23272e;
-    --table-row-alt: #1a1d21;
-    --modal-bg: rgba(44,62,80,0.38);
+  --primary: #2b7a78;
+  --primary-dark: #20504f;
+  --accent: #3aafa9;
+  --bg: #f8f9fa;
+  --card-bg: #fff;
+  --card-border: #e0e0e0;
+  --card-shadow: 0 4px 24px rgba(44, 62, 80, 0.08);
+  --text-main: #222;
+  --text-muted: #888;
+  --btn-bg: var(--primary);
+  --btn-border: var(--primary-dark);
+  --btn-hover: var(--accent);
+  --table-header: #def2f1;
+  --table-row: #ffffff;
+  --table-row-alt: #f4f8fb;
+  --modal-bg: rgba(44,62,80,0.18);
+  /* Matrix kolonnebredder */
+  --col-1: 56px;   /* # kolonne */
+  --col-2: 220px;  /* "Art" kolonne */
 }
 
-:root[data-theme="dark"] .bg-red        { background: #3a2327 !important; color: #ffb3b3; }
-:root[data-theme="dark"] .bg-orange     { background: #3a2e23 !important; color: #ffd9b3; }
-:root[data-theme="dark"] .bg-green      { background: #233a2e !important; color: #b3ffd9; }
+:root[data-theme="dark"] {
+  --primary: #3aafa9;
+  --primary-dark: #20504f;
+  --accent: #2b7a78;
+  --bg: #181c1f;
+  --card-bg: #23272e;
+  --card-border: #444;
+  --card-shadow: 0 4px 24px rgba(44, 62, 80, 0.18);
+  --text-main: #f5f5f5;
+  --text-muted: #aaa;
+  --btn-bg: var(--primary);
+  --btn-border: var(--primary-dark);
+  --btn-hover: var(--accent);
+  --table-header: #22343c;
+  --table-row: #23272e;
+  --table-row-alt: #1a1d21;
+  --modal-bg: rgba(44,62,80,0.38);
+}
+
+:root[data-theme="dark"] .bg-red { background: #3a2327 !important; color: #ffb3b3; }
+:root[data-theme="dark"] .bg-orange { background: #3a2e23 !important; color: #ffd9b3; }
+:root[data-theme="dark"] .bg-green { background: #233a2e !important; color: #b3ffd9; }
 :root[data-theme="dark"] .bg-lightgreen { background: #263a23 !important; color: #d8ffb3; }
 
 html, body {
-    background: var(--bg);
-    color: var(--text-main);
-    font-family: 'Roboto', Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: 'Roboto', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
 
 body {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1em 3em 1em; /* Fjern top-padding */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1em 3em 1em; /* Fjern top-padding */
 }
 
 h1 {
-    font-family: 'Montserrat', Arial, sans-serif;
-    font-size: 2.5em;
-    font-weight: 700;
-    color: var(--primary-dark);
-    margin-bottom: 0.7em;
-    letter-spacing: 1px;
-    text-align: center;
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-size: 2.5em;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 0.7em;
+  letter-spacing: 1px;
+  text-align: center;
 }
 
 h2, h3 {
-    font-family: 'Montserrat', Arial, sans-serif;
-    color: var(--primary);
-    margin-top: 1.5em;
-    margin-bottom: 0.5em;
+  font-family: 'Montserrat', Arial, sans-serif;
+  color: var(--primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
 }
 
-.muted {
-    color: var(--text-muted);
-    font-size: 0.95em;
-}
+.muted { color: var(--text-muted); font-size: 0.95em; }
 
 button,
 input[type="button"],
 input[type="submit"] {
-    background: var(--btn-bg);
-    border: 1.5px solid var(--btn-border);
-    border-radius: 6px;
-    padding: 8px 20px;
-    cursor: pointer;
-    color: #fff;
-    font-family: 'Montserrat', Arial, sans-serif;
-    font-weight: 600;
-    font-size: 1em;
-    transition: background 0.2s, border 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(44,62,80,0.06);
-    margin: 0.2em 0.2em 0.2em 0;
+  background: var(--btn-bg);
+  border: 1.5px solid var(--btn-border);
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+  color: #fff;
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-weight: 600;
+  font-size: 1em;
+  transition: background 0.2s, border 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(44,62,80,0.06);
+  margin: 0.2em 0.2em 0.2em 0;
 }
+
 button:hover,
 input[type="button"]:hover,
-input[type="submit"]:hover {
-    background: var(--btn-hover);
-    border-color: var(--primary);
-    color: #fff;
-}
+input[type="submit"]:hover { background: var(--btn-hover); border-color: var(--primary); color: #fff; }
 
+/* --- Navbar --- */
 .navbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--card-bg);
-    box-shadow: var(--card-shadow);
-    padding: 0.7em 1.2em;
-    border-radius: 0 0 16px 16px;
-    margin-bottom: 2em;
-    min-height: 56px;
-    margin-top: 0; /* Sikrer ingen top-margin */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  padding: 0.7em 1.2em;
+  border-radius: 0 0 16px 16px;
+  margin-bottom: 2em;
+  min-height: 56px;
+  margin-top: 0; /* Sikrer ingen top-margin */
 }
+
 .navbar-title {
-    font-family: 'Montserrat', Arial, sans-serif;
-    font-size: 1.4em;
-    font-weight: 700;
-    color: var(--primary-dark);
-    letter-spacing: 1px;
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--primary-dark);
+  letter-spacing: 1px;
 }
+
 .theme-toggle {
-    margin: 0;
-    float: none;
-    background: none;
-    border: none;
-    font-size: 1.7em;
-    color: var(--primary);
-    box-shadow: none;
-    cursor: pointer;
-    transition: color 0.2s;
+  margin: 0;
+  float: none;
+  background: none;
+  border: none;
+  font-size: 1.7em;
+  color: var(--primary);
+  box-shadow: none;
+  cursor: pointer;
+  transition: color 0.2s;
 }
-.theme-toggle:hover {
-    color: var(--accent);
-}
+.theme-toggle:hover { color: var(--accent); }
 
+/* --- Chart --- */
 #chart-container {
-    background: var(--card-bg);
-    border-radius: 18px;
-    box-shadow: var(--card-shadow);
-    padding: 2em 1em 1.5em 1em;
-    margin: 0 auto 2em auto;
-    max-width: 900px;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  background: var(--card-bg);
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+  padding: 2em 1em 1.5em 1em;
+  margin: 0 auto 2em auto;
+  max-width: 900px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-#leaderChart {
-    width: 100% !important;
-    margin: 0 auto;
-    background: transparent;
-}
+#leaderChart { width: 100% !important; margin: 0 auto; background: transparent; }
 
+/* --- Cards --- */
 .card.obserkode-card {
-    background: var(--card-bg);
-    border-radius: 12px;
-    border: 1px solid var(--card-border);
-    padding: 18px;
-    margin-bottom: 18px;
-    box-shadow: var(--card-shadow);
-    display: flex;
-    flex-direction: column;
-    max-width: 420px;
-    transition: background 0.2s, border 0.2s;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  max-width: 420px;
+  transition: background 0.2s, border 0.2s;
 }
 
-.card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.card-top .left {
-    font-size: 1.1em;
-}
-.card-top .right.admin-btn-wrap {
-    display: flex;
-    gap: 8px;
-}
+.card-top { display: flex; justify-content: space-between; align-items: center; }
+.card-top .left { font-size: 1.1em; }
+.card-top .right.admin-btn-wrap { display: flex; gap: 8px; }
 
-/* --- Table Styling --- */
+/* --- General Table Styling --- */
 table {
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    margin: 1.5em 0 2em 0;
-    background: var(--card-bg);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
-    font-size: 1em;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin: 1.5em 0 2em 0;
+  background: var(--card-bg);
+  border-radius: 12px;
+  overflow: hidden; /* NB: Matrix-table overstyrer dette */
+  box-shadow: var(--card-shadow);
+  font-size: 1em;
 }
 
-th, td {
-    padding: 10px 8px;
-    text-align: center;
-    border: none;
-}
+th, td { padding: 10px 8px; text-align: center; border: none; }
 
 th {
-    background: var(--table-header);
-    color: var(--primary-dark);
-    font-family: 'Montserrat', Arial, sans-serif;
-    font-weight: 600;
-    font-size: 1.05em;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid var(--card-border);
+  background: var(--table-header);
+  color: var(--primary-dark);
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-weight: 600;
+  font-size: 1.05em;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--card-border);
 }
 
-tbody tr:nth-child(even) {
-    background: var(--table-row-alt);
-}
-tbody tr:nth-child(odd) {
-    background: var(--table-row);
-}
+tbody tr:nth-child(even) { background: var(--table-row-alt); }
 
-td {
-    color: var(--text-main);
-    font-size: 0.98em;
-}
+tbody tr:nth-child(odd) { background: var(--table-row); }
+
+td { color: var(--text-main); font-size: 0.98em; }
 
 .bg-red { background: #ffdde0 !important; color: #b71c1c; font-weight: 600; }
 .bg-orange { background: #fff3e0 !important; color: #e65100; font-weight: 600; }
 .bg-green { background: #e0f7fa !important; color: #00695c; font-weight: 600; }
 .bg-lightgreen { background: #e6ffe6 !important; color: #33691e; font-weight: 600; }
 
-.total-antal, .tid-brugt, .antal-lister {
-    font-weight: 700;
-    color: var(--primary-dark);
-}
+.total-antal, .tid-brugt, .antal-lister { font-weight: 700; color: var(--primary-dark); }
 
+/* --- Blockers Table --- */
 #blockersTabel {
-    margin-bottom: 2em;
-    margin-top: 1em;
-    background: var(--card-bg);
-    border-radius: 12px;
-    box-shadow: var(--card-shadow);
-    padding: 1.2em 1em 0.5em 1em;
-    overflow-x: auto;
+  margin-bottom: 2em;
+  margin-top: 1em;
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  padding: 1.2em 1em 0.5em 1em;
+  overflow-x: auto;
 }
 
 #blockersTabel h3 {
-    margin-top: 0;
-    margin-bottom: 0.7em;
-    color: var(--primary);
-    font-size: 1.2em;
-    font-family: 'Montserrat', Arial, sans-serif;
+  margin-top: 0;
+  margin-bottom: 0.7em;
+  color: var(--primary);
+  font-size: 1.2em;
+  font-family: 'Montserrat', Arial, sans-serif;
 }
 
-#result {
-    margin-bottom: 2em;
-}
+#result { margin-bottom: 2em; }
 
 /* --- Modal Styling --- */
 #kodeModal, #reglerModal {
-    display: none;
-    position: fixed !important;
-    left: 0; top: 0;
-    width: 100vw; height: 100vh;
-    background: var(--modal-bg);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    overflow-y: auto;
+  display: none;
+  position: fixed !important;
+  left: 0; top: 0;
+  width: 100vw; height: 100vh;
+  background: var(--modal-bg);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
 }
 
 #kodeModal > div, #reglerModal > div {
-    background: var(--card-bg);
-    max-width: 95vw;
-    margin: 80px auto;
-    padding: 28px 24px 18px 24px;
-    border-radius: 14px;
-    box-shadow: 0 4px 32px #0002;
-    position: relative;
-    color: var(--text-main);
-    font-family: 'Roboto', Arial, sans-serif;
+  background: var(--card-bg);
+  max-width: 95vw;
+  margin: 80px auto;
+  padding: 28px 24px 18px 24px;
+  border-radius: 14px;
+  box-shadow: 0 4px 32px #0002;
+  position: relative;
+  color: var(--text-main);
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
-#kodeModal h3, #reglerModal h2 {
-    color: var(--primary-dark);
-    margin-top: 0;
-    font-family: 'Montserrat', Arial, sans-serif;
-}
+#kodeModal h3, #reglerModal h2 { color: var(--primary-dark); margin-top: 0; font-family: 'Montserrat', Arial, sans-serif; }
 
-#kodeForm label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 1.05em;
-    cursor: pointer;
-}
+#kodeForm label { display: block; margin-bottom: 8px; font-size: 1.05em; cursor: pointer; }
+#kodeForm input[type="checkbox"] { accent-color: var(--primary); margin-right: 8px; transform: scale(1.2); }
 
-#kodeForm input[type="checkbox"] {
-    accent-color: var(--primary);
-    margin-right: 8px;
-    transform: scale(1.2);
-}
+#kodeModalOk, #kodeModalCancel, #reglerModalClose { margin-top: 10px; min-width: 90px; }
 
-#kodeModalOk, #kodeModalCancel, #reglerModalClose {
-    margin-top: 10px;
-    min-width: 90px;
-}
-
-#reglerModal ol {
-    margin-bottom: 1em;
-    padding-left: 1.2em;
-}
-
-#reglerModal li {
-    margin-bottom: 0.5em;
-    text-align: left;
-    font-size: 1.05em;
-}
+#reglerModal ol { margin-bottom: 1em; padding-left: 1.2em; }
+#reglerModal li { margin-bottom: 0.5em; text-align: left; font-size: 1.05em; }
 
 /* --- Responsive --- */
 @media (max-width: 900px) {
-    #chart-container {
-        padding: 1em 0.2em 1em 0.2em;
-        max-width: 100vw;
-    }
-    #leaderChart {
-        max-width: 100vw;
-        height: 220px !important;
-    }
-    table {
-        font-size: 0.95em;
-    }
+  #chart-container { padding: 1em 0.2em 1em 0.2em; max-width: 100vw; }
+  #leaderChart { max-width: 100vw; height: 220px !important; }
+  table { font-size: 0.95em; }
 }
 
 @media (max-width: 600px) {
-    body {
-        padding: 0em 0.5em 0em 0.5em;
-    }
-    h1 {
-        font-size: 1.5em;
-        margin-bottom: 0.5em;
-    }
-    #leaderChart {
-        height: 160px !important;
-    }
-    #chart-container {
-        padding: 0.5em 0.1em 0.5em 0.1em;
-    }
-    table, th, td {
-        font-size: 0.90em;
-        padding: 6px 3px;
-    }
-    #blockersTabel {
-        padding: 0.7em 0.2em 0.3em 0.2em;
-    }
-    #kodeModal > div, #reglerModal > div {
-        padding: 14px 6px 10px 6px;
-    }
+  body { padding: 0em 0.5em 0em 0.5em; }
+  h1 { font-size: 1.5em; margin-bottom: 0.5em; }
+  #leaderChart { height: 160px !important; }
+  #chart-container { padding: 0.5em 0.1em 0.1em 0.1em; }
+  table, th, td { font-size: 0.90em; padding: 6px 3px; }
+  #blockersTabel { padding: 0.7em 0.2em 0.3em 0.2em; }
+  #kodeModal > div, #reglerModal > div { padding: 14px 6px 10px 6px; }
+  :root { --col-1: 48px; --col-2: 170px; }
 }
 
 /* --- Scrollbar for tables on mobile --- */
 @media (max-width: 700px) {
-    table, #blockersTabel {
-        overflow-x: auto;
-        display: block;
-        width: 100%;
-    }
+  table, #blockersTabel { overflow-x: auto; display: block; width: 100%; }
 }
 
-
-/* Matrix sticky fix — v1.2.21 */
-:root {
-  --col-1: 30px;   /* # kolonne */
-}
-
+/* --- Matrix sticky (header + 2 første kolonner) --- */
 /* Container: tillad sticky i lodret retning og stabil layout */
 .matrix-table {
+  display: block;                /* gør tabellen scrollbar i x-retningen */
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;      /* sticky header kræver Y = visible */
+  overflow-x: auto;              /* vandret scroll i containeren */
+  overflow-y: visible;           /* sticky header kræver Y = visible */
+  scrollbar-gutter: stable both-edges; /* undgå layout-hop når scrollbar dukker op */
   position: relative;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;      /* undgå reflow/jitter i kolonnebredder */
+  table-layout: fixed;           /* undgå reflow/jitter i kolonnebredder */
 }
 
-/* Kun første header-række sticky (ellers overlapper dine 4 thead-rækker) */
-.matrix-table-wrapper {
-  overflow-x: auto;
-  width: 100%;
-  max-width: 100vw;
-}
+/* Celler måler med border/padding, så bredder matcher */
+.matrix-table th, .matrix-table td { box-sizing: border-box; }
 
-.matrix-table th {
+/* Kun første header-række sticky */
+.matrix-table thead tr:first-child th {
   position: sticky;
   top: 0;
   z-index: 40;
   background: var(--table-header, #def2f1);
-}
-
-/* Celler måler med border/padding, så bredder matcher */
-.matrix-table th,
-.matrix-table td {
-  box-sizing: border-box;
 }
 
 /* Kolonne 1 (#) – sticky venstre */
@@ -415,28 +326,22 @@ td {
   width: var(--col-1);
   min-width: var(--col-1);
   background: var(--card-bg, #fff);
-  border-right: 1px solid #e0e0e0;
-  /* drop evt. box-shadow her for at undgå subpixel-jitter */
+  border-right: 1px solid var(--card-border);
 }
 
 /* Kolonne 2 (Art) – sticky lige efter kolonne 1 */
 .matrix-table th:nth-child(2),
 .matrix-table td:nth-child(2) {
   position: sticky;
-  left: var(--col-1);     /* præcis bredden af kolonne 1 */
+  left: var(--col-1);
   z-index: 49;
   width: var(--col-2);
   min-width: var(--col-2);
   text-align: left;
   background: var(--card-bg, #fff);
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid var(--card-border);
 }
 
 /* Hjørneceller skal ligge øverst i stakken */
 .matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
 .matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
-
-/* Mobil – smallere kolonner */
-@media (max-width: 600px) {
-  :root { --col-1: 48px; }
-}
