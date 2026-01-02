@@ -1,4 +1,4 @@
-/* Version: 1.1.39 - 2026-01-02 22.46.40 */
+/* Version: 1.1.40 - 2026-01-02 22.47.49 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -130,7 +130,7 @@ input[type="submit"]:hover {
     width: 100% !important;
     max-width: 850px;
     height: auto !important; /* Ændret fra fast højde til auto */
-    aspect-ratio: 16/7;      /* Giver flot bredde/højde-forhold */
+    aspect-ratio: 3/2;      /* Giver flot bredde/højde-forhold */
     margin: 0 auto;
     background: transparent;
 }
