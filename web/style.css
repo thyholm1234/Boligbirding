@@ -1,5 +1,5 @@
 
-/* Version: 1.2.25 - 2026-01-03 00.23.25 */
+/* Version: 1.2.26 - 2026-01-03 00.24.28 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -24,7 +24,6 @@
   --modal-bg: rgba(44,62,80,0.18);
   /* Matrix kolonnebredder */
   --col-1: 56px;   /* # kolonne */
-  --col-2: 220px;  /* "Art" kolonne */
 }
 
 :root[data-theme="dark"] {
@@ -284,7 +283,7 @@ td { color: var(--text-main); font-size: 0.98em; }
   table, th, td { font-size: 0.90em; padding: 6px 3px; }
   #blockersTabel { padding: 0.7em 0.2em 0.3em 0.2em; }
   #kodeModal > div, #reglerModal > div { padding: 14px 6px 10px 6px; }
-  :root { --col-1: 48px; --col-2: 170px; }
+  :root { --col-1: 48px; }
 }
 
 /* --- Scrollbar for tables on mobile --- */
@@ -335,8 +334,6 @@ td { color: var(--text-main); font-size: 0.98em; }
   position: sticky;
   left: var(--col-1);
   z-index: 49;
-  width: var(--col-2);
-  min-width: var(--col-2);
   text-align: left;
   background: var(--card-bg, #fff);
   border-right: 1px solid var(--card-border);
