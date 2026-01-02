@@ -1,19 +1,17 @@
-<!-- Version: 1.2.5 - 2026-01-02 23.31.42 -->
+<!-- Version: 1.2.7 - 2026-01-02 23.33.41 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <title>Boligbirding</title>
-
   <!-- PWA: manifest + tema -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#2b7a78" />
-
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icon-192.png" sizes="192x192">
+  <link rel="stylesheet" href="style.css?v=1.2.7">
 </head>
 <body>
     <nav class="navbar">
@@ -24,8 +22,8 @@
         <canvas id="leaderChart"></canvas>
     </div>
     <div id="result"></div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.5"></script>
-    <script src="app.js?v=1.2.5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.7"></script>
+    <script src="app.js?v=1.2.7"></script>
     <script>
         // Registrér service worker når siden er loadet
         if ('serviceWorker' in navigator) {
