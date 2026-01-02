@@ -1,4 +1,4 @@
-// Version: 1.1.20 - 2026-01-02 14.11.48
+// Version: 1.1.21 - 2026-01-02 14.15.42
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -113,6 +113,13 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const tbody = document.createElement('tbody');
     for (let n = 0; n < indices.length; n++) {
         const i = indices[n];
+        // Hvis der er kodeFilter, så tjek om rækken har mindst én observation i de viste koder
+        let hasObs = true;
+        if (koderIdx.length > 0 && koderIdx.length !== data.koder.length) {
+            hasObs = koderIdx.some(j => data.matrix[i][j]);
+        }
+        if (!hasObs) continue; // spring rækker uden obs over
+
         const row = document.createElement('tr');
         row.innerHTML = `<td style="text-align:center;width:32px">${n + 1}</td><td>${data.arter[i]}</td>`;
         for (let idx = 0; idx < koderIdx.length; idx++) {
@@ -152,6 +159,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                         tr.cells[i].style.display = "";
                     }
                 });
+                // Opdater grafen med nuværende kodeFilter
+                hentLeadChart(kodeFilter);
             } else {
                 selectedKodeIdx = idx;
                 // Marker valgt kode
@@ -176,6 +185,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                         row.style.display = "none";
                     }
                 });
+                // Opdater grafen med kun denne kode
+                hentLeadChart([data.koder[idx]]);
             }
         });
     });
@@ -228,6 +239,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
             sortBtn.dataset.mode || "alphabetical",
             checked.length === data.koder.length ? null : checked
         );
+        // Opdater grafen med valgte koder
+        hentLeadChart(checked.length === data.koder.length ? null : checked);
     };
     modal.querySelector('#kodeModalCancel').onclick = () => {
         modal.style.display = "none";
@@ -238,11 +251,17 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         try {
             const kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
             if (kodePrefs.length && kodePrefs.length !== data.koder.length) {
-                setTimeout(() => visMatrix(data, sortMode, kodePrefs), 0);
+                setTimeout(() => {
+                    visMatrix(data, sortMode, kodePrefs);
+                    hentLeadChart(kodePrefs);
+                }, 0);
                 return;
             }
         } catch {}
     }
+
+    // Opdater grafen ved første load
+    hentLeadChart(kodeFilter);
 }
 
 async function hentMatrixMedPolling(maxTries = 10) {
@@ -273,7 +292,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- GRAF: Hvem fører dag for dag ---
 
-async function hentLeadChart() {
+async function hentLeadChart(kodeFilter = null) {
     const res = await fetch('/matrix');
     const data = await res.json();
     if (!data.arter.length || !data.koder.length) return;
@@ -283,8 +302,15 @@ async function hentLeadChart() {
     const yearData = await yearRes.json();
     const year = yearData.year;
 
+    // Filtrer koder hvis kodeFilter er sat
+    let koderVis = data.koder;
+    let koderIdx = data.koder.map((k, i) => i);
+    if (kodeFilter && kodeFilter.length > 0) {
+        koderVis = data.koder.filter((k, i) => kodeFilter.includes(k));
+        koderIdx = data.koder.map((k, i) => kodeFilter.includes(k) ? i : -1).filter(i => i !== -1);
+    }
+
     // Byg dag-for-dag stilling
-    // 1. Find alle datoer (fra 1. jan til 31. dec i valgt år ELLER til i dag hvis aktuelt år)
     const start = new Date(year, 0, 1);
     const today = new Date();
     let end;
@@ -300,7 +326,7 @@ async function hentLeadChart() {
         d.setDate(d.getDate() + 1);
     }
 
-    // 2. For hver kode, lav et set af arter set til og med hver dag
+    // For hver kode, lav et set af arter set til og med hver dag
     const kodeIndex = {};
     data.koder.forEach((k, i) => kodeIndex[k] = i);
     // Lav lookup: [art][kode] = dato
@@ -316,10 +342,9 @@ async function hentLeadChart() {
     }
     // For hver kode, for hver dag: hvor mange arter er set til og med denne dag?
     const dagligePoints = {};
-    data.koder.forEach(k => dagligePoints[k] = []);
+    koderVis.forEach(k => dagligePoints[k] = []);
     days.forEach(day => {
-        const dayStr = day.toLocaleDateString('da-DK');
-        data.koder.forEach(kode => {
+        koderVis.forEach((kode, kodeIdx2) => {
             let count = 0;
             for (const art in artKodeDato) {
                 const datoStr = artKodeDato[art][kode];
@@ -354,11 +379,11 @@ async function hentLeadChart() {
         );
     }
 
-    // 3. Find hvem der fører hver dag
+    // Find hvem der fører hver dag
     const leaders = [];
     days.forEach((_, idx) => {
         let max = -1, leader = [];
-        data.koder.forEach(kode => {
+        koderVis.forEach(kode => {
             const val = dagligePoints[kode][idx];
             if (val > max) {
                 max = val;
@@ -370,7 +395,7 @@ async function hentLeadChart() {
         leaders.push(leader.length === 1 ? leader[0] : leader.join(','));
     });
 
-    // 4. Tegn grafen
+    // Tegn grafen
     const ctx = document.getElementById('leaderChart').getContext('2d');
     if (window.leaderChartObj) window.leaderChartObj.destroy();
 
@@ -391,14 +416,14 @@ async function hentLeadChart() {
         type: 'line',
         data: {
             labels: days.map(d => d.toLocaleDateString('da-DK')),
-            datasets: data.koder.map((kode, idx) => ({
+            datasets: koderVis.map((kode, idx) => ({
                 label: kode,
                 data: dagligePoints[kode],
                 borderColor: getColor(idx),
                 backgroundColor: getColor(idx),
                 fill: false,
                 tension: 0.1,
-                pointRadius: showPoints,        // Kun cirkler hvis < 8 dage
+                pointRadius: showPoints,
                 pointHoverRadius: showPoints ? 6 : 0
             }))
         },
