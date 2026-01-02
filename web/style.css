@@ -1,4 +1,4 @@
-/* Version: 1.2.20 - 2026-01-03 00.08.55 */
+/* Version: 1.2.22 - 2026-01-03 00.16.52 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -369,18 +369,25 @@ td {
     }
 }
 
-/* VIGTIGT: tillad sticky i lodret retning */
+
+/* Matrix sticky fix — v1.2.21 */
+:root {
+  --col-1: 30px;   /* # kolonne */
+}
+
+/* Container: tillad sticky i lodret retning og stabil layout */
 .matrix-table {
   display: block;
-  max-width: 100vw;
-  overflow-x: auto;      /* vandret scroll i containeren */
-  overflow-y: visible;   /* sticky header kræver Y = visible */
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;      /* sticky header kræver Y = visible */
   position: relative;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;      /* undgå reflow/jitter i kolonnebredder */
 }
 
-/* Gør KUN første header-række sticky (ikke alle th) */
+/* Kun første header-række sticky (ellers overlapper dine 4 thead-rækker) */
 .matrix-table thead tr:first-child th {
   position: sticky;
   top: 0;
@@ -388,120 +395,44 @@ td {
   background: var(--table-header, #def2f1);
 }
 
-/* Fast bredde til kolonne 1 (#) */
-:root {
-  --col-1: 56px;
-}
-.matrix-table th:nth-child(1),
-.matrix-table td:nth-child(1) {
-  width: var(--col-1);
-  min-width: var(--col-1);
-}
 
-/* Kolonne 2: ingen fast bredde, kun sticky og lidt min-width */
-.matrix-table th:nth-child(2),
-.matrix-table td:nth-child(2) {
-  min-width: 80px;
-  text-align: left;
-  position: sticky;
-  left: var(--col-1);   /* frys sammen med kolonne 1 */
-  z-index: 44;
-  background: var(--card-bg, #fff);
-  box-shadow: 2px 0 2px -1px #0001;
-}
-
-/* Hjørneceller (øverst+venstre) skal ligge øverst i stakken */
-.matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
-.matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
-
-/* Mobil: smallere kolonne 1 */
-@media (max-width: 600px) {
-  :root { --col-1: 48px; }
-  .matrix-table th:nth-child(2),
-  .matrix-table td:nth-child(2) {
-    min-width: 60px;
-  }
-}
-
-@media (max-width: 700px) {
-    .matrix-table {
-        font-size: 0.95em;
-        max-width: 100vw;
-        overflow-x: auto;
-    }
-}
-
-/* --- Sticky matrix header + 2 første kolonner --- */
-.matrix-table-wrapper {
-  overflow-x: auto;
-  width: 100%;
-  max-width: 100vw;
-}
-
-.matrix-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: 100%;
-  table-layout: auto;
-  background: var(--card-bg, #fff);
-}
-
+/* Celler måler med border/padding, så bredder matcher */
 .matrix-table th,
 .matrix-table td {
-  background: var(--card-bg, #fff);
-  z-index: 1;
-  box-shadow: none;
+  box-sizing: border-box;
 }
 
-/* Sticky header (øverste række) */
-.matrix-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: var(--table-header, #def2f1);
-}
-
-/* Sticky kolonne 1 */
+/* Kolonne 1 (#) – sticky venstre */
 .matrix-table th:nth-child(1),
 .matrix-table td:nth-child(1) {
   position: sticky;
   left: 0;
   z-index: 50;
+  width: var(--col-1);
+  min-width: var(--col-1);
   background: var(--card-bg, #fff);
-  box-shadow: 2px 0 4px -2px #0002;
-  min-width: 56px;
-  width: 56px;
   border-right: 1px solid #e0e0e0;
+  /* drop evt. box-shadow her for at undgå subpixel-jitter */
 }
 
-/* Sticky kolonne 2 */
+/* Kolonne 2 (Art) – sticky lige efter kolonne 1 */
 .matrix-table th:nth-child(2),
 .matrix-table td:nth-child(2) {
   position: sticky;
-  left: 56px; /* samme som kolonne 1 bredde */
+  left: var(--col-1);     /* præcis bredden af kolonne 1 */
   z-index: 49;
-  background: var(--card-bg, #fff);
-  box-shadow: 2px 0 4px -2px #0002;
-  min-width: 80px;
+  width: var(--col-2);
+  min-width: var(--col-2);
   text-align: left;
+  background: var(--card-bg, #fff);
   border-right: 1px solid #e0e0e0;
 }
 
-/* Hjørneceller: ekstra høj z-index */
-.matrix-table thead th:nth-child(1) { z-index: 60; }
-.matrix-table thead th:nth-child(2) { z-index: 59; }
+/* Hjørneceller skal ligge øverst i stakken */
+.matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
+.matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
 
-/* Mobil: smallere kolonne 1 og 2 */
+/* Mobil – smallere kolonner */
 @media (max-width: 600px) {
-  .matrix-table th:nth-child(1),
-  .matrix-table td:nth-child(1) {
-    min-width: 40px;
-    width: 40px;
-    left: 0;
-  }
-  .matrix-table th:nth-child(2),
-  .matrix-table td:nth-child(2) {
-    left: 40px;
-    min-width: 50px;
-  }
+  :root { --col-1: 48px; }
 }
