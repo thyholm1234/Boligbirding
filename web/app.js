@@ -1,4 +1,4 @@
-// Version: 1.1.17 - 2026-01-02 01.16.31
+// Version: 1.1.18 - 2026-01-02 01.19.09
 // © Christian Vemmelund Helligsø
 function visMatrix(data) {
     const table = document.createElement('table');
@@ -73,11 +73,6 @@ window.addEventListener('DOMContentLoaded', () => {
     hentMatrixMedPolling();
     hentLeadChart();
 });
-
-document.getElementById('refreshMatrixBtn').onclick = () => {
-    hentMatrixMedPolling();
-    hentLeadChart();
-};
 
 // --- GRAF: Hvem fører dag for dag ---
 
