@@ -1,4 +1,4 @@
-// Version: 1.1.35 - 2026-01-02 15.04.21
+// Version: 1.1.36 - 2026-01-02 15.17.49
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -259,6 +259,55 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     };
     modal.querySelector('#kodeModalCancel').onclick = () => {
         modal.style.display = "none";
+    };
+
+    // --- REGLER MODAL KNAP ---
+    let reglerBtn = document.getElementById('reglerBtn');
+    if (!reglerBtn) {
+        reglerBtn = document.createElement('button');
+        reglerBtn.id = "reglerBtn";
+        reglerBtn.textContent = "Vis regler for konkurrencen";
+        reglerBtn.style.margin = "16px 0 16px 0";
+        resultDiv.parentNode.insertBefore(reglerBtn, resultDiv);
+    }
+
+    let reglerModal = document.getElementById('reglerModal');
+    if (!reglerModal) {
+        reglerModal = document.createElement('div');
+        reglerModal.id = "reglerModal";
+        reglerModal.style.display = "none";
+        reglerModal.style.position = "fixed";
+        reglerModal.style.left = "0";
+        reglerModal.style.top = "0";
+        reglerModal.style.width = "100vw";
+        reglerModal.style.height = "100vh";
+        reglerModal.style.background = "rgba(0,0,0,0.3)";
+        reglerModal.style.zIndex = "2000";
+        reglerModal.innerHTML = `
+            <div style="background:#fff;max-width:600px;margin:80px auto;padding:24px 24px 16px 24px;border-radius:8px;box-shadow:0 2px 12px #0003;position:relative">
+                <h2 style="margin-top:0">REGLER FOR DEN ØSTJYSKE MATRIKEL-KONKURRENCE 2026</h2>
+                <ol style="margin-bottom:1em">
+                    <li>Konkurrencen kører over hele året: 2026. Alle arter, som er registreret og noteret indtil d. 31.12. kl. 24.00 tæller med.</li>
+                    <li>Alle kryds skal indtastes i DOFbasen, med tagget <b>#BB26</b> i turnoten (der kan godt skrives andet derudover).</li>
+                    <li>Alle arter, som er set på matriklen eller fra matriklen tæller med. Det betyder, at en biæder, som sidder i et træ på matriklen, men ses mens man står udenfor matriklen, tæller med, selv om den er væk, når man kommer ind på matriklen. En overflyvende fugl tæller kun med, hvis den ses fra matriklen.</li>
+                    <li>Alle arter, som deltageren selv har set eller hørt, tæller med. Arter, som er optaget (f.eks. på nattræk) eller set/hørt af andre, men ikke af deltageren selv, tæller ikke med.</li>
+                    <li>SU-arter skal være veldokumenterede med kommentarer og/eller foto. Ligeledes skal SUB-arter også have en form for dokumentation.</li>
+                    <li>Vinderen af konkurrencen er den, som d. 31.12.2026 kl. 24.00 har set flest arter og offentliggjort antallet til de øvrige deltagere rettidigt. Vinderen kåres i løbet af den første uge i 2026.</li>
+                </ol>
+                <button id="reglerModalClose" style="margin-top:8px">Luk</button>
+            </div>
+        `;
+        document.body.appendChild(reglerModal);
+    }
+
+    reglerBtn.onclick = () => {
+        reglerModal.style.display = "block";
+    };
+    reglerModal.onclick = e => {
+        if (e.target === reglerModal) reglerModal.style.display = "none";
+    };
+    reglerModal.querySelector('#reglerModalClose').onclick = () => {
+        reglerModal.style.display = "none";
     };
 
     if (!kodeFilter) {
