@@ -1,4 +1,4 @@
-// Version: 1.1.29 - 2026-01-02 14.40.43
+// Version: 1.1.30 - 2026-01-02 14.41.44
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -532,7 +532,7 @@ async function visBlockersTabel(kodeFilter = null) {
     }
 
     // Byg tabel
-    let html = `<table style="margin-top:24px; margin-bottom:10wpx"><thead><tr>`;
+    let html = `<table style="margin-top:24px; margin-bottom:10px"><thead><tr>`;
     html += koderVis.map(k => `<th>${k}</th>`).join('');
     html += `</tr></thead><tbody>`;
 
