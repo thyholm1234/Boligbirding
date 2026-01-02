@@ -1,4 +1,4 @@
-// Version: 1.1.34 - 2026-01-02 15.03.13
+// Version: 1.1.35 - 2026-01-02 15.04.21
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -494,13 +494,10 @@ async function visBlockersTabel(kodeFilter = null) {
     });
 
     // Sorter koder efter flest observationer
-    const sortOrder = kodeAntal => {
-        return koderAntal
-            .map((antal, idx) => ({ idx, antal }))
-            .sort((a, b) => b.antal - a.antal)
-            .map(obj => obj.idx);
-    };
-    const sortedIdx = sortOrder(kodeAntal);
+    const sortedIdx = kodeAntal
+        .map((antal, idx) => ({ idx, antal }))
+        .sort((a, b) => b.antal - a.antal)
+        .map(obj => obj.idx);
 
     koderVis = sortedIdx.map(idx => koderVis[idx]);
     koderIdx = sortedIdx.map(idx => koderIdx[idx]);
