@@ -1,4 +1,4 @@
-// Version: 1.1.16 - 2026-01-02 01.15.07
+// Version: 1.1.17 - 2026-01-02 01.16.31
 // © Christian Vemmelund Helligsø
 function visMatrix(data) {
     const table = document.createElement('table');
@@ -36,8 +36,8 @@ function visMatrix(data) {
             let color = "";
             if (seen === 1) color = "bg-red";
             else if (seen === 2) color = "bg-orange";
-            else if (seen === 3) color = "#6AA84F";
-            else if (seen >= 4) color = "#B7E1CD";
+            else if (seen === 3) color = "bg-green";
+            else if (seen >= 4) color = "bg-lightgreen";
             row.innerHTML += `<td class="${color}">${val || ""}</td>`;
         }
         tbody.appendChild(row);

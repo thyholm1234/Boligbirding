@@ -1,4 +1,4 @@
-/* Version: 1.1.16 - 2026-01-02 01.15.07 */
+/* Version: 1.1.17 - 2026-01-02 01.16.31 */
 /* © Christian Vemmelund Helligsø */
 :root,
 :root[data-theme="light"] {
@@ -77,7 +77,7 @@ button:hover {
 }
 .bg-red { background: #ffcccc; }
 .bg-orange { background: #ffe5b4; }
-.bg-darkgreen { background: #228B22; color: #fff; }
-.bg-lightgreen { background: #b6ffb6; }
+.bg-green { background-color: #6AA84F; }
+.bg-lightgreen { background-color: #B7E1CD; }
 table { border-collapse: collapse; }
 td, th { border: 1px solid #ccc; padding: 4px 8px; }
