@@ -1,4 +1,4 @@
-/* Version: 1.2.17 - 2026-01-03 00.02.41 */
+/* Version: 1.2.18 - 2026-01-03 00.03.09 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -429,7 +429,7 @@ td {
 
 /* (valgfrit) lidt smallere på mobil */
 @media (max-width: 600px) {
-  :root { --col-1: 48px; --col-2: 170px; }
+  :root { --col-1: 48px;}
 }
 
 @media (max-width: 700px) {
