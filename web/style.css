@@ -1,4 +1,4 @@
-/* Version: 1.2.18 - 2026-01-03 00.03.09 */
+/* Version: 1.2.19 - 2026-01-03 00.05.18 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -388,7 +388,7 @@ td {
   background: var(--table-header, #def2f1);
 }
 
-/* Fast bredde til kolonne 1 (#) og 2 (Art) */
+/* Fast bredde til kolonne 1 (#) */
 :root {
   --col-1: 56px;
 }
@@ -397,27 +397,14 @@ td {
   width: var(--col-1);
   min-width: var(--col-1);
 }
+
+/* Kolonne 2: ingen fast bredde, kun sticky og lidt min-width */
 .matrix-table th:nth-child(2),
 .matrix-table td:nth-child(2) {
-  width: var(--col-2);
-  min-width: var(--col-2);
-  text-align: left; /* arter er rarere venstrestillet */
-}
-
-/* Gør kolonne 1 og 2 sticky */
-.matrix-table th:nth-child(1),
-.matrix-table td:nth-child(1) {
+  min-width: 80px;
+  text-align: left;
   position: sticky;
-  left: 0;
-  z-index: 45;
-  background: var(--card-bg, #fff);
-  box-shadow: 2px 0 2px -1px #0001;
-}
-
-.matrix-table th:nth-child(2),
-.matrix-table td:nth-child(2) {
-  position: sticky;
-  left: var(--col-1);   /* skub forbi kolonne 1 */
+  left: var(--col-1);   /* frys sammen med kolonne 1 */
   z-index: 44;
   background: var(--card-bg, #fff);
   box-shadow: 2px 0 2px -1px #0001;
@@ -427,9 +414,13 @@ td {
 .matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
 .matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
 
-/* (valgfrit) lidt smallere på mobil */
+/* Mobil: smallere kolonne 1 */
 @media (max-width: 600px) {
-  :root { --col-1: 48px;}
+  :root { --col-1: 48px; }
+  .matrix-table th:nth-child(2),
+  .matrix-table td:nth-child(2) {
+    min-width: 60px;
+  }
 }
 
 @media (max-width: 700px) {
