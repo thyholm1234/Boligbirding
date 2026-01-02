@@ -1,5 +1,4 @@
-
-/* Version: 1.2.26 - 2026-01-03 00.24.28 */
+/* Version: 1.2.27 - 2026-01-03 00.29.33 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -294,15 +293,21 @@ td { color: var(--text-main); font-size: 0.98em; }
 /* --- Matrix sticky (header + 2 første kolonner) --- */
 /* Container: tillad sticky i lodret retning og stabil layout */
 .matrix-table {
-  display: block;                /* gør tabellen scrollbar i x-retningen */
+  width: 100%;         /* Sæt denne */
   max-width: 100%;
-  overflow-x: auto;              /* vandret scroll i containeren */
-  overflow-y: visible;           /* sticky header kræver Y = visible */
-  scrollbar-gutter: stable both-edges; /* undgå layout-hop når scrollbar dukker op */
-  position: relative;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;           /* undgå reflow/jitter i kolonnebredder */
+  table-layout: fixed; /* Behold for sticky kolonner */
+  position: relative;
+  overflow-x: unset;   /* FJERN eventuel overflow her */
+  overflow-y: visible;
+  scrollbar-gutter: stable both-edges;
+}
+
+/* Hvis du har en wrapper omkring tabellen, fx: */
+.matrix-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
 }
 
 /* Celler måler med border/padding, så bredder matcher */
