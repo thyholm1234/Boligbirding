@@ -1,4 +1,4 @@
-// Version: 1.2.11 - 2026-01-02 23.45.20
+// Version: 1.2.12 - 2026-01-02 23.47.33
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -53,6 +53,7 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
 
     // --- Matrix tabel ---
     const table = document.createElement('table');
+    table.className = "matrix-table";
     // Header
     const thead = document.createElement('thead');
     const hrow = document.createElement('tr');
