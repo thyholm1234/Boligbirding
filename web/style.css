@@ -1,4 +1,4 @@
-/* Version: 1.2.14 - 2026-01-02 23.53.22 */
+/* Version: 1.2.15 - 2026-01-02 23.57.47 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -369,36 +369,68 @@ td {
     }
 }
 
-/* --- Sticky matrix header og første kolonne --- */
+/* VIGTIGT: tillad sticky i lodret retning */
 .matrix-table {
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    display: block;
-    overflow-x: auto;
-    max-width: 100vw;
+  display: block;
+  max-width: 100vw;
+  overflow-x: auto;      /* vandret scroll i containeren */
+  overflow-y: visible;   /* sticky header kræver Y = visible */
+  position: relative;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.matrix-table th,
-.matrix-table td {
-    background: var(--card-bg, #fff);
-    z-index: 1;
+/* Gør KUN første header-række sticky (ikke alle th) */
+.matrix-table thead tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--table-header, #def2f1);
 }
 
-.matrix-table th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--table-header, #def2f1);
+/* Fast bredde til kolonne 1 (#) og 2 (Art) */
+:root {
+  --col-1: 56px;
+  --col-2: 220px; /* justér efter behov */
+}
+.matrix-table th:nth-child(1),
+.matrix-table td:nth-child(1) {
+  width: var(--col-1);
+  min-width: var(--col-1);
+}
+.matrix-table th:nth-child(2),
+.matrix-table td:nth-child(2) {
+  width: var(--col-2);
+  min-width: var(--col-2);
+  text-align: left; /* arter er rarere venstrestillet */
 }
 
-.matrix-table th:first-child,
-.matrix-table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 11;
-    background: var(--card-bg, #fff);
-    box-shadow: 2px 0 2px -1px #0001;
+/* Gør kolonne 1 og 2 sticky */
+.matrix-table th:nth-child(1),
+.matrix-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 45;
+  background: var(--card-bg, #fff);
+  box-shadow: 2px 0 2px -1px #0001;
+}
+
+.matrix-table th:nth-child(2),
+.matrix-table td:nth-child(2) {
+  position: sticky;
+  left: var(--col-1);   /* skub forbi kolonne 1 */
+  z-index: 44;
+  background: var(--card-bg, #fff);
+  box-shadow: 2px 0 2px -1px #0001;
+}
+
+/* Hjørneceller (øverst+venstre) skal ligge øverst i stakken */
+.matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
+.matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
+
+/* (valgfrit) lidt smallere på mobil */
+@media (max-width: 600px) {
+  :root { --col-1: 48px; --col-2: 170px; }
 }
 
 @media (max-width: 700px) {
