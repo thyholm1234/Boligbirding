@@ -1,4 +1,4 @@
-// Version: 1.2.8 - 2026-01-02 23.37.31
+// Version: 1.2.9 - 2026-01-02 23.39.44
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -490,6 +490,8 @@ async function hentLeadChart(kodeFilter = null) {
             }))
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 title: {
                     display: true,
@@ -507,7 +509,7 @@ async function hentLeadChart(kodeFilter = null) {
             scales: {
                 x: {
                     title: { display: true, text: 'Dato' },
-                    ticks: { maxTicksLimit: 15 }
+                    ticks: { maxTicksLimit: window.innerWidth < 600 ? 6 : 15 }
                 },
                 y: {
                     title: { display: true, text: 'Antal arter' },

@@ -1,4 +1,4 @@
-/* Version: 1.2.8 - 2026-01-02 23.37.31 */
+/* Version: 1.2.9 - 2026-01-02 23.39.44 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -342,11 +342,11 @@ td {
         font-size: 1.5em;
         margin-bottom: 0.5em;
     }
-    #chart-container {
-        padding: 0.5em 0.1em 0.5em 0.1em;
-    }
     #leaderChart {
         height: 160px !important;
+    }
+    #chart-container {
+        padding: 0.5em 0.1em 0.5em 0.1em;
     }
     table, th, td {
         font-size: 0.90em;
