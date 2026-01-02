@@ -1,4 +1,4 @@
-// Version: 1.1.32 - 2026-01-02 14.48.19
+// Version: 1.1.33 - 2026-01-02 15.00.25
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -487,12 +487,32 @@ async function visBlockersTabel(kodeFilter = null) {
         koderIdx = data.koder.map((k, i) => kodeFilter.includes(k) ? i : -1).filter(i => i !== -1);
     }
 
+    // Udregn antal observationer for hver kode
+    const kodeAntal = koderIdx.map(j => {
+        let count = 0;
+        for (let i = 0; i < data.arter.length; i++) {
+            if (data.matrix[i][j]) count++;
+        }
+        return count;
+    });
+
+    // Sorter koder efter flest observationer
+    const sortOrder = koderAntal => {
+        return koderAntal
+            .map((antal, idx) => ({ idx, antal }))
+            .sort((a, b) => b.antal - a.antal)
+            .map(obj => obj.idx);
+    };
+    const sortedIdx = sortOrder(kodeAntal);
+
+    koderVis = sortedIdx.map(idx => koderVis[idx]);
+    koderIdx = sortedIdx.map(idx => koderIdx[idx]);
+    const kodeAntalSorted = sortedIdx.map(idx => kodeAntal[idx]);
+
     // Find blockers for hver kode
-    // Blocker: art som kun er set af én kode
     const blockers = {};
     koderVis.forEach(kode => blockers[kode] = []);
     for (let i = 0; i < data.arter.length; i++) {
-        // Find hvilke koder der har set denne art
         const seenBy = [];
         for (let idx = 0; idx < koderIdx.length; idx++) {
             let j = koderIdx[idx];
@@ -504,7 +524,6 @@ async function visBlockersTabel(kodeFilter = null) {
     }
 
     // Find seneste 5 kryds for hver kode
-    // Kryds = observation (dato) for en art
     const latestCrossings = {};
     koderVis.forEach(kode => latestCrossings[kode] = []);
     for (let idx = 0; idx < koderIdx.length; idx++) {
@@ -513,7 +532,6 @@ async function visBlockersTabel(kodeFilter = null) {
         for (let i = 0; i < data.arter.length; i++) {
             const val = data.matrix[i][j];
             if (val) {
-                // Find dato som Date-objekt
                 let d;
                 if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
                     const [dd, mm, yyyy] = val.split('-');
@@ -535,6 +553,13 @@ async function visBlockersTabel(kodeFilter = null) {
     let html = `<table style="margin-top:24px; margin-bottom:10px"><thead><tr>`;
     html += koderVis.map(k => `<th>${k}</th>`).join('');
     html += `</tr></thead><tbody>`;
+
+    // Antal observationer
+    html += `<tr>`;
+    kodeAntalSorted.forEach(antal => {
+        html += `<td><b>Antal:</b> ${antal}</td>`;
+    });
+    html += `</tr>`;
 
     // Blockers antal
     html += `<tr>`;
@@ -563,7 +588,6 @@ async function visBlockersTabel(kodeFilter = null) {
 
     html += `</tbody></table>`;
 
-    // Indsæt i DOM (efter matrix)
     let blockersDiv = document.getElementById('blockersTabel');
     if (!blockersDiv) {
         blockersDiv = document.createElement('div');
