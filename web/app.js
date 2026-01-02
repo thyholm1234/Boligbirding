@@ -1,4 +1,4 @@
-// Version: 1.2.7 - 2026-01-02 23.33.41
+// Version: 1.2.8 - 2026-01-02 23.37.31
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');

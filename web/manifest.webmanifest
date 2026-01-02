@@ -4,7 +4,6 @@
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#f8f9fa",
   "theme_color": "#2b7a78",
   "description": "Østjysk matrikelkonkurrence for fuglefolk",
