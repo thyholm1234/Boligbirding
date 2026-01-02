@@ -1,8 +1,22 @@
-// Version: 1.1.23 - 2026-01-02 14.23.46
+// Version: 1.1.24 - 2026-01-02 14.27.45
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
     resultDiv.innerHTML = "";
+
+    // --- GRAF ---
+    hentLeadChart(kodeFilter);
+
+    // --- Blockers og seneste kryds tabel ---
+    // Sæt blockersDiv INDEN matrix og knapper
+    let blockersDiv = document.getElementById('blockersTabel');
+    if (!blockersDiv) {
+        blockersDiv = document.createElement('div');
+        blockersDiv.id = 'blockersTabel';
+    }
+    // Indsæt blockersDiv øverst i resultDiv
+    resultDiv.appendChild(blockersDiv);
+    visBlockersTabel(kodeFilter);
 
     // --- Sorteringsknap ---
     let sortBtn = document.getElementById('sortBtn');
