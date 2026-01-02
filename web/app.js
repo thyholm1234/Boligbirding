@@ -1,4 +1,4 @@
-// Version: 1.1.27 - 2026-01-02 14.35.56
+// Version: 1.1.28 - 2026-01-02 14.38.53
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -104,10 +104,44 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     let selectedKodeSort = false;
 
     function renderRows(order, kodeSortIdx = null) {
+        // Byg header dynamisk afhængigt af om der isoleres på én kode
+        thead.innerHTML = "";
+        if (kodeSortIdx !== null) {
+            // Kun én obserkode vises
+            const kodeNavn = data.koder[kodeSortIdx];
+            thead.innerHTML += `
+                <tr>
+                    <th style="width:32px">#</th>
+                    <th>Art</th>
+                    <th>${kodeNavn}</th>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><b>Total</b></td>
+                    <td class="total-antal"><b>${order.filter(i => data.matrix[i][kodeSortIdx]).length}</b></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><b>Tid brugt</b></td>
+                    <td class="tid-brugt">${(data.tid_brugt || data.tid_brugt_minutter || [])[kodeSortIdx] || ""}</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><b>Antal lister</b></td>
+                    <td class="antal-lister">${(data.antal_observationer || [])[kodeSortIdx] || ""}</td>
+                </tr>
+            `;
+        } else {
+            // Alle valgte koder vises
+            thead.appendChild(hrow);
+            thead.appendChild(totalRow);
+            thead.appendChild(tidRow);
+            thead.appendChild(tureRow);
+        }
+
         tbody.innerHTML = "";
         let rowNum = 1;
         for (const i of order) {
-            // Hvis vi sorterer på én kode, vis kun den kolonne og kun rækker med obs
             if (kodeSortIdx !== null) {
                 let val = data.matrix[i][kodeSortIdx];
                 if (!val) continue;
@@ -134,33 +168,6 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
             }
             tbody.appendChild(row);
         }
-        // Opdater total antal i header
-        if (kodeSortIdx !== null) {
-            // Find antal rækker med obs for denne kode
-            let antal = order.filter(i => data.matrix[i][kodeSortIdx]).length;
-            // Sæt antal i total-rækken og fjern for de andre
-            thead.querySelectorAll('.total-antal').forEach((td, idx) => {
-                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? `<b>${antal}</b>` : "";
-            });
-            // Fjern tid brugt og antal lister for de andre
-            thead.querySelectorAll('.tid-brugt').forEach((td, idx) => {
-                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? ((data.tid_brugt || data.tid_brugt_minutter || [])[kodeSortIdx] || "") : "";
-            });
-            thead.querySelectorAll('.antal-lister').forEach((td, idx) => {
-                td.innerHTML = (koderIdx[idx] === kodeSortIdx) ? ((data.antal_observationer || [])[kodeSortIdx] || "") : "";
-            });
-        } else {
-            // Standard: vis total fra data
-            thead.querySelectorAll('.total-antal').forEach((td, idx) => {
-                td.innerHTML = `<b>${data.totals[koderIdx[idx]]}</b>`;
-            });
-            thead.querySelectorAll('.tid-brugt').forEach((td, idx) => {
-                td.innerHTML = (data.tid_brugt || data.tid_brugt_minutter || [])[koderIdx[idx]] || "";
-            });
-            thead.querySelectorAll('.antal-lister').forEach((td, idx) => {
-                td.innerHTML = (data.antal_observationer || [])[koderIdx[idx]] || "";
-            });
-        }
     }
 
     renderRows(rowOrder);
@@ -173,15 +180,10 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         th.addEventListener('click', function () {
             const idx = Number(this.dataset.idx);
             if (selectedKodeIdx === idx) {
-                // Fjern filter/sortering
+                // Gå tilbage til observerkode-filtrering og vis de valgte obserkoder
                 selectedKodeIdx = null;
                 selectedKodeSort = false;
-                // Vis alle kolonner og rækker i alfabetisk rækkefølge
-                hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th>` + koderVis.map((k, idx2) => `<th class="obserkode" data-idx="${koderIdx[idx2]}" style="cursor:pointer">${k}</th>`).join('');
-                renderRows(rowOrder, null);
-                // --- Vis filter igen ---
-                // Genskab filteret (matrix) med det aktuelle kodeFilter
-                // (genindlæs hele visMatrix for at sikre alt er korrekt)
+                // Genskab matrix med det aktuelle kodeFilter (viser de valgte obserkoder)
                 visMatrix(data, "alphabetical", kodeFilter);
             } else {
                 selectedKodeIdx = idx;
@@ -191,7 +193,6 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 rowsWithObs.sort((a, b) => {
                     let va = data.matrix[a][idx];
                     let vb = data.matrix[b][idx];
-                    // Parse dato
                     function parseDate(val) {
                         if (!val) return new Date(0);
                         if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
@@ -205,8 +206,6 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                     }
                     return parseDate(vb) - parseDate(va);
                 });
-                // Opdater header så kun denne kode vises
-                hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th><th>${data.koder[idx]}</th>`;
                 renderRows(rowsWithObs, idx);
             }
         });
