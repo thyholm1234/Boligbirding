@@ -1,4 +1,4 @@
-/* Version: 1.2.10 - 2026-01-02 23.42.41 */
+/* Version: 1.2.11 - 2026-01-02 23.45.20 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -336,7 +336,7 @@ td {
 
 @media (max-width: 600px) {
     body {
-        padding: 0.7em 0.1em 2em 0.1em;
+        padding: 0em 0.5em 0em 0.5em;
     }
     h1 {
         font-size: 1.5em;
