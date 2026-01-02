@@ -1,14 +1,18 @@
-from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Query, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, String, Date, Integer, select
+from sqlalchemy import Column, String, Date, Integer, select, update
 import pandas as pd
 import requests
 import datetime
 import os
 import io
 import asyncio
+import secrets
+import hashlib
+from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 DATABASE_URL = "sqlite+aiosqlite:///./boligbirding.db"
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -40,7 +44,19 @@ class GlobalYear(Base):
     id = Column(Integer, primary_key=True, index=True)
     value = Column(Integer, index=True)
 
+# --- Admin adgangskode-model ---
+class AdminPassword(Base):
+    __tablename__ = "adminpassword"
+    id = Column(Integer, primary_key=True, index=True)
+    password_hash = Column(String, nullable=False)
+
 app = FastAPI()
+
+# Tilføj session-middleware (kræver SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get("ADMIN_SECRET", secrets.token_hex(16)))
+
+def hash_password(password):
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def start_periodic_sync():
     loop = asyncio.get_event_loop()
@@ -286,5 +302,31 @@ async def set_year(year: int):
 async def get_year():
     value = await get_global_year()
     return {"year": value}
+
+@app.post("/admin_login")
+async def admin_login(request: Request, data: dict):
+    password = data.get("password", "")
+    async with SessionLocal() as session:
+        result = await session.execute(select(AdminPassword).order_by(AdminPassword.id.desc()))
+        row = result.scalars().first()
+        if not row:
+            # Første login: sæt adgangskode
+            session.add(AdminPassword(password_hash=hash_password(password)))
+            await session.commit()
+            request.session["is_admin"] = True
+            return {"ok": True, "first": True}
+        if hash_password(password) == row.password_hash:
+            request.session["is_admin"] = True
+            return {"ok": True}
+        return JSONResponse({"ok": False}, status_code=401)
+
+@app.get("/is_admin")
+async def is_admin(request: Request):
+    return {"isAdmin": bool(request.session.get("is_admin"))}
+
+@app.post("/admin_logout")
+async def admin_logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
 
 app.mount("/", StaticFiles(directory="web", html=True), name="static")

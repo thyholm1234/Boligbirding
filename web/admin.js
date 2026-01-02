@@ -1,4 +1,4 @@
-// Version: 1.1.30 - 2026-01-02 14.41.44
+// Version: 1.1.31 - 2026-01-02 14.46.10
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/obserkoder');
@@ -66,12 +66,56 @@ document.getElementById('themeToggle').onclick = function() {
     localStorage.setItem('theme', root.getAttribute('data-theme'));
 };
 
-window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('theme');
-    if (saved) document.documentElement.setAttribute('data-theme', saved);
-    hentGlobalFilter();
-    hentObserkoder();
+// Admin-login funktionalitet
+async function checkAdmin() {
+    const res = await fetch('/is_admin');
+    const data = await res.json();
+    if (!data.isAdmin) {
+        document.body.innerHTML = `
+            <form id="adminLogin" style="margin:40px auto;max-width:300px">
+                <h2>Admin login</h2>
+                <input type="password" id="adminPw" placeholder="Adgangskode" required style="width:100%;margin-bottom:8px">
+                <button style="width:100%">Login</button>
+            </form>
+        `;
+        document.getElementById('adminLogin').onsubmit = async e => {
+            e.preventDefault();
+            const pw = document.getElementById('adminPw').value;
+            const resp = await fetch('/admin_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw })
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                alert('Forkert adgangskode');
+            }
+        };
+        return false;
+    }
+    return true;
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+    if (await checkAdmin()) {
+        const saved = localStorage.getItem('theme');
+        if (saved) document.documentElement.setAttribute('data-theme', saved);
+        hentGlobalFilter();
+        hentObserkoder();
+        const year = localStorage.getItem('syncYear');
+        if (year) document.getElementById('syncYear').value = year;
+    }
 });
+
+// (valgfrit) Tilføj en logout-knap et sted i admin-UI:
+const logoutBtn = document.getElementById('adminLogout');
+if (logoutBtn) {
+    logoutBtn.onclick = async () => {
+        await fetch('/admin_logout', { method: 'POST' });
+        location.reload();
+    };
+}
 
 // År-funktionalitet (valgfrit, hvis du vil kunne sætte år globalt)
 document.getElementById('yearForm').addEventListener('submit', async function(e) {
