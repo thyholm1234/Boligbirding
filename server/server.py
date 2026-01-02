@@ -336,4 +336,6 @@ async def admin_logout(request: Request):
     request.session.clear()
     return {"ok": True}
 
-app.mount("/", StaticFiles(directory="web", html=True), name="static")
+static_dir = os.path.join(os.path.dirname(__file__), "..", "web")
+static_dir = os.path.abspath(static_dir)
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

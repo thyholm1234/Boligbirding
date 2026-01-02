@@ -1,4 +1,4 @@
-/* Version: 1.1.41 - 2026-01-02 22.48.51 */
+/* Version: 1.2.1 - 2026-01-02 23.21.42 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -41,6 +41,11 @@
     --modal-bg: rgba(44,62,80,0.38);
 }
 
+:root[data-theme="dark"] .bg-red        { background: #3a2327 !important; color: #ffb3b3; }
+:root[data-theme="dark"] .bg-orange     { background: #3a2e23 !important; color: #ffd9b3; }
+:root[data-theme="dark"] .bg-green      { background: #233a2e !important; color: #b3ffd9; }
+:root[data-theme="dark"] .bg-lightgreen { background: #263a23 !important; color: #d8ffb3; }
+
 html, body {
     background: var(--bg);
     color: var(--text-main);
@@ -53,7 +58,7 @@ html, body {
 body {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 2em 1em 3em 1em;
+    padding: 0 1em 3em 1em; /* Fjern top-padding */
 }
 
 h1 {
@@ -102,15 +107,38 @@ input[type="submit"]:hover {
     color: #fff;
 }
 
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    padding: 0.7em 1.2em;
+    border-radius: 0 0 16px 16px;
+    margin-bottom: 2em;
+    min-height: 56px;
+    margin-top: 0; /* Sikrer ingen top-margin */
+}
+.navbar-title {
+    font-family: 'Montserrat', Arial, sans-serif;
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 1px;
+}
 .theme-toggle {
-    float: right;
-    margin-top: -2.5em;
-    margin-bottom: 1em;
+    margin: 0;
+    float: none;
     background: none;
     border: none;
     font-size: 1.7em;
     color: var(--primary);
     box-shadow: none;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.theme-toggle:hover {
+    color: var(--accent);
 }
 
 #chart-container {

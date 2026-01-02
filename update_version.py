@@ -8,7 +8,8 @@ FILES = [
     "web/index.html",
     "web/style.css",
     "web/admin.html",
-    "web/admin.js"
+    "web/admin.js",
+    "web/sw.js"  # <-- tilføj denne linje
 ]
 
 def get_current_version(sw_path, html_path=None):
@@ -16,7 +17,7 @@ def get_current_version(sw_path, html_path=None):
     if os.path.exists(sw_path):
         with open(sw_path, encoding='utf-8') as f:
             content = f.read()
-        m = re.search(r"CACHE_NAME\s*=\s*['\"]dofnot-v([\d\.]+)['\"]", content)
+        m = re.search(r"CACHE_NAME\s*=\s*['\"][a-zA-Z0-9_-]+-v([\d\.]+)['\"]", content)
         if m:
             return m.group(1)
         m = re.search(r"Version:\s*([\d\.]+)", content)
@@ -73,8 +74,8 @@ def update_file(filepath, version):
     # Opdater CACHE_NAME i sw.js med hele versionsnummeret
     if os.path.basename(filepath) == "sw.js":
         content = re.sub(
-            r"(const CACHE_NAME\s*=\s*')[^']*(';\s*)",
-            rf"\1dofnot-v{version}\2",
+            r'(const CACHE_NAME\s*=\s*["\'])[^\']*(["\'];\s*)',
+            rf'\1boligbirding-v{version}\2',
             content
         )
     if ext == '.webmanifest':

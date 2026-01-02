@@ -1,4 +1,4 @@
-// Version: 1.1.41 - 2026-01-02 22.48.51
+// Version: 1.2.1 - 2026-01-02 23.21.42
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -646,3 +646,11 @@ window.visBlockersTabel = visBlockersTabel;
 // Tilføj i visMatrix efter hentLeadChart:
     // hentLeadChart(kodeFilter);
     // visBlockersTabel(kodeFilter);
+
+// Theme toggle funktionalitet
+document.getElementById('themeToggle').onclick = function () {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+};
