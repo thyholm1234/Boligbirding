@@ -1,4 +1,4 @@
-/* Version: 1.2.36 - 2026-01-03 01.11.33 */
+/* Version: 1.2.38 - 2026-01-03 01.24.39 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -338,4 +338,26 @@ td { color: var(--text-main); font-size: 0.98em; }
 }
 .matrix-table tbody tr:last-child td:last-child {
   border-bottom-right-radius: 12px;
+}
+
+@media (max-width: 600px) {
+  .matrix-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100vw;
+    max-width: 100vw;
+  }
+  .matrix-table th,
+  .matrix-table td {
+    min-width: 80px;
+    white-space: nowrap;
+  }
+  .matrix-table th.obserkode,
+  .matrix-table td.obserkode {
+    display: none;
+  }
+  .matrix-table th.obserkode.visible,
+  .matrix-table td.obserkode.visible {
+    display: table-cell;
+  }
 }

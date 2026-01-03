@@ -1,4 +1,4 @@
-// Version: 1.2.36 - 2026-01-03 01.11.33
+// Version: 1.2.38 - 2026-01-03 01.24.39
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -122,9 +122,12 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         if (kodeSortIdx !== null) {
             const kodeNavn = data.koder[kodeSortIdx];
             const th = document.createElement('th');
-            th.className = "obserkode";
+            th.className = "obserkode visible";
             th.setAttribute("data-idx", kodeSortIdx);
             th.style.cursor = "pointer";
+            th.style.minWidth = "120px"; // Tilføj denne linje
+            th.style.whiteSpace = "normal";
+            th.style.wordBreak = "break-word";
             th.textContent = kodeNavn;
 
             const tr = document.createElement('tr');
@@ -293,7 +296,7 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                     <li>Alle arter, som er set på matriklen eller fra matriklen tæller med. Det betyder, at en biæder, som sidder i et træ på matriklen, men ses mens man står udenfor matriklen, tæller med, selv om den er væk, når man kommer ind på matriklen. En overflyvende fugl tæller kun med, hvis den ses fra matriklen.</li>
                     <li>Alle arter, som deltageren selv har set eller hørt, tæller med. Arter, som er optaget (f.eks. på nattræk) eller set/hørt af andre, men ikke af deltageren selv, tæller ikke med.</li>
                     <li>SU-arter skal være veldokumenterede med kommentarer og/eller foto. Ligeledes skal SUB-arter også have en form for dokumentation.</li>
-                    <li>Vinderen af konkurrencen er den, som d. 31.12.2026 kl. 24.00 har set flest arter og offentliggjort antallet til de øvrige deltagere rettidigt. Vinderen kåres i løbet af den første uge i 2026.</li>
+                    <li>Vinderen af konkurrencen er den, som d. 31.12.2026 kl. 24.00 har set flest arter og offentliggjort antallet til de øvrige deltagere rettidigt. Vinderen kåres i løbet af den første uge i 2027.</li>
                 </ol>
                 <button id="reglerModalClose" style="margin-top:8px">Luk</button>
             </div>

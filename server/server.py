@@ -307,7 +307,7 @@ async def set_year(year: int):
     await set_global_year(year)
     return {"msg": "Globalt år opdateret"}
 
-@app.get("/apiget_year")
+@app.get("/api/get_year")
 async def get_year():
     value = await get_global_year()
     return {"year": value}
