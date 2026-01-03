@@ -1,4 +1,4 @@
-/* Version: 1.2.40 - 2026-01-03 01.45.10 */
+/* Version: 1.2.42 - 2026-01-03 02.00.05 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -382,3 +382,9 @@ td { color: var(--text-main); font-size: 0.98em; }
   text-decoration: none; /* Ingen underline ved hover */
 }
 
+
+.matrix-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
