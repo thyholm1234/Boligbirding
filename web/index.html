@@ -1,4 +1,4 @@
-<!-- Version: 1.2.35 - 2026-01-03 01.10.45 -->
+<!-- Version: 1.2.36 - 2026-01-03 01.11.33 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#2b7a78" />
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.2.35">
+  <link rel="stylesheet" href="style.css?v=1.2.36">
 </head>
 <body>
     <nav class="navbar">
@@ -22,13 +22,13 @@
         <canvas id="leaderChart"></canvas>
     </div>
     <div id="result"></div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.35"></script>
-    <script src="app.js?v=1.2.35"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.36"></script>
+    <script src="app.js?v=1.2.36"></script>
     <script>
         // Registrér service worker når siden er loadet
         if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js?v=1.2.35' /*, { scope: '/' } */)
+            navigator.serviceWorker.register('/sw.js?v=1.2.36' /*, { scope: '/' } */)
             .then(reg => console.log('Service Worker registreret:', reg.scope))
             .catch(err => console.error('SW registrering fejlede:', err));
         });

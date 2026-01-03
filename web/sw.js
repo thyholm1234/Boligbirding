@@ -1,7 +1,7 @@
-// Version: 1.2.35 - 2026-01-03 01.10.45
+// Version: 1.2.36 - 2026-01-03 01.11.33
 // © Christian Vemmelund Helligsø
 
-const CACHE_NAME = 'boligbirding-v1.2.35';
+const CACHE_NAME = 'boligbirding-v1.2.36';
 const PRECACHE_URLS = [
   '/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png'
@@ -37,6 +37,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
+  // Undgå cache for alle API-kald (alt under /api)
+  if (request.url.includes('/api/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // HTML navigationer (SPA/MPA) — hent netværk først, fald tilbage til cache ved offline
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -46,14 +52,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(request /*, { ignoreSearch: true } */).then((cached) => {
+    caches.match(request).then((cached) => {
       return cached || fetch(request).then((resp) => {
         if (request.method === 'GET' && resp && resp.status === 200 && resp.type === 'basic') {
           const respClone = resp.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, respClone));
         }
         return resp;
-      }).catch(() => cached); // sidste udvej
+      }).catch(() => cached);
     })
   );
 });
