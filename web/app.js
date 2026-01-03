@@ -1,46 +1,46 @@
-// Version: 1.2.43 - 2026-01-03 02.02.48
+// Version: 1.2.46 - 2026-01-03 02.52.44
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
-    const resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = "";
+  const resultDiv = document.getElementById('result');
+  resultDiv.innerHTML = "";
 
-    // --- GRAF ---
-    hentLeadChart(kodeFilter);
+  // --- GRAF ---
+  hentLeadChart(kodeFilter);
 
-    // --- Blockers og seneste kryds tabel ---
-    let blockersDiv = document.getElementById('blockersTabel');
-    if (!blockersDiv) {
-        blockersDiv = document.createElement('div');
-        blockersDiv.id = 'blockersTabel';
-    }
-    resultDiv.appendChild(blockersDiv);
-    visBlockersTabel(kodeFilter);
+  // --- Blockers og seneste kryds tabel ---
+  let blockersDiv = document.getElementById('blockersTabel');
+  if (!blockersDiv) {
+    blockersDiv = document.createElement('div');
+    blockersDiv.id = 'blockersTabel';
+  }
+  resultDiv.appendChild(blockersDiv);
+  visBlockersTabel(kodeFilter);
 
-    // --- Filterknap ---
-    let filterBtn = document.getElementById('kodeFilterBtn');
-    if (!filterBtn) {
-        filterBtn = document.createElement('button');
-        filterBtn.id = "kodeFilterBtn";
-        filterBtn.style.marginLeft = "8px";
-        filterBtn.style.marginBottom = "8px";
-        filterBtn.textContent = "Filtrer obserkoder";
-        resultDiv.appendChild(filterBtn);
-    }
+  // --- Filterknap ---
+  let filterBtn = document.getElementById('kodeFilterBtn');
+  if (!filterBtn) {
+    filterBtn = document.createElement('button');
+    filterBtn.id = "kodeFilterBtn";
+    filterBtn.style.marginLeft = "8px";
+    filterBtn.style.marginBottom = "8px";
+    filterBtn.textContent = "Filtrer obserkoder";
+    resultDiv.appendChild(filterBtn);
+  }
 
-    // --- Modal til kodefilter ---
-    let modal = document.getElementById('kodeModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = "kodeModal";
-        modal.style.display = "none";
-        modal.style.position = "fixed";
-        modal.style.left = "0";
-        modal.style.top = "0";
-        modal.style.width = "100vw";
-        modal.style.height = "100vh";
-        modal.style.background = "rgba(0,0,0,0.3)";
-        modal.style.zIndex = "1000";
-        modal.innerHTML = `
+  // --- Modal til kodefilter ---
+  let modal = document.getElementById('kodeModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = "kodeModal";
+    modal.style.display = "none";
+    modal.style.position = "fixed";
+    modal.style.left = "0";
+    modal.style.top = "0";
+    modal.style.width = "100vw";
+    modal.style.height = "100vh";
+    modal.style.background = "rgba(0,0,0,0.3)";
+    modal.style.zIndex = "1000";
+    modal.innerHTML = `
             <div style="background:#fff;max-width:350px;margin:80px auto;padding:20px;border-radius:8px;box-shadow:0 2px 12px #0003;position:relative">
                 <h3>Vælg obserkoder</h3>
                 <form id="kodeForm" style="max-height:300px;overflow:auto;margin-bottom:12px"></form>
@@ -48,94 +48,107 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 <button id="kodeModalCancel" type="button" style="margin-left:8px">Annullér</button>
             </div>
         `;
-        document.body.appendChild(modal);
-    }
+    document.body.appendChild(modal);
+  }
 
-    // --- Matrix tabel ---
-    const table = document.createElement('table');
-    table.className = "matrix-table";
-    // Header
-    const thead = document.createElement('thead');
-    const hrow = document.createElement('tr');
-    let koderVis = data.koder;
-    let koderIdx = data.koder.map((k, i) => i);
-    if (kodeFilter && kodeFilter.length > 0) {
-        koderVis = data.koder.filter((k, i) => kodeFilter.includes(k));
-        koderIdx = data.koder.map((k, i) => kodeFilter.includes(k) ? i : -1).filter(i => i !== -1);
-    }
+  // --- Matrix tabel ---
+  const table = document.createElement('table');
+  table.className = "matrix-table";
+  // Header
+  const thead = document.createElement('thead');
+  const hrow  = document.createElement('tr');
 
-    // --- SORTÉR KODER EFTER FLEST OBSERVATIONER ---
-    const kodeAntal = koderIdx.map(j => {
-        let count = 0;
-        for (let i = 0; i < data.arter.length; i++) {
-            if (data.matrix[i][j]) count++;
-        }
-        return count;
-    });
-    const sortOrder = kodeAntal
-        .map((antal, idx) => ({ idx, antal }))
-        .sort((a, b) => b.antal - a.antal)
-        .map(obj => obj.idx);
+  let koderVis = data.koder;
+  let koderIdx = data.koder.map((k, i) => i);
+  if (kodeFilter && kodeFilter.length > 0) {
+    koderVis = data.koder.filter((k, i) => kodeFilter.includes(k));
+    koderIdx = data.koder.map((k, i) => kodeFilter.includes(k) ? i : -1).filter(i => i !== -1);
+  }
 
-    koderVis = sortOrder.map(idx => koderVis[idx]);
-    koderIdx = sortOrder.map(idx => koderIdx[idx]);
-
-    hrow.innerHTML = `<th style="width:32px">#</th><th>Art</th>` + koderVis.map((k, idx) => `<th class="obserkode" data-idx="${koderIdx[idx]}" style="cursor:pointer">${k}</th>`).join('');
-    thead.appendChild(hrow);
-
-    // Total-række (direkte under header)
-    const totalRow = document.createElement('tr');
-    totalRow.innerHTML = `<td></td><td><b>Total</b></td>` + koderIdx.map(i => `<td class="total-antal"><b>${data.totals[i]}</b></td>`).join('');
-    thead.appendChild(totalRow);
-
-    // Tid brugt-række
-    const tidRow = document.createElement('tr');
-    tidRow.innerHTML = `<td></td><td><b>Tid brugt</b></td>` + koderIdx.map(i => `<td class="tid-brugt">${(data.tid_brugt || data.tid_brugt_minutter || [])[i] || ""}</td>`).join('');
-    thead.appendChild(tidRow);
-
-    // Antal ture-række
-    const tureRow = document.createElement('tr');
-    tureRow.innerHTML = `<td></td><td><b>Antal lister</b></td>` + koderIdx.map(i => `<td class="antal-lister">${(data.antal_observationer || [])[i] || ""}</td>`).join('');
-    thead.appendChild(tureRow);
-
-    table.appendChild(thead);
-
-    // Body
-    const tbody = document.createElement('tbody');
-    let filteredRows = [];
+  // --- SORTÉR KODER EFTER FLEST OBSERVATIONER ---
+  const kodeAntal = koderIdx.map(j => {
+    let count = 0;
     for (let i = 0; i < data.arter.length; i++) {
-        let hasObs = true;
-        if (koderIdx.length > 0 && koderIdx.length !== data.koder.length) {
-            hasObs = koderIdx.some(j => data.matrix[i][j]);
-        }
-        if (!hasObs) continue;
-        filteredRows.push(i);
+      if (data.matrix[i][j]) count++;
     }
+    return count;
+  });
+  const sortOrder = kodeAntal
+    .map((antal, idx) => ({ idx, antal }))
+    .sort((a, b) => b.antal - a.antal)
+    .map(obj => obj.idx);
 
-    let rowOrder = [...filteredRows];
+  koderVis = sortOrder.map(idx => koderVis[idx]);
+  koderIdx = sortOrder.map(idx => koderIdx[idx]);
 
-    let selectedKodeIdx = null;
-    let selectedKodeSort = false;
+  // Brug variabel visible på første kodekolonne i header
+  
+  // # og Art
+  const cells = [
+    '<th>#</th>',
+    '<th>Art</th>',
+    // kodekolonner
+    ...koderVis.map((k, idx) =>
+      `<th class="obserkode${idx === 0 ? ' visible' : ''}" data-idx="${koderIdx[idx]}">${k}</th>`
+    )
+  ];
 
-    function renderRows(order, kodeSortIdx = null) {
-        thead.innerHTML = "";
-        if (kodeSortIdx !== null) {
-            const kodeNavn = data.koder[kodeSortIdx];
-            const th = document.createElement('th');
-            th.className = "obserkode visible";
-            th.setAttribute("data-idx", kodeSortIdx);
-            th.style.cursor = "pointer";
-            th.style.minWidth = "120px"; // Tilføj denne linje
-            th.style.whiteSpace = "normal";
-            th.style.wordBreak = "break-word";
-            th.textContent = kodeNavn;
+  hrow.innerHTML = cells.join('');
+  thead.appendChild(hrow);
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<th style="width:32px">#</th><th>Art</th>`;
-            tr.appendChild(th);
-            thead.appendChild(tr);
+  // Total-række (direkte under header)
+  const totalRow = document.createElement('tr');
+  totalRow.innerHTML = `<td></td><td><b>Total</b></td>` + koderIdx.map(i => `<td class="total-antal"><b>${data.totals[i]}</b></td>`).join('');
+  thead.appendChild(totalRow);
 
-            thead.innerHTML += `
+  // Tid brugt-række
+  const tidRow = document.createElement('tr');
+  tidRow.innerHTML = `<td></td><td><b>Tid brugt</b></td>` + koderIdx.map(i => `<td class="tid-brugt">${(data.tid_brugt || data.tid_brugt_minutter || [])[i] || ""}</td>`).join('');
+  thead.appendChild(tidRow);
+
+  // Antal ture-række
+  const tureRow = document.createElement('tr');
+  tureRow.innerHTML = `<td></td><td><b>Antal lister</b></td>` + koderIdx.map(i => `<td class="antal-lister">${(data.antal_observationer || [])[i] || ""}</td>`).join('');
+  thead.appendChild(tureRow);
+
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement('tbody');
+  let filteredRows = [];
+  for (let i = 0; i < data.arter.length; i++) {
+    let hasObs = true;
+    if (koderIdx.length > 0 && koderIdx.length !== data.koder.length) {
+      hasObs = koderIdx.some(j => data.matrix[i][j]);
+    }
+    if (!hasObs) continue;
+    filteredRows.push(i);
+  }
+
+  let rowOrder = [...filteredRows];
+
+  let selectedKodeIdx = null;
+  let selectedKodeSort = false;
+
+  function renderRows(order, kodeSortIdx = null) {
+    thead.innerHTML = "";
+    if (kodeSortIdx !== null) {
+      const kodeNavn = data.koder[kodeSortIdx];
+      const th = document.createElement('th');
+      th.className = "obserkode visible";
+      th.setAttribute("data-idx", kodeSortIdx);
+      th.style.cursor = "pointer";
+      th.style.minWidth = "120px"; // Tilføj denne linje
+      th.style.whiteSpace = "normal";
+      th.style.wordBreak = "break-word";
+      th.textContent = kodeNavn;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<th style="width:32px">#</th><th>Art</th>`;
+      tr.appendChild(th);
+      thead.appendChild(tr);
+
+      thead.innerHTML += `
                 <tr>
                     <td></td>
                     <td><b>Total</b></td>
@@ -152,134 +165,151 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                     <td class="antal-lister">${(data.antal_observationer || [])[kodeSortIdx] || ""}</td>
                 </tr>
             `;
-        } else {
-            thead.appendChild(hrow);
-            thead.appendChild(totalRow);
-            thead.appendChild(tidRow);
-            thead.appendChild(tureRow);
-        }
-
-        tbody.innerHTML = "";
-        let rowNum = 1;
-        for (const i of order) {
-            if (kodeSortIdx !== null) {
-                let val = data.matrix[i][kodeSortIdx];
-                if (!val) continue;
-            }
-            const row = document.createElement('tr');
-            row.innerHTML = `<td style="text-align:center;width:32px">${rowNum++}</td><td>${data.arter[i]}</td>`;
-            if (kodeSortIdx === null) {
-                for (let idx = 0; idx < koderIdx.length; idx++) {
-                    let j = koderIdx[idx];
-                    let val = data.matrix[i][j];
-                    let seen = data.matrix[i].filter(x => x).length;
-                    let color = "";
-                    if (seen === 1) color = "bg-red";
-                    else if (seen === 2) color = "bg-orange";
-                    else if (seen === 3) color = "bg-green";
-                    else if (seen >= 4) color = "bg-lightgreen";
-                    row.innerHTML += `<td class="${color}">${val || ""}</td>`;
-                }
-            } else {
-                let val = data.matrix[i][kodeSortIdx];
-                row.innerHTML += `<td>${val || ""}</td>`;
-            }
-            tbody.appendChild(row);
-        }
-
-        if (kodeSortIdx !== null) {
-            thead.querySelector('.obserkode').addEventListener('click', function () {
-                selectedKodeIdx = null;
-                selectedKodeSort = false;
-                visMatrix(data, "alphabetical", kodeFilter);
-            });
-        }
+    } else {
+      thead.appendChild(hrow);
+      thead.appendChild(totalRow);
+      thead.appendChild(tidRow);
+      thead.appendChild(tureRow);
     }
 
-    renderRows(rowOrder);
+    tbody.innerHTML = "";
+    let rowNum = 1;
+    for (const i of order) {
+      if (kodeSortIdx !== null) {
+        let val = data.matrix[i][kodeSortIdx];
+        if (!val) continue;
+      }
+      const row = document.createElement('tr');
+      row.innerHTML = `<td style="text-align:center;width:32px">${rowNum++}</td><td>${data.arter[i]}</td>`;
+      if (kodeSortIdx === null) {
+        for (let idx = 0; idx < koderIdx.length; idx++) {
+          let j = koderIdx[idx];
+          let val = data.matrix[i][j];
+          let seen = data.matrix[i].filter(x => x).length;
+          let color = "";
+          if (seen === 1) color = "bg-red";
+          else if (seen === 2) color = "bg-orange";
+          else if (seen === 3) color = "bg-green";
+          else if (seen >= 4) color = "bg-lightgreen";
+          row.innerHTML += `<td class="${color}">${val || ""}</td>`;
+        }
+      } else {
+        let val = data.matrix[i][kodeSortIdx];
+        row.innerHTML += `<td>${val || ""}</td>`;
+      }
+      tbody.appendChild(row);
+    }
 
-    table.appendChild(tbody);
-    resultDiv.appendChild(table);
+    // --- Mobil: gør første kodekolonne synlig i body ---
+    if (window.innerWidth <= 600) {
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const cell = tr.children[2]; // 0:#, 1:Art, 2:første kode
+        if (cell) cell.classList.add('obserkode', 'visible');
+      });
+    }
 
-    table.querySelectorAll('.obserkode').forEach(th => {
-        th.addEventListener('click', function () {
-            const idx = Number(this.dataset.idx);
-            if (selectedKodeIdx === idx) {
-                selectedKodeIdx = null;
-                selectedKodeSort = false;
-                visMatrix(data, "alphabetical", kodeFilter);
-            } else {
-                selectedKodeIdx = idx;
-                selectedKodeSort = true;
-                let rowsWithObs = filteredRows.filter(i => data.matrix[i][idx]);
-                rowsWithObs.sort((a, b) => {
-                    let va = data.matrix[a][idx];
-                    let vb = data.matrix[b][idx];
-                    function parseDate(val) {
-                        if (!val) return new Date(0);
-                        if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                            const [dd, mm, yyyy] = val.split('-');
-                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-                        } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                            const [yyyy, mm, dd] = val.split('-');
-                            return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-                        }
-                        return new Date(val);
-                    }
-                    return parseDate(vb) - parseDate(va);
-                });
-                renderRows(rowsWithObs, idx);
+    if (kodeSortIdx !== null) {
+      thead.querySelector('.obserkode').addEventListener('click', function () {
+        selectedKodeIdx = null;
+        selectedKodeSort = false;
+        visMatrix(data, "alphabetical", kodeFilter);
+      });
+    }
+    updateStickyOffsets(table);
+  }
+
+  renderRows(rowOrder);
+
+  table.appendChild(tbody);
+
+  // --- Opret wrapperen og put tabellen i den ---
+  const wrap = document.createElement('div');
+  wrap.className = 'matrix-table-wrap';
+  wrap.appendChild(table);
+  resultDiv.appendChild(wrap);
+
+  // Nu er table i DOM, så nu måler vi:
+  updateStickyOffsets(table);
+
+  table.querySelectorAll('.obserkode').forEach(th => {
+    th.addEventListener('click', function () {
+      const idx = Number(this.dataset.idx);
+      if (selectedKodeIdx === idx) {
+        selectedKodeIdx = null;
+        selectedKodeSort = false;
+        visMatrix(data, "alphabetical", kodeFilter);
+      } else {
+        selectedKodeIdx = idx;
+        selectedKodeSort = true;
+        let rowsWithObs = filteredRows.filter(i => data.matrix[i][idx]);
+        rowsWithObs.sort((a, b) => {
+          let va = data.matrix[a][idx];
+          let vb = data.matrix[b][idx];
+          function parseDate(val) {
+            if (!val) return new Date(0);
+            if (val.match(/^\d{2}-\d{2}-\d{4}$/)) {
+              const [dd, mm, yyyy] = val.split('-');
+              return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+            } else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              const [yyyy, mm, dd] = val.split('-');
+              return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
             }
+            return new Date(val);
+          }
+          return parseDate(vb) - parseDate(va);
         });
+        renderRows(rowsWithObs, idx);
+      }
     });
+  });
 
-    filterBtn.onclick = () => {
-        modal.style.display = "block";
-        const kodeForm = modal.querySelector('#kodeForm');
-        kodeForm.innerHTML = "";
-        data.koder.forEach((kode, i) => {
-            let kodePrefs = [];
-            try {
-                kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
-            } catch {}
-            const checked = (!kodeFilter && (!kodePrefs.length || kodePrefs.includes(kode))) || (kodeFilter && kodeFilter.includes(kode)) ? "checked" : "";
-            kodeForm.innerHTML += `<label style="display:block;margin-bottom:4px"><input type="checkbox" name="kode" value="${kode}" ${checked}> ${kode}</label>`;
-        });
-    };
+  filterBtn.onclick = () => {
+    modal.style.display = "block";
+    const kodeForm = modal.querySelector('#kodeForm');
+    kodeForm.innerHTML = "";
+    data.koder.forEach((kode, i) => {
+      let kodePrefs = [];
+      try {
+        kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
+      } catch {}
+      const checked = (!kodeFilter && (!kodePrefs.length || kodePrefs.includes(kode))) || (kodeFilter && kodeFilter.includes(kode)) ? "checked" : "";
+      kodeForm.innerHTML += `<label style="display:block;margin-bottom:4px"><input type="checkbox" name="kode" value="${kode}" ${checked}> ${kode}</label>`;
+    });
+  };
 
-    modal.onclick = e => {
-        if (e.target === modal) modal.style.display = "none";
-    };
-    modal.querySelector('#kodeModalOk').onclick = () => {
-        const checked = Array.from(modal.querySelectorAll('input[name="kode"]:checked')).map(cb => cb.value);
-        localStorage.setItem('kodeFilterPrefs', JSON.stringify(checked));
-        modal.style.display = "none";
-        visMatrix(
-            data,
-            "alphabetical",
-            checked.length === data.koder.length ? null : checked
-        );
-        hentLeadChart(checked.length === data.koder.length ? null : checked);
-    };
-    modal.querySelector('#kodeModalCancel').onclick = () => {
-        modal.style.display = "none";
-    };
+  modal.onclick = e => {
+    if (e.target === modal) modal.style.display = "none";
+  };
+  modal.querySelector('#kodeModalOk').onclick = () => {
+    const checked = Array.from(modal.querySelectorAll('input[name="kode"]:checked')).map(cb => cb.value);
+    localStorage.setItem('kodeFilterPrefs', JSON.stringify(checked));
+    modal.style.display = "none";
+    visMatrix(
+      data,
+      "alphabetical",
+      checked.length === data.koder.length ? null : checked
+    );
+    hentLeadChart(checked.length === data.koder.length ? null : checked);
+  };
+  modal.querySelector('#kodeModalCancel').onclick = () => {
+    modal.style.display = "none";
+  };
 
-    // --- REGLER MODAL LINK (navbar) ---
-    const reglerLink = document.getElementById('reglerLink');
-    let reglerModal = document.getElementById('reglerModal');
-    if (!reglerModal) {
-        reglerModal = document.createElement('div');
-        reglerModal.id = "reglerModal";
-        reglerModal.style.display = "none";
-        reglerModal.style.position = "fixed";
-        reglerModal.style.left = "0";
-        reglerModal.style.top = "0";
-        reglerModal.style.width = "100vw";
-        reglerModal.style.height = "100vh";
-        reglerModal.style.background = "rgba(0,0,0,0.3)";
-        reglerModal.style.zIndex = "2000";
-        reglerModal.innerHTML = `
+  // --- REGLER MODAL LINK (navbar) ---
+  const reglerLink = document.getElementById('reglerLink');
+  let reglerModal = document.getElementById('reglerModal');
+  if (!reglerModal) {
+    reglerModal = document.createElement('div');
+    reglerModal.id = "reglerModal";
+    reglerModal.style.display = "none";
+    reglerModal.style.position = "fixed";
+    reglerModal.style.left = "0";
+    reglerModal.style.top = "0";
+    reglerModal.style.width = "100vw";
+    reglerModal.style.height = "100vh";
+    reglerModal.style.background = "rgba(0,0,0,0.3)";
+    reglerModal.style.zIndex = "2000";
+    reglerModal.innerHTML = `
             <div style="background:#fff;max-width:600px;margin:80px auto;padding:24px 24px 16px 24px;border-radius:8px;box-shadow:0 2px 12px #0003;position:relative">
                 <h2 style="margin-top:0">REGLER FOR DEN ØSTJYSKE MATRIKEL-KONKURRENCE 2026</h2>
                 <ol style="margin-bottom:1em">
@@ -293,34 +323,68 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
                 <button id="reglerModalClose" style="margin-top:8px">Luk</button>
             </div>
         `;
-        document.body.appendChild(reglerModal);
-    }
-    reglerLink.onclick = (e) => {
-        e.preventDefault();
-        reglerModal.style.display = "block";
-    };
-    reglerModal.onclick = e => {
-        if (e.target === reglerModal) reglerModal.style.display = "none";
-    };
-    reglerModal.querySelector('#reglerModalClose').onclick = () => {
-        reglerModal.style.display = "none";
-    };
+    document.body.appendChild(reglerModal);
+  }
+  reglerLink.onclick = (e) => {
+    e.preventDefault();
+    reglerModal.style.display = "block";
+  };
+  reglerModal.onclick = e => {
+    if (e.target === reglerModal) reglerModal.style.display = "none";
+  };
+  reglerModal.querySelector('#reglerModalClose').onclick = () => {
+    reglerModal.style.display = "none";
+  };
 
-    if (!kodeFilter) {
-        try {
-            const kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
-            if (kodePrefs.length && kodePrefs.length !== data.koder.length) {
-                setTimeout(() => {
-                    visMatrix(data, "alphabetical", kodePrefs);
-                    hentLeadChart(kodePrefs);
-                }, 0);
-                return;
-            }
-        } catch {}
-    }
-    hentLeadChart(kodeFilter);
-    visBlockersTabel(kodeFilter);
+  if (!kodeFilter) {
+    try {
+      const kodePrefs = JSON.parse(localStorage.getItem('kodeFilterPrefs') || "[]");
+      if (kodePrefs.length && kodePrefs.length !== data.koder.length) {
+        setTimeout(() => {
+          visMatrix(data, "alphabetical", kodePrefs);
+          hentLeadChart(kodePrefs);
+        }, 0);
+        return;
+      }
+    } catch {}
+  }
+  hentLeadChart(kodeFilter);
+  visBlockersTabel(kodeFilter);
 }
+
+/* --- NY FUNKTION: mål første kolonne (#) og sæt --col-1 --- */
+function updateStickyOffsets(tableEl) {
+  const firstHeaderRow = tableEl.querySelector('thead tr:first-child');
+  if (!firstHeaderRow) return;
+  const th1 = firstHeaderRow.querySelector('th:nth-child(1)');
+  if (!th1) return;
+
+  const measured = th1.getBoundingClientRect().width;
+
+  // Vælg den rette CSS-variabel (desktop vs. mobil)
+  const isMobile = window.innerWidth <= 600;
+  const varName = isMobile ? '--col-1-min-mobile' : '--col-1-min-desktop';
+
+  // Læs minimumsværdien fra CSS
+  const styles = getComputedStyle(tableEl);
+  const minStr = styles.getPropertyValue(varName).trim();
+  const minPx = Number(minStr.replace('px', '')) || (isMobile ? 64 : 72);
+
+  // Offset for kolonne 2: mindst minimum, ellers den målte bredde
+  const offset = Math.max(measured, minPx);
+  tableEl.style.setProperty('--col-1', `${offset}px`);
+}
+
+
+// Ved resize/orientation ændres offset
+window.addEventListener('resize', () => {
+  const tableEl = document.querySelector('.matrix-table');
+  if (tableEl) updateStickyOffsets(tableEl);
+});
+window.addEventListener('orientationchange', () => {
+  const tableEl = document.querySelector('.matrix-table');
+  if (tableEl) updateStickyOffsets(tableEl);
+});
 
 async function hentMatrixMedPolling(maxTries = 10) {
     const resultDiv = document.getElementById('result');
@@ -384,7 +448,7 @@ async function hentLeadChart(kodeFilter = null) {
         d.setDate(d.getDate() + 1);
     }
 
-    // For hver kode, lav et set af arter set til og med hver dag
+    // For hver kode, lav et set af arter set til and med hver dag
     const kodeIndex = {};
     data.koder.forEach((k, i) => kodeIndex[k] = i);
     // Lav lookup: [art][kode] = dato

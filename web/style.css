@@ -1,4 +1,4 @@
-/* Version: 1.2.43 - 2026-01-03 02.02.48 */
+/* Version: 1.2.46 - 2026-01-03 02.52.44 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -274,10 +274,9 @@ td { color: var(--text-main); font-size: 0.98em; }
   max-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed; /* Behold for sticky kolonner */
+  table-layout: fixed;        /* behold for sticky */
   position: relative;
-  overflow-x: unset;   /* FJERN eventuel overflow her */
-  overflow-y: visible;
+  overflow: visible;          /* <-- ikke 'unset' */
   scrollbar-gutter: stable both-edges;
 }
 
@@ -290,15 +289,19 @@ td { color: var(--text-main); font-size: 0.98em; }
 /* Celler måler med border/padding, så bredder matcher */
 .matrix-table th, .matrix-table td { box-sizing: border-box; }
 
-/* Kun første header-række sticky */
+
+/* Sticky header: KUN første thead-række */
 .matrix-table thead tr:first-child th {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 200;                          /* over alle body-celler */
   background: var(--table-header, #def2f1);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
-/* Kolonne 1 (#) – sticky venstre */
+
+/* 1. kolonne (#) */
 .matrix-table th:nth-child(1),
 .matrix-table td:nth-child(1) {
   position: sticky;
@@ -308,26 +311,30 @@ td { color: var(--text-main); font-size: 0.98em; }
   min-width: var(--col-1);
   max-width: var(--col-1);
   background: var(--card-bg, #fff);
-  overflow: hidden;
   box-sizing: border-box;
   border-right: 1px solid var(--card-border);
 }
 
+/* 2. kolonne (Art) - skal offsettes med bredden af kolonne 1 */
 .matrix-table th:nth-child(2),
 .matrix-table td:nth-child(2) {
   position: sticky;
-  z-index: 49;
+  left: var(--col-1);         /* <-- vigtig! ellers overlapper den kol. 1 */
+  z-index: 49;                /* under header men over resten */
   text-align: left;
+  width: var(--col-2);
+  min-width: var(--col-2);
+  max-width: var(--col-2);
   background: var(--card-bg, #fff);
-  /* Ingen border, ingen margin */
 }
 
+/* Øvrige kolonner: fast min-bredde */
 .matrix-table th:nth-child(n+3),
 .matrix-table td:nth-child(n+3) {
   min-width: 120px;
 }
 
-/* Hjørneceller skal ligge øverst i stakken */
+/* Corner-celler kan stadig få ekstra z-index hvis du vil: */
 .matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
 .matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
 
@@ -346,24 +353,40 @@ td { color: var(--text-main); font-size: 0.98em; }
 }
 
 @media (max-width: 600px) {
+  /* Lad browseren tilpasse kolonnebredden til indholdet */
+  .matrix-table { table-layout: auto; }
+
   .matrix-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    width: 100vw;
-    max-width: 100vw;
   }
+
+  /* Ingen kunstige minimummer – bredder styres af indhold */
   .matrix-table th,
   .matrix-table td {
-    min-width: 80px;
-    white-space: nowrap;
+    min-width: 0;
   }
+
+  /* Default: hold på én linje for celler */
+  .matrix-table th,
+  .matrix-table td {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Gør 'Art' smallere ved at tillade wrap og sætte en øvre bredde */
+  .matrix-table th:nth-child(2),
+  .matrix-table td:nth-child(2) {
+    white-space: normal;                 /* må gerne bryde linje */
+    word-break: break-word;
+    max-width: clamp(140px, 45vw, 320px);/* styrer “for bred” */
+  }
+
+  /* VIGTIGT: vis ALLE kodekolonner på mobil */
   .matrix-table th.obserkode,
   .matrix-table td.obserkode {
-    display: none;
-  }
-  .matrix-table th.obserkode.visible,
-  .matrix-table td.obserkode.visible {
-    display: table-cell;
+    display: table-cell !important;
   }
 }
 
@@ -383,8 +406,280 @@ td { color: var(--text-main); font-size: 0.98em; }
 }
 
 
+
+.matrix-table-wrap {
+  width: 100%;
+  overflow-x: auto;                      /* kun horisontal */
+  -webkit-overflow-scrolling: touch;
+}
+
+
+/* Variabel til sticky offset for kolonne 2 */
+:root {
+  --col-1: 56px; /* fallback: bliver overskrevet af JS-måling */
+}
+
+/* ----- MATRIX TABLE: generelt ----- */
+.matrix-table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;             /* desktop: stabilt for sticky */
+  position: relative;
+}
+
+/* Sticky header: KUN første thead-række */
+.matrix-table thead tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: 100;                    /* højere end body */
+  background: var(--table-header, #def2f1);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+
+/* 1. kolonne (#) */
+.matrix-table th:nth-child(1),
+.matrix-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 90;
+  background: var(--card-bg, #fff);
+  border-right: 1px solid var(--card-border);
+}
+
+/* 2. kolonne (Art) - offsettes af kolonne 1 */
+.matrix-table th:nth-child(2),
+.matrix-table td:nth-child(2) {
+  position: sticky;
+  left: var(--col-1);                    /* <- vigtigt */
+  z-index: 89;
+  text-align: left;
+  background: var(--card-bg, #fff);
+}
+
+
+/* Øvrige kolonner */
+.matrix-table th:nth-child(n+3),
+.matrix-table td:nth-child(n+3) {
+  /* desktop default */
+  min-width: 120px;
+}
+
+/* Wrapper til vandret scroll (mobil/desktop) */
 .matrix-table-wrap {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* --- Z-index lagdeling --- */
+:root {
+  --z-obser: 30;         /* andre headerceller + alle body-celler (kol >= 3) */
+  --z-col2: 49;          /* sticky 'Art' (th/td)  */
+  --z-col1: 50;          /* sticky '#'   (th/td)  */
+  --z-h-col2: 59;        /* header 'Art' */
+  --z-h-col1: 60;        /* header '#'   */
+}
+
+/* Sticky header: KUN første thead-række */
+.matrix-table thead tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-obser);               /* default: lavere end col 1 & 2 */
+  background: var(--table-header, #def2f1);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Hæv specifikt header-celle # og Art over de andre headerceller */
+.matrix-table thead tr:first-child th:nth-child(1) { z-index: var(--z-h-col1); }
+.matrix-table thead tr:first-child th:nth-child(2) { z-index: var(--z-h-col2); }
+
+/* 1. kolonne (#) – altid øverst i venstre side */
+.matrix-table th:nth-child(1),
+.matrix-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-col1);
+  background: var(--card-bg, #fff);
+  border-right: 1px solid var(--card-border);
+  box-shadow: 8px 0 8px -8px rgba(0,0,0,.12);
+}
+
+/* 2. kolonne (Art) – lige under kolonne 1 og offsettet af kol.1's bredde */
+.matrix-table th:nth-child(2),
+.matrix-table td:nth-child(2) {
+  position: sticky;
+  left: var(--col-1);                    /* sættes dynamisk i JS */
+  z-index: var(--z-col2);
+  text-align: left;
+  background: var(--card-bg, #fff);
+  box-shadow: 8px 0 8px -8px rgba(0,0,0,.12);
+}
+
+/* Alle øvrige kolonner (kol >= 3) forbliver "bagved" sticky kolonner */
+.matrix-table th:nth-child(n+3),
+.matrix-table td:nth-child(n+3) {
+  z-index: var(--z-obser);               /* lavere lag -> passerer bagom */
+}
+
+/* Wrapper: kun horisontal scroll, så header kan være sticky lodret */
+.matrix-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* MOBIL: lad kolonner få naturlig bredde, men undgå at 'Art' bliver for bred */
+@media (max-width: 600px) {
+  .matrix-table { table-layout: auto; }
+
+  .matrix-table th,
+  .matrix-table td {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Tillad wrap for 'Art' (hindrer at den bliver “for bred”) */
+  .matrix-table th:nth-child(2),
+  .matrix-table td:nth-child(2) {
+    white-space: normal;
+    word-break: break-word;
+    max-width: clamp(140px, 45vw, 320px);
+  }
+}
+
+/* Minimumsbredder (justér efter smag) */
+:root {
+  --col-1-min: 35px;   /* # kolonnen skal aldrig være mindre end dette */
+  --col-2-min: 140px;  /* Art kolonnen får et fornuftigt minimum på mobil */
+}
+
+/* --- MINIMUMSBREDDER: desktop vs. mobil --- */
+:root {
+  /* Desktop (justér efter behov) */
+  --col-1-min-desktop: 35px;   /* # kolonne */
+  --col-2-min-desktop: 150px;  /* Art kolonne */
+
+  /* Mobil (justér efter behov) */
+  --col-1-min-mobile: 35px;    /* # kolonne */
+  --col-2-min-mobile: 140px;   /* Art kolonne */
+
+  /* Z-index lagdeling (beholder “bagom” for obserkode) */
+  --z-obser: 30;
+  --z-col2: 49;
+  --z-col1: 50;
+  --z-h-col2: 59;
+  --z-h-col1: 60;
+}
+
+/* Sticky header: kun første thead-række */
+.matrix-table thead tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-obser);
+  background: var(--table-header, #def2f1);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Hæv headerens venstre celler over resten */
+.matrix-table thead tr:first-child th:nth-child(1) { z-index: var(--z-h-col1); }
+.matrix-table thead tr:first-child th:nth-child(2) { z-index: var(--z-h-col2); }
+
+/* 1. kolonne (#) — sticky og minimum på desktop */
+.matrix-table th:nth-child(1),
+.matrix-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-col1);
+  background: var(--card-bg, #fff);
+  border-right: 1px solid var(--card-border);
+  min-width: var(--col-1-min-desktop);            /* <-- desktop minimum */
+  white-space: nowrap;                            /* holder tal/ikon på én linje */
+}
+
+/* 2. kolonne (Art) — sticky, offset og minimum på desktop */
+.matrix-table th:nth-child(2),
+.matrix-table td:nth-child(2) {
+  position: sticky;
+  left: var(--col-1);
+  z-index: var(--z-col2);
+  text-align: left;
+  background: var(--card-bg, #fff);
+  min-width: var(--col-2-min-desktop);            /* <-- desktop minimum */
+  white-space: nowrap;                            /* typisk pænere på desktop */
+}
+
+/* Øvrige kolonner: ligger bagom venstre sticky */
+.matrix-table th:nth-child(n+3),
+.matrix-table td:nth-child(n+3) {
+  z-index: var(--z-obser);
+}
+
+/* Wrapper: kun horisontal scroll */
+.matrix-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- MOBIL: autolayout + mobil-minimumsbredder + lidt wrap for 'Art' --- */
+@media (max-width: 600px) {
+  .matrix-table { table-layout: auto; }
+
+  .matrix-table th,
+  .matrix-table td {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* # minimum på mobil */
+  .matrix-table th:nth-child(1),
+  .matrix-table td:nth-child(1) {
+    min-width: var(--col-1-min-mobile);
+  }
+
+  /* Art minimum + wrap på mobil (hindrer at den bliver for bred) */
+  .matrix-table th:nth-child(2),
+  .matrix-table td:nth-child(2) {
+    min-width: var(--col-2-min-mobile);
+    white-space: normal;                     /* må bryde linje */
+    word-break: break-word;
+    max-width: clamp(var(--col-2-min-mobile), 55vw, 360px);
+  }
+}
+
+/* Gør første header-række sticky, uanset om celler er th eller td */
+.matrix-table thead tr:first-child th,
+.matrix-table thead tr:first-child td {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-obser);            /* samme lag som før */
+  background: var(--table-header, #def2f1);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Løft og offset # og Art i headeren, så de ikke overlapper */
+.matrix-table thead tr:first-child :nth-child(1) {
+  z-index: var(--z-h-col1);
+  left: 0;                 /* 1. kolonne (#) */
+}
+.matrix-table thead tr:first-child :nth-child(2) {
+  z-index: var(--z-h-col2);
+  left: var(--col-1);      /* 2. kolonne (Art) */
+}
+
+/* Minimum kolonnebredde på blockers-tabel */
+#blockersTabel th,
+#blockersTabel td {
+  min-width: 120px;
 }
