@@ -1,4 +1,4 @@
-// Version: 1.2.33 - 2026-01-03 00.58.20
+// Version: 1.2.35 - 2026-01-03 01.10.45
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -332,7 +332,7 @@ async function hentMatrixMedPolling(maxTries = 10) {
     let tries = 0;
     while (tries < maxTries) {
         resultDiv.textContent = "Henter data...";
-        const url = `/matrix`;
+        const url = `/api/matrix`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.arter.length > 0 && data.koder.length > 0) {
@@ -356,12 +356,12 @@ window.addEventListener('DOMContentLoaded', () => {
 // --- GRAF: Hvem fører dag for dag ---
 
 async function hentLeadChart(kodeFilter = null) {
-    const res = await fetch('/matrix');
+    const res = await fetch('/api/matrix');
     const data = await res.json();
     if (!data.arter.length || !data.koder.length) return;
 
     // Hent år fra backend
-    const yearRes = await fetch('/get_year');
+    const yearRes = await fetch('/api/get_year');
     const yearData = await yearRes.json();
     const year = yearData.year;
 
@@ -524,7 +524,7 @@ async function hentLeadChart(kodeFilter = null) {
 // Blockers og seneste kryds tabel
 async function visBlockersTabel(kodeFilter = null) {
     // Hent matrix-data
-    const res = await fetch('/matrix');
+    const res = await fetch('/api/matrix');
     const data = await res.json();
     if (!data.arter.length || !data.koder.length) return;
 

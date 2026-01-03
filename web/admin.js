@@ -1,7 +1,7 @@
-// Version: 1.2.33 - 2026-01-03 00.58.20
+// Version: 1.2.35 - 2026-01-03 01.10.45
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
-    const res = await fetch('/obserkoder');
+    const res = await fetch('/api/obserkoder');
     const koder = await res.json();
     const listDiv = document.getElementById('obserkodeList');
     listDiv.innerHTML = '<h2>Obserkoder</h2>';
@@ -24,14 +24,14 @@ async function hentObserkoder() {
     // Slet-knapper
     listDiv.querySelectorAll('button.slet').forEach(btn => {
         btn.onclick = async () => {
-            await fetch(`/delete_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "DELETE" });
+            await fetch(`/api/delete_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "DELETE" });
             hentObserkoder();
         };
     });
     // Sync-knapper
     listDiv.querySelectorAll('button.sync').forEach(btn => {
         btn.onclick = async () => {
-            await fetch(`/sync_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "POST" });
+            await fetch(`/api/sync_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "POST" });
         };
     });
 }
@@ -39,24 +39,24 @@ async function hentObserkoder() {
 document.getElementById('addForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const kode = document.getElementById('addKode').value.trim();
-    await fetch(`/add_obserkode?kode=${encodeURIComponent(kode)}`, { method: "POST" });
+    await fetch(`/api/add_obserkode?kode=${encodeURIComponent(kode)}`, { method: "POST" });
     document.getElementById('addKode').value = "";
     hentObserkoder();
 });
 
 async function hentGlobalFilter() {
-    const res = await fetch('/get_filter');
+    const res = await fetch('/api/get_filter');
     const data = await res.json();
     document.getElementById('globalFilter').value = data.filter || "";
 }
 document.getElementById('filterForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const filter = document.getElementById('globalFilter').value.trim();
-    await fetch(`/set_filter?filter=${encodeURIComponent(filter)}`, { method: "POST" });
+    await fetch(`/api/set_filter?filter=${encodeURIComponent(filter)}`, { method: "POST" });
 });
 
 document.getElementById('syncAllBtn').onclick = async function() {
-    await fetch('/sync_all', { method: "POST" });
+    await fetch('/api/sync_all', { method: "POST" });
 };
 
 document.getElementById('themeToggle').onclick = function() {
@@ -68,7 +68,7 @@ document.getElementById('themeToggle').onclick = function() {
 
 // Admin-login funktionalitet
 async function checkAdmin() {
-    const res = await fetch('/is_admin');
+    const res = await fetch('/api/is_admin');
     const data = await res.json();
     if (!data.isAdmin) {
         document.body.innerHTML = `
@@ -81,7 +81,7 @@ async function checkAdmin() {
         document.getElementById('adminLogin').onsubmit = async e => {
             e.preventDefault();
             const pw = document.getElementById('adminPw').value;
-            const resp = await fetch('/admin_login', {
+            const resp = await fetch('/api/admin_login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pw })
@@ -112,7 +112,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 const logoutBtn = document.getElementById('adminLogout');
 if (logoutBtn) {
     logoutBtn.onclick = async () => {
-        await fetch('/admin_logout', { method: 'POST' });
+        await fetch('/api/admin_logout', { method: 'POST' });
         location.reload();
     };
 }
@@ -122,9 +122,9 @@ document.getElementById('yearForm').addEventListener('submit', async function(e)
     e.preventDefault();
     const year = document.getElementById('syncYear').value.trim();
     localStorage.setItem('syncYear', year);
-    await fetch(`/set_year?year=${encodeURIComponent(year)}`, { method: "POST" });
+    await fetch(`/api/set_year?year=${encodeURIComponent(year)}`, { method: "POST" });
     alert('År sat til ' + year + '. Synkroniserer alle koder...');
-    await fetch('/sync_all', { method: "POST" });
+    await fetch('/api/sync_all', { method: "POST" });
     alert('Alle koder synkroniseret for år ' + year);
 });
 window.addEventListener('DOMContentLoaded', () => {

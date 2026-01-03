@@ -121,14 +121,14 @@ async def fetch_and_store(obserkode, aar=None):
             session.add(obs)
         await session.commit()
 
-@app.get("/obserkoder")
+@app.get("/api/obserkoder")
 async def get_obserkoder():
     async with SessionLocal() as session:
         result = await session.execute(select(Obserkode))
         koder = result.scalars().all()
         return [{"kode": k.kode} for k in koder]  # <-- fjern filter
 
-@app.post("/add_obserkode")
+@app.post("/api/add_obserkode")
 async def add_obserkode(
     kode: str,
     background_tasks: BackgroundTasks = None,
@@ -147,7 +147,7 @@ async def add_obserkode(
     background_tasks.add_task(fetch_and_store, kode, aar)
     return {"msg": "Obserkode tilføjet og synkroniseres"}
 
-@app.delete("/delete_obserkode")
+@app.delete("/api/delete_obserkode")
 async def delete_obserkode(kode: str, request: Request = None):
     # --- Kun admin ---
     if not request or not request.session.get("is_admin"):
@@ -164,7 +164,7 @@ async def delete_obserkode(kode: str, request: Request = None):
         await session.commit()
     return {"msg": "Obserkode og tilhørende observationer slettet"}
 
-@app.get("/matrix")
+@app.get("/api/matrix")
 async def get_matrix():
     async with SessionLocal() as session:
         result = await session.execute(select(Observation))
@@ -238,7 +238,7 @@ async def get_matrix():
         "antal_observationer": antal_ture
     }
 
-@app.post("/sync_obserkode")
+@app.post("/api/sync_obserkode")
 async def sync_obserkode(
     kode: str,
     background_tasks: BackgroundTasks = None
@@ -252,7 +252,7 @@ async def sync_obserkode(
     background_tasks.add_task(fetch_and_store, kode, aar)
     return {"msg": f"Sync startet for {kode}"}
 
-@app.post("/sync_all")
+@app.post("/api/sync_all")
 async def sync_all(background_tasks: BackgroundTasks = None):
     async with SessionLocal() as session:
         result = await session.execute(select(Obserkode))
@@ -277,12 +277,12 @@ async def set_global_filter(value):
         session.add(GlobalFilter(value=value.strip()))
         await session.commit()
 
-@app.post("/set_filter")
+@app.post("/api/set_filter")
 async def set_filter(filter: str):
     await set_global_filter(filter)
     return {"msg": "Globalt filter opdateret"}
 
-@app.get("/get_filter")
+@app.get("/api/get_filter")
 async def get_filter():
     value = await get_global_filter()
     return {"filter": value}
@@ -302,17 +302,17 @@ async def set_global_year(value):
         session.add(GlobalYear(value=int(value)))
         await session.commit()
 
-@app.post("/set_year")
+@app.post("/api/set_year")
 async def set_year(year: int):
     await set_global_year(year)
     return {"msg": "Globalt år opdateret"}
 
-@app.get("/get_year")
+@app.get("/apiget_year")
 async def get_year():
     value = await get_global_year()
     return {"year": value}
 
-@app.post("/admin_login")
+@app.post("/api/admin_login")
 async def admin_login(request: Request, data: dict):
     password = data.get("password", "")
     async with SessionLocal() as session:
@@ -329,11 +329,11 @@ async def admin_login(request: Request, data: dict):
             return {"ok": True}
         return JSONResponse({"ok": False}, status_code=401)
 
-@app.get("/is_admin")
+@app.get("/api/is_admin")
 async def is_admin(request: Request):
     return {"isAdmin": bool(request.session.get("is_admin"))}
 
-@app.post("/admin_logout")
+@app.post("/api/admin_logout")
 async def admin_logout(request: Request):
     request.session.clear()
     return {"ok": True}
