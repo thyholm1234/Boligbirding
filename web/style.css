@@ -1,4 +1,4 @@
-/* Version: 1.3.0 - 2026-01-03 02.56.53 */
+/* Version: 1.3.4 - 2026-01-04 00.48.32 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -682,4 +682,58 @@ td { color: var(--text-main); font-size: 0.98em; }
 #blockersTabel th,
 #blockersTabel td {
   min-width: 120px;
+}
+
+/* Ens udseende for alle nav-links */
+.nav-link {
+    color: #222;
+    text-decoration: none;
+    font-family: inherit;
+    font-size: 1em;
+    padding: 6px 12px;
+    background: none;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 4px;
+    display: inline-block;
+}
+.nav-link:hover,
+.dropdown-content a:hover {
+    background: #e0f7fa;
+    color: #111;
+}
+
+/* Dropdown styling */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #fff;
+    min-width: 220px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border-radius: 0 0 8px 8px;
+    z-index: 10;
+    font-family: inherit;
+    font-size: 1em;
+    padding: 4px 0;
+}
+.dropdown-content a {
+    display: block;
+    padding: 8px 16px;
+    color: #222;
+    text-decoration: none;
+    background: none;
+    font-family: inherit;
+    font-size: 1em;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    border-radius: 0;
 }

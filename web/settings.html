@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <title>Vælg lokalafdeling</title>
+  <link rel="stylesheet" href="style.css?v=1.3.0">
+</head>
+<body>
+  <div style="max-width:340px;margin:60px auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
+    <h2>Vælg din lokalafdeling</h2>
+    <form id="afdelingForm">
+      <label>Lokalafdeling:
+        <select id="lokalafdeling" required>
+          <option value="">Vælg...</option>
+          <option value="DOF København">DOF København</option>
+          <option value="DOF Nordsjælland">DOF Nordsjælland</option>
+          <option value="DOF Vestsjælland">DOF Vestsjælland</option>
+          <option value="DOF Storstrøm">DOF Storstrøm</option>
+          <option value="DOF Bornholm">DOF Bornholm</option>
+          <option value="DOF Fyn">DOF Fyn</option>
+          <option value="DOF Sønderjylland">DOF Sønderjylland</option>
+          <option value="DOF Sydvestjylland">DOF Sydvestjylland</option>
+          <option value="DOF Sydøstjylland">DOF Sydøstjylland</option>
+          <option value="DOF Vestjylland">DOF Vestjylland</option>
+          <option value="DOF Østjylland">DOF Østjylland</option>
+          <option value="DOF Nordvestjylland">DOF Nordvestjylland</option>
+          <option value="DOF Nordjylland">DOF Nordjylland</option>
+        </select>
+      </label>
+      <button type="submit">Gem</button>
+    </form>
+    <div id="afdelingError" style="color:#b71c1c;margin-top:1em"></div>
+  </div>
+  <script>
+    document.getElementById('afdelingForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const lokalafdeling = document.getElementById('lokalafdeling').value;
+      const res = await fetch('/api/set_afdeling', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lokalafdeling })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        window.location.href = "/index.html";
+      } else {
+        document.getElementById('afdelingError').textContent = data.error || "Kunne ikke gemme afdeling";
+      }
+    };
+  </script>
+</body>
+</html>

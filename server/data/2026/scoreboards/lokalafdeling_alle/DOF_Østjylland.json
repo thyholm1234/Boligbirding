@@ -1,0 +1,42 @@
+[
+  {
+    "navn": "9520APS",
+    "obserkode": "9520APS",
+    "antal_arter": 40,
+    "sidste_art": "Gulspurv",
+    "sidste_dato": "03-01-2026",
+    "placering": 1
+  },
+  {
+    "navn": "6600JF",
+    "obserkode": "6600JF",
+    "antal_arter": 38,
+    "sidste_art": "Gulspurv",
+    "sidste_dato": "03-01-2026",
+    "placering": 2
+  },
+  {
+    "navn": "8900LTP",
+    "obserkode": "8900LTP",
+    "antal_arter": 37,
+    "sidste_art": "Stær",
+    "sidste_dato": "03-01-2026",
+    "placering": 3
+  },
+  {
+    "navn": "Christian Vemmelund Helligsø",
+    "obserkode": "8220CVH",
+    "antal_arter": 30,
+    "sidste_art": "Gulspurv",
+    "sidste_dato": "03-01-2026",
+    "placering": 4
+  },
+  {
+    "navn": "8230ESB",
+    "obserkode": "8230ESB",
+    "antal_arter": 26,
+    "sidste_art": "Gulspurv",
+    "sidste_dato": "02-01-2026",
+    "placering": 5
+  }
+]
