@@ -1,4 +1,4 @@
-// Version: 1.2.38 - 2026-01-03 01.24.39
+// Version: 1.2.40 - 2026-01-03 01.45.10
 // © Christian Vemmelund Helligsø
 function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
     const resultDiv = document.getElementById('result');
@@ -265,16 +265,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         modal.style.display = "none";
     };
 
-    // --- REGLER MODAL KNAP ---
-    let reglerBtn = document.getElementById('reglerBtn');
-    if (!reglerBtn) {
-        reglerBtn = document.createElement('button');
-        reglerBtn.id = "reglerBtn";
-        reglerBtn.textContent = "Vis regler for konkurrencen";
-        reglerBtn.style.margin = "16px 0 16px 0";
-        resultDiv.parentNode.insertBefore(reglerBtn, resultDiv);
-    }
-
+    // --- REGLER MODAL LINK (navbar) ---
+    const reglerLink = document.getElementById('reglerLink');
     let reglerModal = document.getElementById('reglerModal');
     if (!reglerModal) {
         reglerModal = document.createElement('div');
@@ -303,8 +295,8 @@ function visMatrix(data, sortMode = "alphabetical", kodeFilter = null) {
         `;
         document.body.appendChild(reglerModal);
     }
-
-    reglerBtn.onclick = () => {
+    reglerLink.onclick = (e) => {
+        e.preventDefault();
         reglerModal.style.display = "block";
     };
     reglerModal.onclick = e => {

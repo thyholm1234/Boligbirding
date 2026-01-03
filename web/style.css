@@ -1,4 +1,4 @@
-/* Version: 1.2.38 - 2026-01-03 01.24.39 */
+/* Version: 1.2.40 - 2026-01-03 01.45.10 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -322,6 +322,11 @@ td { color: var(--text-main); font-size: 0.98em; }
   /* Ingen border, ingen margin */
 }
 
+.matrix-table th:nth-child(n+3),
+.matrix-table td:nth-child(n+3) {
+  min-width: 120px;
+}
+
 /* Hjørneceller skal ligge øverst i stakken */
 .matrix-table thead tr:first-child th:nth-child(1) { z-index: 60; }
 .matrix-table thead tr:first-child th:nth-child(2) { z-index: 59; }
@@ -361,3 +366,19 @@ td { color: var(--text-main); font-size: 0.98em; }
     display: table-cell;
   }
 }
+
+.regler-link {
+  color: var(--primary-dark);
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-weight: 700;
+  font-size: 1em;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color 0.18s;
+  text-decoration: none; /* Fjern underline */
+}
+.regler-link:hover {
+  color: var(--primary);
+  text-decoration: none; /* Ingen underline ved hover */
+}
+

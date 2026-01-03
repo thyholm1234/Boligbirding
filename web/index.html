@@ -1,4 +1,4 @@
-<!-- Version: 1.2.38 - 2026-01-03 01.24.39 -->
+<!-- Version: 1.2.40 - 2026-01-03 01.45.10 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -11,24 +11,27 @@
   <meta name="theme-color" content="#2b7a78" />
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.2.38">
+  <link rel="stylesheet" href="style.css?v=1.2.40">
 </head>
 <body>
     <nav class="navbar">
         <span class="navbar-title">Boligbirding – Østjyderne</span>
-        <button class="theme-toggle" id="themeToggle" aria-label="Skift tema">🌙/☀️</button>
+        <div style="display:flex;align-items:center;gap:18px;">
+            <a href="#" id="reglerLink" class="regler-link">REGLER</a>
+            <a href="#" class="regler-link" style="margin-right: 15px;" id="themeToggle" aria-label="Skift tema">TEMA</a>
+        </div>
     </nav>
     <div id="chart-container" style="max-width:900px;margin-bottom:2em;">
         <canvas id="leaderChart"></canvas>
     </div>
     <div id="result"></div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.38"></script>
-    <script src="app.js?v=1.2.38"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.2.40"></script>
+    <script src="app.js?v=1.2.40"></script>
     <script>
         // Registrér service worker når siden er loadet
         if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js?v=1.2.38' /*, { scope: '/' } */)
+            navigator.serviceWorker.register('/sw.js?v=1.2.40' /*, { scope: '/' } */)
             .then(reg => console.log('Service Worker registreret:', reg.scope))
             .catch(err => console.error('SW registrering fejlede:', err));
         });
