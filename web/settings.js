@@ -1,3 +1,5 @@
+// Version: 1.3.63 - 2026-01-05 14.37.38
+// © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
 renderNavbar();
@@ -11,8 +13,6 @@ fetch('/api/get_grupper')
   });
 
 document.addEventListener('DOMContentLoaded', () => {
-
-
   // Hent brugerdata og grupper fra server
   fetch('/api/get_userprefs')
     .then(res => res.json())
@@ -22,6 +22,19 @@ document.addEventListener('DOMContentLoaded', () => {
         userInfo.innerHTML =
           `<b>Navn:</b> ${data.navn || '-'}<br>
            <b>Obserkode:</b> ${data.obserkode || '-'}`;
+        // Tjek admin og vis knap hvis admin
+        fetch('/api/obser_is_admin')
+          .then(res => res.json())
+          .then(adminData => {
+            if (adminData.is_admin) {
+              const adminBtn = document.createElement('a');
+              adminBtn.href = "/admin.html";
+              adminBtn.textContent = "Admin";
+              adminBtn.style = "display:inline-block;margin-top:1em;padding:0.5em 1.2em;background:#1976d2;color:#fff;border-radius:7px;text-decoration:none;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.07);";
+              userInfo.appendChild(document.createElement('br'));
+              userInfo.appendChild(adminBtn);
+            }
+          });
       }
       if (data.lokalafdeling && document.getElementById('lokalafdeling')) {
         document.getElementById('lokalafdeling').value = data.lokalafdeling;

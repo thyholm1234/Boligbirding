@@ -52,23 +52,8 @@
         "dato": "01-01-2026"
       },
       {
-        "artnavn": "Gråand",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Sølvmåge",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "01-01-2026"
-      },
-      {
         "artnavn": "Svartbag",
         "lokalitet": "Mellempoldene, Randers Fjord",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Rødhals",
-        "lokalitet": "Fladbro Skov",
         "dato": "01-01-2026"
       },
       {
@@ -79,6 +64,21 @@
       {
         "artnavn": "Sjagger",
         "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Gråand",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sølvmåge",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Rødhals",
+        "lokalitet": "Fladbro Skov",
         "dato": "01-01-2026"
       },
       {
@@ -355,11 +355,31 @@
         "artnavn": "Stillits",
         "lokalitet": "Doktorparken Randers",
         "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Isfugl",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "05-01-2026"
+      },
+      {
+        "artnavn": "Stor Flagspætte",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "05-01-2026"
       }
     ],
     "matrikel": [
       {
         "artnavn": "Sangsvane",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Solsort",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sjagger",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
@@ -380,16 +400,6 @@
       },
       {
         "artnavn": "Stormmåge",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Solsort",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Sjagger",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
@@ -454,17 +464,17 @@
         "dato": "01-01-2026"
       },
       {
+        "artnavn": "Fiskehejre",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "02-01-2026"
+      },
+      {
         "artnavn": "Sølvmåge",
         "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "02-01-2026"
       },
       {
         "artnavn": "Sølvhejre",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Fiskehejre",
         "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "02-01-2026"
       },
@@ -504,6 +514,11 @@
         "dato": "03-01-2026"
       },
       {
+        "artnavn": "Rødhals",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "03-01-2026"
+      },
+      {
         "artnavn": "Knarand",
         "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "03-01-2026"
@@ -529,11 +544,6 @@
         "dato": "03-01-2026"
       },
       {
-        "artnavn": "Rødhals",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "03-01-2026"
-      },
-      {
         "artnavn": "Halemejse",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "03-01-2026"
@@ -547,6 +557,21 @@
         "artnavn": "Svartbag",
         "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Husskade",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Isfugl",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "05-01-2026"
+      },
+      {
+        "artnavn": "Stor Flagspætte",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "05-01-2026"
       }
     ]
   },

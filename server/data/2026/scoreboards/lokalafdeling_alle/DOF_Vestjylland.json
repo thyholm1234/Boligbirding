@@ -2,9 +2,9 @@
   {
     "navn": "6600JB",
     "obserkode": "6600JB",
-    "antal_arter": 42,
-    "sidste_art": "Fiskehejre",
-    "sidste_dato": "04-01-2026",
+    "antal_arter": 44,
+    "sidste_art": "Havørn",
+    "sidste_dato": "05-01-2026",
     "placering": 1
   },
   {
@@ -72,7 +72,7 @@
     "placering": 9
   },
   {
-    "navn": "6600JF",
+    "navn": "Jonas Fahrendorff",
     "obserkode": "6600JF",
     "antal_arter": 0,
     "sidste_art": "",

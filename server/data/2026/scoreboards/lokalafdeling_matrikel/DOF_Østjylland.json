@@ -1,25 +1,25 @@
 [
   {
+    "navn": "8900LTP",
+    "obserkode": "8900LTP",
+    "antal_arter": 41,
+    "sidste_art": "Isfugl",
+    "sidste_dato": "05-01-2026",
+    "placering": 1
+  },
+  {
     "navn": "9520APS",
     "obserkode": "9520APS",
     "antal_arter": 40,
     "sidste_art": "Skarv",
     "sidste_dato": "03-01-2026",
-    "placering": 1
-  },
-  {
-    "navn": "6600JF",
-    "obserkode": "6600JF",
-    "antal_arter": 40,
-    "sidste_art": "Grønspætte",
-    "sidste_dato": "04-01-2026",
     "placering": 2
   },
   {
-    "navn": "8900LTP",
-    "obserkode": "8900LTP",
-    "antal_arter": 38,
-    "sidste_art": "Svartbag",
+    "navn": "Jonas Fahrendorff",
+    "obserkode": "6600JF",
+    "antal_arter": 40,
+    "sidste_art": "Grønspætte",
     "sidste_dato": "04-01-2026",
     "placering": 3
   },
@@ -42,9 +42,9 @@
   {
     "navn": "8960JODK",
     "obserkode": "8960JODK",
-    "antal_arter": 7,
-    "sidste_art": "Fiskehejre",
-    "sidste_dato": "04-01-2026",
+    "antal_arter": 27,
+    "sidste_art": "Blisgås",
+    "sidste_dato": "05-01-2026",
     "placering": 6
   },
   {

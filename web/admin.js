@@ -1,4 +1,4 @@
-// Version: 1.3.29 - 2026-01-05 01.16.21
+// Version: 1.3.63 - 2026-01-05 14.37.38
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
@@ -24,14 +24,28 @@ async function hentObserkoder() {
     // Slet-knapper
     listDiv.querySelectorAll('button.slet').forEach(btn => {
         btn.onclick = async () => {
-            await fetch(`/api/delete_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "DELETE" });
-            hentObserkoder();
+            if (confirm(`Vil du slette brugeren/obserkoden '${btn.dataset.kode}'?`)) {
+                await fetch(`/api/delete_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "DELETE" });
+                hentObserkoder();
+            }
         };
     });
     // Sync-knapper
     listDiv.querySelectorAll('button.sync').forEach(btn => {
         btn.onclick = async () => {
-            await fetch(`/api/sync_obserkode?kode=${encodeURIComponent(btn.dataset.kode)}`, { method: "POST" });
+            const kode = btn.dataset.kode;
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = "Synkroniserer...";
+            try {
+                const res = await fetch(`/api/sync_obserkode?kode=${encodeURIComponent(kode)}`, { method: "POST" });
+                const data = await res.json();
+                btn.textContent = data.msg || "✓ Synkroniseret";
+                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+            } catch (e) {
+                btn.textContent = "Fejl!";
+                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+            }
         };
     });
 }
@@ -56,45 +70,103 @@ document.getElementById('filterForm').addEventListener('submit', async function(
 });
 
 document.getElementById('syncAllBtn').onclick = async function() {
-    await fetch('/api/sync_all', { method: "POST" });
+    const btn = this;
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "Synkroniserer alle...";
+    try {
+        const res = await fetch('/api/sync_all', { method: "POST" });
+        const data = await res.json();
+        btn.textContent = data.msg || "✓ Synkroniseret";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+    } catch (e) {
+        btn.textContent = "Fejl!";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+    }
 };
 
-document.getElementById('themeToggle').onclick = function() {
-    const root = document.documentElement;
-    const current = root.getAttribute('data-theme');
-    root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
-    localStorage.setItem('theme', root.getAttribute('data-theme'));
-};
 
 // Admin-login funktionalitet
 async function checkAdmin() {
     const res = await fetch('/api/is_admin');
     const data = await res.json();
-    if (!data.isAdmin) {
-        document.body.innerHTML = `
-            <form id="adminLogin" style="margin:40px auto;max-width:300px">
+    if (!data.is_admin) {
+        const loginDiv = document.getElementById('adminLogin');
+        loginDiv.innerHTML = `
+            <form id="adminLoginForm" style="margin:40px auto;max-width:300px">
                 <h2>Admin login</h2>
+                <input type="text" id="adminKode" placeholder="Superadmin obserkode" required style="width:100%;margin-bottom:8px">
                 <input type="password" id="adminPw" placeholder="Adgangskode" required style="width:100%;margin-bottom:8px">
                 <button style="width:100%">Login</button>
             </form>
         `;
-        document.getElementById('adminLogin').onsubmit = async e => {
+        document.getElementById('admin-content').style.display = 'none';
+        document.getElementById('adminLoginForm').onsubmit = async e => {
             e.preventDefault();
+            const kode = document.getElementById('adminKode').value.trim();
             const pw = document.getElementById('adminPw').value;
-            const resp = await fetch('/api/admin_login', {
+            const resp = await fetch('/api/adminlogin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw })
+                body: JSON.stringify({ obserkode: kode, password: pw })
             });
             if (resp.ok) {
                 location.reload();
             } else {
-                alert('Forkert adgangskode');
+                alert('Forkert adgangskode eller obserkode');
             }
         };
         return false;
+    } else {
+        document.getElementById('adminLogin').innerHTML = '';
+        document.getElementById('admin-content').style.display = '';
     }
     return true;
+}
+
+async function hentGrupper() {
+    const res = await fetch('/api/admin/grupper');
+    const grupper = await res.json();
+    const listDiv = document.getElementById('gruppeList');
+    listDiv.innerHTML = '<h2>Grupper</h2>';
+    grupper.forEach(g => {
+        const card = document.createElement('div');
+        card.className = 'card obserkode-card gruppe-card'; // Tilføj evt. gruppe-card for særskilt styling
+        card.innerHTML = `
+            <div class="card-top">
+                <div class="left" style="display:flex;align-items:center;gap:10px;">
+                    <span class="gruppe-ikon" title="Gruppe" style="font-size:1.5em; color:var(--primary);">👥</span>
+                    <b>${g.navn}</b>
+                </div>
+                <div class="right admin-btn-wrap">
+                    <button data-navn="${g.navn}" class="slet-gruppe" title="Slet gruppe">🗑️</button>
+                </div>
+            </div>
+        `;
+        listDiv.appendChild(card);
+    });
+    // Slet-knapper
+    listDiv.querySelectorAll('button.slet-gruppe').forEach(btn => {
+        btn.onclick = async () => {
+            if (confirm(`Vil du slette gruppen '${btn.dataset.navn}'?`)) {
+                await fetch('/api/admin/slet_gruppe', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ navn: btn.dataset.navn })
+                });
+                hentGrupper();
+            }
+        };
+    });
+}
+
+// Hent aktuelt år fra serveren og sæt det i formularen
+async function hentAktueltAar() {
+    const res = await fetch('/api/get_year');
+    const data = await res.json();
+    if (data.year) {
+        document.getElementById('syncYear').value = data.year;
+    }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -103,12 +175,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (saved) document.documentElement.setAttribute('data-theme', saved);
         hentGlobalFilter();
         hentObserkoder();
-        const year = localStorage.getItem('syncYear');
-        if (year) document.getElementById('syncYear').value = year;
+        hentGrupper();
+        await hentAktueltAar(); // <-- Hent aktuelt år fra serveren
     }
 });
 
-// (valgfrit) Tilføj en logout-knap et sted i admin-UI:
+// Logout-knap (hvis du har en med id="adminLogout" i HTML)
 const logoutBtn = document.getElementById('adminLogout');
 if (logoutBtn) {
     logoutBtn.onclick = async () => {
@@ -126,8 +198,5 @@ document.getElementById('yearForm').addEventListener('submit', async function(e)
     alert('År sat til ' + year + '. Synkroniserer alle koder...');
     await fetch('/api/sync_all', { method: "POST" });
     alert('Alle koder synkroniseret for år ' + year);
-});
-window.addEventListener('DOMContentLoaded', () => {
-    const year = localStorage.getItem('syncYear');
-    if (year) document.getElementById('syncYear').value = year;
+    await hentAktueltAar(); // Opdater feltet efter ændring
 });

@@ -1,5 +1,5 @@
-// navbar.js
-// Samlet navbar: markup (desktop + mobil), init-adfærd og indhold til grupper & lokalafdelinger.
+// Version: 1.3.63 - 2026-01-05 14.37.38
+// © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
 // 1) Konstant: Lokalafdelinger (direkte i denne fil)

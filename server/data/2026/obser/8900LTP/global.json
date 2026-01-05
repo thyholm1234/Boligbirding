@@ -10,23 +10,8 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Gråand",
-    "lokalitet": "Neder Hornbæk v. Randers",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Sølvmåge",
-    "lokalitet": "Hornbæk Enge, v. Gudenåen",
-    "dato": "01-01-2026"
-  },
-  {
     "artnavn": "Svartbag",
     "lokalitet": "Mellempoldene, Randers Fjord",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Rødhals",
-    "lokalitet": "Fladbro Skov",
     "dato": "01-01-2026"
   },
   {
@@ -37,6 +22,21 @@
   {
     "artnavn": "Sjagger",
     "lokalitet": "Neder Hornbæk v. Randers",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Gråand",
+    "lokalitet": "Neder Hornbæk v. Randers",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Sølvmåge",
+    "lokalitet": "Hornbæk Enge, v. Gudenåen",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Rødhals",
+    "lokalitet": "Fladbro Skov",
     "dato": "01-01-2026"
   },
   {
@@ -313,5 +313,15 @@
     "artnavn": "Stillits",
     "lokalitet": "Doktorparken Randers",
     "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Isfugl",
+    "lokalitet": "Hornbæk Enge, v. Gudenåen",
+    "dato": "05-01-2026"
+  },
+  {
+    "artnavn": "Stor Flagspætte",
+    "lokalitet": "Neder Hornbæk v. Randers",
+    "dato": "05-01-2026"
   }
 ]

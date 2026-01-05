@@ -14,7 +14,7 @@ import re
 from typing import Optional, Dict, Any, List
 from collections import defaultdict
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Query, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -615,6 +615,24 @@ async def admin_logout(request: Request):
     request.session.clear()
     return {"ok": True}
 
+@app.get("/api/obser_is_admin")
+async def obser_is_admin(request: Request):
+    """
+    Returnér om brugeren er admin (tjekker både session, .env og database).
+    """
+    obserkode = request.session.get("obserkode")
+    admin_koder = [k.strip() for k in os.environ.get("SUPERADMIN", "").split(",") if k.strip()]
+    # Først: tjek om obserkode matcher admin_koder
+    if obserkode and obserkode in admin_koder:
+        return {"is_admin": True}
+    # Ellers: tjek om bruger er markeret som admin i databasen
+    if obserkode:
+        async with SessionLocal() as session:
+            user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+            if user and getattr(user, "is_admin", False):
+                return {"is_admin": True}
+    return {"is_admin": False}
+
 # ---------------------------------------------------------
 #  API: Global filter & year
 # ---------------------------------------------------------
@@ -664,10 +682,20 @@ async def delete_obserkode(kode: str, request: Request):
         ok = (await session.execute(select(Obserkode).where(Obserkode.kode == kode))).scalar()
         if not ok:
             raise HTTPException(status_code=404, detail="Obserkode ikke fundet")
+        # Slet alle observationer
         await session.execute(Observation.__table__.delete().where(Observation.obserkode == kode))
+        # Slet fra Obserkode
         await session.execute(Obserkode.__table__.delete().where(Obserkode.kode == kode))
+        # Slet fra User
+        await session.execute(User.__table__.delete().where(User.obserkode == kode))
         await session.commit()
-    return {"msg": "Obserkode og data slettet"}
+    # Fjern brugeren fra alle grupper (i grupper.json)
+    grupper = load_grupper()
+    for g in grupper:
+        if kode in g.get("obserkoder", []):
+            g["obserkoder"] = [k for k in g["obserkoder"] if k != kode]
+    save_grupper(grupper)
+    return {"msg": "Obserkode, bruger og alle data slettet"}
 
 @app.get("/api/get_userprefs")
 async def get_userprefs(request: Request):
@@ -722,7 +750,20 @@ async def sync_obserkode_api(kode: str, aar: Optional[int] = None, background_ta
 @app.post("/api/sync_all")
 async def sync_all_api():
     await daily_update_all_jsons()
-    return {"ok": True}
+    return {"ok": True, "msg": "Synkronisering for alle brugere er gennemført"}
+
+@app.post("/api/sync_mine_observationer")
+async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
+    """
+    Synkroniserer observationer for den aktuelle bruger (kræver login).
+    """
+    obserkode = request.session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+    if aar is None:
+        aar = await get_global_year()
+    await fetch_and_store(obserkode, aar)
+    return {"ok": True, "msg": f"Synkronisering gennemført for {obserkode} ({aar})"}
 
 # ---------------------------------------------------------
 #  API: Firsts & Scoreboards (filer)
@@ -739,23 +780,32 @@ async def api_firsts(payload: Dict[str, Any] = Body(...), request: Request = Non
     _, _, OBSER_DIR = get_data_dirs(aar)
     user_dir = os.path.join(OBSER_DIR, obserkode)
 
+    def filter_nonempty(lst):
+        # Fjern brugere uden observationer (tom liste eller kun tomme felter)
+        return [row for row in lst if row.get("artnavn") or row.get("dato")]
+
     if scope == "global":
         path = os.path.join(user_dir, "global.json")
         if not os.path.exists(path):
             await fetch_and_store(obserkode, aar)
-        return _load_json(path) or []
+        data = _load_json(path) or []
+        return filter_nonempty(data)
 
     if scope == "matrikel":
         path = os.path.join(user_dir, "matrikelarter.json")
         if not os.path.exists(path):
             await fetch_and_store(obserkode, aar)
-        return _load_json(path) or []
+        data = _load_json(path) or []
+        return filter_nonempty(data)
 
     if scope == "lokalafdeling":
         if not afdeling:
             raise HTTPException(status_code=400, detail="Ingen afdeling angivet")
         la = _load_json(os.path.join(user_dir, "lokalafdeling.json")) or {}
-        return la.get(afdeling) or {"alle": [], "matrikel": []}
+        afd_data = la.get(afdeling) or {"alle": [], "matrikel": []}
+        afd_data["alle"] = filter_nonempty(afd_data.get("alle", []))
+        afd_data["matrikel"] = filter_nonempty(afd_data.get("matrikel", []))
+        return afd_data
 
     raise HTTPException(status_code=400, detail="Ukendt scope")
 
@@ -764,6 +814,10 @@ async def api_scoreboard(request: Request):
     params = await request.json()
     scope = params.get("scope")
     aar = params.get("aar") or await get_global_year()
+
+    def filter_nonempty(rows):
+        # Fjern brugere med 0 arter
+        return [r for r in rows if r.get("antal_arter", 0) > 0]
 
     # Lokalafdeling
     if scope in ("lokal_alle", "lokal_matrikel"):
@@ -777,7 +831,7 @@ async def api_scoreboard(request: Request):
             return JSONResponse({"rows": []})
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        return {"rows": rows}
+        return {"rows": filter_nonempty(rows)}
 
     # Global
     if scope in ("global_alle", "global_matrikel"):
@@ -787,7 +841,7 @@ async def api_scoreboard(request: Request):
             return JSONResponse({"rows": []})
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        return {"rows": rows}
+        return {"rows": filter_nonempty(rows)}
 
     return JSONResponse({"error": "Ukendt scope"}, status_code=400)
 
@@ -1285,9 +1339,13 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             all_arter.add(ha)
             hovedart_data.setdefault(ha, {}).setdefault(u.obserkode, []).append(r.get("dato"))
 
+    # Filtrér brugere med 0 arter fra
+    rows = [r for r in rows if r.get("antal_arter", 0) > 0]
+    koder_sorted = sorted([r["obserkode"] for r in rows])
+
     arter = sorted(all_arter)
-    koder_sorted = sorted(koder)
     # Build matrix
+    matrix = []
     for art in arter:
         row = []
         for kode in koder_sorted:
@@ -1329,6 +1387,34 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
         "antal_observationer": antal_observationer
     }
 
+# ---------------------------------------------------------
+#  API: Admin
+# ---------------------------------------------------------
+from fastapi import Depends
+
+def require_admin(request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin adgang")
+    return True
+
+@app.get("/api/admin/grupper")
+async def admin_get_grupper(request: Request, admin: bool = Depends(require_admin)):
+    """
+    Returnér alle grupper (kun navn, ikke medlemmer). Kun admin.
+    """
+    grupper = load_grupper()
+    return [{"navn": g["navn"]} for g in grupper]
+
+@app.post("/api/admin/slet_gruppe")
+async def admin_slet_gruppe(request: Request, data: dict = Body(...), admin: bool = Depends(require_admin)):
+    """
+    Slet en gruppe (kun admin). Body: { "navn": "Gruppenavn" }
+    """
+    navn = data.get("navn", "").strip()
+    grupper = load_grupper()
+    grupper = [g for g in grupper if g["navn"] != navn]
+    save_grupper(grupper)
+    return {"ok": True, "msg": f"Gruppe '{navn}' slettet"}
 
 # ---------------------------------------------------------
 #  Startup

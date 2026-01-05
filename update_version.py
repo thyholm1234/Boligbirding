@@ -9,7 +9,15 @@ FILES = [
     "web/style.css",
     "web/admin.html",
     "web/admin.js",
-    "web/sw.js"  # <-- tilføj denne linje
+    "web/sw.js",  # <-- tilføj denne linje
+    "web/art.html",
+    "web/login.html",
+    "web/lokal.html",
+    "web/navbar.js",
+    "web/scoreboard.html",
+    "web/scoreboard.js",
+    "web/settings.html",
+    "web/settings.js"
 ]
 
 def get_current_version(sw_path, html_path=None):

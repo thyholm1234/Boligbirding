@@ -1,3 +1,5 @@
+// Version: 1.3.63 - 2026-01-05 14.37.38
+// © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
 renderNavbar();
@@ -365,7 +367,7 @@ function visScoreboardBlockers(data) {
   html += `</tr></tbody></table>`;
   blockersDiv.innerHTML = `<h3>Blockers & Seneste kryds</h3>
     <div class="matrix-table-wrap">
-    <table class="matrix-table blockers-table">${html}</table>
+    <table class="matrix-table blockers-table" style="margin-top:0px">${html}</table>
     </div>`;
 }
 

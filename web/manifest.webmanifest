@@ -1,6 +1,6 @@
 {
-  "name": "Boligbirding",
-  "short_name": "Boligbirding",
+  "name": "BirdBox",
+  "short_name": "BirdBox",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
