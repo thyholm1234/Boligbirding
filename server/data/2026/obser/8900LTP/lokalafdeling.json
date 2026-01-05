@@ -42,13 +42,68 @@
   "DOF Østjylland": {
     "alle": [
       {
-        "artnavn": "Skarv",
-        "lokalitet": "Neder Hornbæk v. Randers",
+        "artnavn": "Knopsvane",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "01-01-2026"
       },
       {
         "artnavn": "Sangsvane",
+        "lokalitet": "Demstrup Vase",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Gråand",
         "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sølvmåge",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Svartbag",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Rødhals",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Solsort",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sjagger",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Husskade",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Skarv",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Knarand",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Blå Kærhøg",
+        "lokalitet": "Fladbro Enge/Nørreådalen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Tårnfalk",
+        "lokalitet": "Fladbro Enge/Nørreådalen",
         "dato": "01-01-2026"
       },
       {
@@ -58,46 +113,6 @@
       },
       {
         "artnavn": "Stormmåge",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Solsort",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Sjagger",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Gråspurv",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Blåmejse",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Musvit",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Krage",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Gråand",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Spurvehøg",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
@@ -112,8 +127,163 @@
         "dato": "01-01-2026"
       },
       {
+        "artnavn": "Blåmejse",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Musvit",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
         "artnavn": "Spætmejse",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Skovskade",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Krage",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Gråspurv",
         "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Bogfinke",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Grønirisk",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sølvhejre",
+        "lokalitet": "Fladbro Enge/Nørreådalen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Grågås",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Pibeand",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Krikand",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Troldand",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Musvåge",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sumpmejse",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Blisgås",
+        "lokalitet": "Demstrup Vase",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Bramgås",
+        "lokalitet": "Demstrup Vase",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Knortegås",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Gravand",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Spidsand",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Ederfugl",
+        "lokalitet": "Sødringholm Strand",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Sortand",
+        "lokalitet": "Sødringholm Strand",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Fløjlsand",
+        "lokalitet": "Sødringholm Strand",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Lille Skallesluger",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Rød Glente",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Spurvehøg",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Fasan",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Blishøne",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Strandskade",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Skovsneppe",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Storspove",
+        "lokalitet": "Mellempoldene, Randers Fjord",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Klippedue",
+        "lokalitet": "Randers Havn",
         "dato": "01-01-2026"
       },
       {
@@ -127,8 +297,13 @@
         "dato": "01-01-2026"
       },
       {
-        "artnavn": "Bogfinke",
-        "lokalitet": "Neder Hornbæk v. Randers",
+        "artnavn": "Ravn",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Skovspurv",
+        "lokalitet": "Fladbro Skov",
         "dato": "01-01-2026"
       },
       {
@@ -137,14 +312,14 @@
         "dato": "01-01-2026"
       },
       {
-        "artnavn": "Sølvmåge",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
+        "artnavn": "Dompap",
+        "lokalitet": "Fladbro Skov",
+        "dato": "01-01-2026"
       },
       {
-        "artnavn": "Sølvhejre",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
+        "artnavn": "Gulspurv",
+        "lokalitet": "Demstrup Vase",
+        "dato": "01-01-2026"
       },
       {
         "artnavn": "Fiskehejre",
@@ -152,68 +327,18 @@
         "dato": "02-01-2026"
       },
       {
-        "artnavn": "Grågås",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Pibeand",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Krikand",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Troldand",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Musvåge",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Sumpmejse",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "02-01-2026"
-      },
-      {
-        "artnavn": "Knopsvane",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "03-01-2026"
-      },
-      {
-        "artnavn": "Knarand",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "03-01-2026"
-      },
-      {
         "artnavn": "Hvinand",
         "lokalitet": "Hornbæk Enge, v. Gudenåen",
         "dato": "03-01-2026"
       },
       {
-        "artnavn": "Blå Kærhøg",
-        "lokalitet": "Hornbæk Enge, v. Gudenåen",
-        "dato": "03-01-2026"
-      },
-      {
-        "artnavn": "Tårnfalk",
-        "lokalitet": "Neder Hornbæk v. Randers",
+        "artnavn": "Rørhøne",
+        "lokalitet": "Doktorparken Randers",
         "dato": "03-01-2026"
       },
       {
         "artnavn": "Gærdesmutte",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "03-01-2026"
-      },
-      {
-        "artnavn": "Rødhals",
-        "lokalitet": "Neder Hornbæk v. Randers",
+        "lokalitet": "Doktorparken Randers",
         "dato": "03-01-2026"
       },
       {
@@ -224,17 +349,27 @@
       {
         "artnavn": "Stær",
         "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Stillits",
+        "lokalitet": "Doktorparken Randers",
         "dato": "03-01-2026"
       }
     ],
     "matrikel": [
       {
-        "artnavn": "Skarv",
+        "artnavn": "Sangsvane",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
       {
-        "artnavn": "Sangsvane",
+        "artnavn": "Gråand",
+        "lokalitet": "Neder Hornbæk v. Randers",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Skarv",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
@@ -275,11 +410,6 @@
       },
       {
         "artnavn": "Krage",
-        "lokalitet": "Neder Hornbæk v. Randers",
-        "dato": "01-01-2026"
-      },
-      {
-        "artnavn": "Gråand",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "01-01-2026"
       },
@@ -412,6 +542,11 @@
         "artnavn": "Stær",
         "lokalitet": "Neder Hornbæk v. Randers",
         "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Svartbag",
+        "lokalitet": "Hornbæk Enge, v. Gudenåen",
+        "dato": "04-01-2026"
       }
     ]
   },

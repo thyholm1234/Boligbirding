@@ -42,6 +42,21 @@
   "DOF Østjylland": {
     "alle": [
       {
+        "artnavn": "Fiskehejre",
+        "lokalitet": "Brabrand Sø - østenden",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Grågås",
+        "lokalitet": "Brabrand Sø - østenden",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Gråand",
+        "lokalitet": "Brabrand Sø - østenden",
+        "dato": "01-01-2026"
+      },
+      {
         "artnavn": "Spurvehøg",
         "lokalitet": "Gellerupparken Toveshøj",
         "dato": "01-01-2026"
@@ -64,6 +79,21 @@
       {
         "artnavn": "Musvit",
         "lokalitet": "Gellerupparken Toveshøj",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Dompap",
+        "lokalitet": "Brabrand Sø - østenden",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Pibeand",
+        "lokalitet": "Brabrand Sø - østenden",
+        "dato": "01-01-2026"
+      },
+      {
+        "artnavn": "Krikand",
+        "lokalitet": "Brabrand Sø - østenden",
         "dato": "01-01-2026"
       },
       {
@@ -122,27 +152,12 @@
         "dato": "03-01-2026"
       },
       {
-        "artnavn": "Fiskehejre",
-        "lokalitet": "Gellerupparken Toveshøj",
-        "dato": "03-01-2026"
-      },
-      {
         "artnavn": "Knopsvane",
         "lokalitet": "Gellerupparken Toveshøj",
         "dato": "03-01-2026"
       },
       {
         "artnavn": "Sangsvane",
-        "lokalitet": "Gellerupparken Toveshøj",
-        "dato": "03-01-2026"
-      },
-      {
-        "artnavn": "Grågås",
-        "lokalitet": "Gellerupparken Toveshøj",
-        "dato": "03-01-2026"
-      },
-      {
-        "artnavn": "Gråand",
         "lokalitet": "Gellerupparken Toveshøj",
         "dato": "03-01-2026"
       },
@@ -182,14 +197,19 @@
         "dato": "03-01-2026"
       },
       {
-        "artnavn": "Dompap",
+        "artnavn": "Gulspurv",
         "lokalitet": "Gellerupparken Toveshøj",
         "dato": "03-01-2026"
       },
       {
-        "artnavn": "Gulspurv",
+        "artnavn": "Rødhals",
         "lokalitet": "Gellerupparken Toveshøj",
-        "dato": "03-01-2026"
+        "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Kernebider",
+        "lokalitet": "Gellerupparken Toveshøj",
+        "dato": "04-01-2026"
       }
     ],
     "matrikel": [
@@ -342,6 +362,16 @@
         "artnavn": "Gulspurv",
         "lokalitet": "Gellerupparken Toveshøj",
         "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Rødhals",
+        "lokalitet": "Gellerupparken Toveshøj",
+        "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Kernebider",
+        "lokalitet": "Gellerupparken Toveshøj",
+        "dato": "04-01-2026"
       }
     ]
   },

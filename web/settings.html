@@ -2,51 +2,49 @@
 <html lang="da">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Vælg lokalafdeling</title>
   <link rel="stylesheet" href="style.css?v=1.3.0">
 </head>
 <body>
   <div style="max-width:340px;margin:60px auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
-    <h2>Vælg din lokalafdeling</h2>
+    <h2>Profil</h2>
+    <div id="userInfo" style="margin-bottom:1.5em;color:#333;font-size:1em"></div>
     <form id="afdelingForm">
-      <label>Lokalafdeling:
-        <select id="lokalafdeling" required>
-          <option value="">Vælg...</option>
-          <option value="DOF København">DOF København</option>
-          <option value="DOF Nordsjælland">DOF Nordsjælland</option>
-          <option value="DOF Vestsjælland">DOF Vestsjælland</option>
-          <option value="DOF Storstrøm">DOF Storstrøm</option>
-          <option value="DOF Bornholm">DOF Bornholm</option>
-          <option value="DOF Fyn">DOF Fyn</option>
-          <option value="DOF Sønderjylland">DOF Sønderjylland</option>
-          <option value="DOF Sydvestjylland">DOF Sydvestjylland</option>
-          <option value="DOF Sydøstjylland">DOF Sydøstjylland</option>
-          <option value="DOF Vestjylland">DOF Vestjylland</option>
-          <option value="DOF Østjylland">DOF Østjylland</option>
-          <option value="DOF Nordvestjylland">DOF Nordvestjylland</option>
-          <option value="DOF Nordjylland">DOF Nordjylland</option>
-        </select>
-      </label>
+      <label for="lokalafdeling" style="font-weight:bold;">Lokalafdeling:</label>
+      <select id="lokalafdeling" required style="margin:0.5em 0 1em 0;width:100%;">
+        <option value="">Vælg...</option>
+        <option value="DOF København">DOF København</option>
+        <option value="DOF Nordsjælland">DOF Nordsjælland</option>
+        <option value="DOF Vestsjælland">DOF Vestsjælland</option>
+        <option value="DOF Storstrøm">DOF Storstrøm</option>
+        <option value="DOF Bornholm">DOF Bornholm</option>
+        <option value="DOF Fyn">DOF Fyn</option>
+        <option value="DOF Sønderjylland">DOF Sønderjylland</option>
+        <option value="DOF Sydvestjylland">DOF Sydvestjylland</option>
+        <option value="DOF Sydøstjylland">DOF Sydøstjylland</option>
+        <option value="DOF Vestjylland">DOF Vestjylland</option>
+        <option value="DOF Østjylland">DOF Østjylland</option>
+        <option value="DOF Nordvestjylland">DOF Nordvestjylland</option>
+        <option value="DOF Nordjylland">DOF Nordjylland</option>
+      </select>
       <button type="submit">Gem</button>
+      <div id="afdelingError" style="color:#b71c1c;margin-top:1em"></div>
     </form>
-    <div id="afdelingError" style="color:#b71c1c;margin-top:1em"></div>
   </div>
-  <script>
-    document.getElementById('afdelingForm').onsubmit = async function(e) {
-      e.preventDefault();
-      const lokalafdeling = document.getElementById('lokalafdeling').value;
-      const res = await fetch('/api/set_afdeling', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lokalafdeling })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        window.location.href = "/index.html";
-      } else {
-        document.getElementById('afdelingError').textContent = data.error || "Kunne ikke gemme afdeling";
-      }
-    };
-  </script>
+
+  <!-- Gruppe-funktionalitet -->
+<div style="max-width:340px;margin:40px auto 0 auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
+  <h2>Dine grupper</h2>
+  <form id="gruppeForm" style="margin-bottom:1.5em;">
+    <label for="gruppenavn" style="font-weight:bold;">Opret ny gruppe:</label>
+    <input id="gruppenavn" type="text" required placeholder="Gruppenavn" style="width:70%;margin-right:1em;">
+    <button type="submit">Opret</button>
+    <div id="gruppeError" style="color:#b71c1c;margin-top:0.5em"></div>
+  </form>
+  <div id="grupper"></div>
+</div>
+
+<script type="module" src="settings.js"></script>
 </body>
 </html>

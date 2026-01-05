@@ -9,11 +9,12 @@ import hashlib
 import requests
 import pandas as pd
 from dotenv import load_dotenv
+import re
 
 from typing import Optional, Dict, Any, List
 from collections import defaultdict
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -117,6 +118,10 @@ def get_data_dirs(aar: int):
 def hash_password(p: str) -> str:
     return hashlib.sha256(p.encode("utf-8")).hexdigest()
 
+def sanitize_text(s):
+    """Tillad kun bogstaver, tal og mellemrum."""
+    return re.sub(r'[^a-zA-ZæøåÆØÅ0-9 ]', '', str(s or ''))
+
 # ---------------------------------------------------------
 #  Global filter & year
 # ---------------------------------------------------------
@@ -204,6 +209,72 @@ async def generate_user_lists(obserkode: str, aar: int):
     print(f"[LISTS] {obserkode}/{aar}: lokalafdeling.json for {len(AFDELINGER)} afdelinger")
 
 # ---------------------------------------------------------
+#  Artsdata
+# ---------------------------------------------------------    
+
+@app.get("/api/matrikel_arter")
+async def matrikel_arter(
+    aar: int = Query(None, description="År (valgfri, default: global year)")
+):
+    """
+    Returnerer en sorteret liste med alle arter i matrikel-listerne.
+    """
+    if aar is None:
+        aar = await get_global_year()
+    _, _, OBSER_DIR = get_data_dirs(aar)
+    arter = set()
+    user_dirs = [os.path.join(OBSER_DIR, d) for d in os.listdir(OBSER_DIR) if os.path.isdir(os.path.join(OBSER_DIR, d))]
+    for user_dir in user_dirs:
+        path = os.path.join(user_dir, "matrikelarter.json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        for row in rows:
+            navn = (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+            if navn:
+                arter.add(navn)
+    return sorted(arter)
+
+@app.get("/api/artdata")
+async def artdata(
+    artnavn: str = Query(..., description="Navn på fugleart (præcis, som i listerne)"),
+    scope: str = Query("global", description="'global' eller 'matrikel'"),
+    aar: int = Query(None, description="År (valgfri, default: global year)")
+):
+    """
+    Returnerer akkumuleret data + statistik for en art.
+    """
+    if aar is None:
+        aar = await get_global_year()
+    _, _, OBSER_DIR = get_data_dirs(aar)
+    user_dirs = [os.path.join(OBSER_DIR, d) for d in os.listdir(OBSER_DIR) if os.path.isdir(os.path.join(OBSER_DIR, d))]
+    datoer = []
+    for user_dir in user_dirs:
+        if scope == "matrikel":
+            path = os.path.join(user_dir, "matrikelarter.json")
+        else:
+            path = os.path.join(user_dir, "global.json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        for row in rows:
+            navn = (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+            if navn == artnavn and row.get("dato"):
+                datoer.append(row["dato"])
+                break  # kun første gang brugeren får arten
+
+    # Lav akkumuleret optælling
+    datoer_dt = sorted([datetime.datetime.strptime(d, "%d-%m-%Y") for d in datoer])
+    out = []
+    counter = 0
+    for d in datoer_dt:
+        counter += 1
+        out.append({"dato": d.strftime("%d-%m-%Y"), "antal": counter})
+    return out  # <-- Tilføj denne linje!
+
+# ---------------------------------------------------------
 #  Scoreboards (fra listerne)
 # ---------------------------------------------------------
 def _finalize(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -218,70 +289,183 @@ def _load_json(path: str):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+
 async def generate_scoreboards_from_lists(aar: int):
+    """
+    3-trins rebuild fra rigtige lister:
+      1) Læs *kun matrikel*-lister -> skriv global_matrikel + lokalafdeling_matrikel
+      2) Læs *kun lokal*-lister   -> skriv lokalafdeling_alle
+      3) Læs *kun global*-lister  -> skriv global_alle
+    Inkluderer alle brugere (også tomme lister) og beregner robust antal + sidste.
+    """
+    import datetime
+    import shutil
+
+    # --- Hjælpere ---
+    def _normalize_art(name: str) -> str:
+        return (name or "").split("(")[0].split(",")[0].strip()
+
+    def _is_valid_art(name: str) -> bool:
+        n = name or ""
+        return ("sp." not in n) and ("/" not in n) and (" x " not in n)
+
+    def _parse_dato(d: str) -> datetime.datetime:
+        try:
+            return datetime.datetime.strptime(d or "", "%d-%m-%Y")
+        except Exception:
+            return datetime.datetime.min
+
+    def _score_from_list(list_rows):
+        """
+        list_rows: [{ "artnavn": str, "lokalitet": str, "dato": "dd-mm-YYYY" }, ...]
+        Returnerer (antal_arter, sidste_art, sidste_dato) robust.
+        Inkluderer alle brugere: tom liste -> (0, "", "").
+        """
+        if not isinstance(list_rows, list) or not list_rows:
+            return 0, "", ""
+
+        cleaned = [r for r in list_rows if r.get("artnavn") and _is_valid_art(r["artnavn"])]
+        if not cleaned:
+            return 0, "", ""
+
+        unique_arter = {_normalize_art(r["artnavn"]) for r in cleaned}
+        antal_arter = len(unique_arter)
+
+        latest = max(cleaned, key=lambda r: _parse_dato(r.get("dato")))
+        return antal_arter, latest.get("artnavn", ""), latest.get("dato", "")
+
+    def _safe_clear_dir(path: str):
+        if os.path.isdir(path):
+            # Ryd hele output-mappen for at starte helt forfra
+            shutil.rmtree(path, ignore_errors=True)
+        os.makedirs(path, exist_ok=True)
+
+    # --- Stier ---
     _, SCOREBOARD_DIR, OBSER_DIR = get_data_dirs(aar)
     safe_makedirs(SCOREBOARD_DIR)
 
+    # --- Brugere ---
     async with SessionLocal() as session:
         users = (await session.execute(select(User))).scalars().all()
 
-    # Global alle
-    ga = []
-    for u in users:
-        L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
-        if not L: continue
-        last = L[-1]
-        ga.append({"navn": u.navn or u.obserkode, "obserkode": u.obserkode,
-                   "antal_arter": len(L), "sidste_art": last["artnavn"], "sidste_dato": last["dato"]})
-    outdir = os.path.join(SCOREBOARD_DIR, "global_alle"); safe_makedirs(outdir)
-    with open(os.path.join(outdir, "scoreboard.json"), "w", encoding="utf-8") as f:
-        json.dump(_finalize(ga), f, ensure_ascii=False, indent=2)
+    # ======================================================================
+    # 1) MATRIIKEL: global_matrikel + lokalafdeling_matrikel
+    # ======================================================================
+    outdir_global_matr = os.path.join(SCOREBOARD_DIR, "global_matrikel")
+    outdir_lokal_matr  = os.path.join(SCOREBOARD_DIR, "lokalafdeling_matrikel")
+    _safe_clear_dir(outdir_global_matr)
+    _safe_clear_dir(outdir_lokal_matr)
 
-    # Global matrikel
-    gm = []
+    # Global matrikel (samlet én fil)
+    gm_rows = []
     for u in users:
-        L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
-        if not L: continue
-        last = L[-1]
-        gm.append({"navn": u.navn or u.obserkode, "obserkode": u.obserkode,
-                   "antal_arter": len(L), "sidste_art": last["artnavn"], "sidste_dato": last["dato"]})
-    outdir = os.path.join(SCOREBOARD_DIR, "global_matrikel"); safe_makedirs(outdir)
-    with open(os.path.join(outdir, "scoreboard.json"), "w", encoding="utf-8") as f:
-        json.dump(_finalize(gm), f, ensure_ascii=False, indent=2)
+        L_m = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
+        a, art, dato = _score_from_list(L_m)
+        gm_rows.append({
+            "navn": u.navn or u.obserkode,
+            "obserkode": u.obserkode,
+            "antal_arter": a,
+            "sidste_art": art,
+            "sidste_dato": dato,
+        })
+        print(f"[SB-IN] {u.obserkode} global_matrikel: list={len(L_m)} -> antal={a}, sidste={art} @ {dato}")
 
-    # Lokalafdeling (alle + matrikel)
+    with open(os.path.join(outdir_global_matr, "scoreboard.json"), "w", encoding="utf-8") as f:
+        json.dump(_finalize(gm_rows), f, ensure_ascii=False, indent=2)
+
+    # Lokalafdeling matrikel (en fil pr. afdeling)
     for afd in AFDELINGER:
-        rows_alle, rows_matr = [], []
+        rows_matr = []
         for u in users:
             la_map = _load_json(os.path.join(OBSER_DIR, u.obserkode, "lokalafdeling.json")) or {}
-            entry = la_map.get(afd) or {}
-            L_alle = entry.get("alle") or []
-            L_matr = entry.get("matrikel") or []
-            if L_alle:
-                last = L_alle[-1]
-                rows_alle.append({"navn": u.navn or u.obserkode, "obserkode": u.obserkode,
-                                  "antal_arter": len(L_alle), "sidste_art": last["artnavn"], "sidste_dato": last["dato"]})
-            if L_matr:
-                last = L_matr[-1]
-                rows_matr.append({"navn": u.navn or u.obserkode, "obserkode": u.obserkode,
-                                  "antal_arter": len(L_matr), "sidste_art": last["artnavn"], "sidste_dato": last["dato"]})
-        filename = f"{afd.replace(' ', '_')}.json"  # bevar æ/ø/å; kun mellemrum -> _
-        outdir_alle = os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle"); safe_makedirs(outdir_alle)
-        with open(os.path.join(outdir_alle, filename), "w", encoding="utf-8") as f:
-            json.dump(_finalize(rows_alle), f, ensure_ascii=False, indent=2)
-        outdir_matr = os.path.join(SCOREBOARD_DIR, "lokalafdeling_matrikel"); safe_makedirs(outdir_matr)
-        with open(os.path.join(outdir_matr, filename), "w", encoding="utf-8") as f:
+            L_matr = (la_map.get(afd) or {}).get("matrikel") or []
+            a2, art2, dato2 = _score_from_list(L_matr)
+            rows_matr.append({
+                "navn": u.navn or u.obserkode,
+                "obserkode": u.obserkode,
+                "antal_arter": a2,
+                "sidste_art": art2,
+                "sidste_dato": dato2,
+            })
+            print(f"[SB-IN] {u.obserkode} lokal_matrikel[{afd}]: list={len(L_matr)} -> antal={a2}, sidste={art2} @ {dato2}")
+
+        filename = f"{afd.replace(' ', '_')}.json"
+        with open(os.path.join(outdir_lokal_matr, filename), "w", encoding="utf-8") as f:
             json.dump(_finalize(rows_matr), f, ensure_ascii=False, indent=2)
+
+    # ======================================================================
+    # 2) LOKAL: lokalafdeling_alle
+    # ======================================================================
+    outdir_lokal_alle = os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle")
+    _safe_clear_dir(outdir_lokal_alle)
+
+    for afd in AFDELINGER:
+        rows_alle = []
+        for u in users:
+            la_map = _load_json(os.path.join(OBSER_DIR, u.obserkode, "lokalafdeling.json")) or {}
+            L_alle = (la_map.get(afd) or {}).get("alle") or []
+            a1, art1, dato1 = _score_from_list(L_alle)
+            rows_alle.append({
+                "navn": u.navn or u.obserkode,
+                "obserkode": u.obserkode,
+                "antal_arter": a1,
+                "sidste_art": art1,
+                "sidste_dato": dato1,
+            })
+            print(f"[SB-IN] {u.obserkode} lokal_alle[{afd}]: list={len(L_alle)} -> antal={a1}, sidste={art1} @ {dato1}")
+
+        filename = f"{afd.replace(' ', '_')}.json"
+        with open(os.path.join(outdir_lokal_alle, filename), "w", encoding="utf-8") as f:
+            json.dump(_finalize(rows_alle), f, ensure_ascii=False, indent=2)
+
+    # ======================================================================
+    # 3) GLOBAL: global_alle
+    # ======================================================================
+    outdir_global_alle = os.path.join(SCOREBOARD_DIR, "global_alle")
+    _safe_clear_dir(outdir_global_alle)
+
+    ga_rows = []
+    for u in users:
+        L_g = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
+        a, art, dato = _score_from_list(L_g)
+        ga_rows.append({
+            "navn": u.navn or u.obserkode,
+            "obserkode": u.obserkode,
+            "antal_arter": a,
+            "sidste_art": art,
+            "sidste_dato": dato,
+        })
+        print(f"[SB-IN] {u.obserkode} global_alle: list={len(L_g)} -> antal={a}, sidste={art} @ {dato}")
+
+    with open(os.path.join(outdir_global_alle, "scoreboard.json"), "w", encoding="utf-8") as f:
+        json.dump(_finalize(ga_rows), f, ensure_ascii=False, indent=2)
+
 
 # ---------------------------------------------------------
 #  DOFbasen sync (CSV -> DB -> lister -> scoreboards)
 # ---------------------------------------------------------
+
 async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
+    """
+    Henter observationer fra DOFbasen (CSV), indsætter ALLE rækker i DB for det valgte år,
+    og bygger derefter per-bruger lister + alle scoreboards.
+
+    VIGTIGT:
+    - Admin-filter (GlobalFilter) anvendes KUN til matrikel-listerne i generate_user_lists(...).
+      Her i fetch_and_store(...) bruger vi det kun til info-log—IKKE til at filtrere CSV -> DB.
+    """
+    import io
+    import datetime
+    import pandas as pd
+    import requests
+
+    # 1) Fastlæg år + (kun informativt) aktuel globalt filter
     if aar is None:
         aar = await get_global_year()
     filter_ = await get_global_filter()
 
-    # Forsøg HTTP
+    # 2) Forsøg HTTP-hentning fra DOFbasen
     url = (
         "https://dofbasen.dk/excel/search_result1.php"
         "?design=excel&soeg=soeg&periode=maanedaar"
@@ -289,17 +473,17 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
         "&obstype=observationer&species=alle"
         f"&obserdata={obserkode}&sortering=dato"
     )
-
     df = None
     try:
         resp = requests.get(url, timeout=12)
         resp.raise_for_status()
+        # DOFbasen CSV er latin1; separator ';'
         df = pd.read_csv(io.StringIO(resp.content.decode("latin1")), sep=";", dtype=str)
         print(f"[INFO] Hentet {len(df)} rækker fra DOFbasen for {obserkode}/{aar}")
     except Exception as e:
         print(f"[WARN] HTTP-fejl ({e}) – prøver lokal CSV fallback...")
 
-    # Lokal fallback hvis nødvendigt
+    # 3) Lokal fallback (valgfri)
     if df is None or df.empty:
         candidates = [
             os.path.join(ROOT_DIR, "search_result (3).csv"),
@@ -313,21 +497,26 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
                     break
                 except Exception as e:
                     print(f"[ERROR] Kunne ikke parse {p}: {e}")
-        if df is None or df.empty:
-            print(f"[ERROR] Ingen data til {obserkode}/{aar}. Skriver tomme lister.")
-            await generate_user_lists(obserkode, aar)
-            await generate_scoreboards_from_lists(aar)
-            return
 
-    # Filter på Turnoter (hvis sat)
+    # 4) Ingen data -> skriv tomme lister og scoreboards
+    if df is None or df.empty:
+        print(f"[ERROR] Ingen data til {obserkode}/{aar}. Skriver tomme lister.")
+        await generate_user_lists(obserkode, aar)
+        await generate_scoreboards_from_lists(aar)
+        return
+
+    # 5) (INFO) Vis hvad admin-filter ville give—men ANVEND DET IKKE på CSV -> DB
     if filter_:
-        before = len(df)
-        df = df[df["Turnoter"].fillna("").str.contains(filter_)]
-        print(f"[INFO] Filter '{filter_}': {before} -> {len(df)} rækker (for {obserkode})")
+        try:
+            before = len(df)
+            after = len(df[df["Turnoter"].fillna("").str.contains(filter_)])
+            print(f"[INFO] (info) Filter '{filter_}': {before} -> {after} rækker (for {obserkode}) [ikke anvendt til DB]")
+        except Exception:
+            # Ignorér evt. manglende kolonner/format
+            pass
 
-    # Indsæt i DB
+    # 6) Indsæt ALLE rækker i DB for året (ryddes først for brugeren)
     async with SessionLocal() as session:
-        # ryd årets obs for brugeren
         await session.execute(
             Observation.__table__.delete().where(
                 Observation.obserkode == obserkode,
@@ -342,8 +531,11 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
             raw_dato = (row.get("Dato", "") or "").strip()
             if not raw_dato:
                 continue
+            # Nogle CSV'er kan have tid efter dato—trim til 10 tegn
             if len(raw_dato) > 10:
                 raw_dato = raw_dato[:10]
+
+            # Robust dato-parsing (tillad både 'YYYY-MM-DD' og 'DD-MM-YYYY')
             dato = None
             for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
                 try:
@@ -371,9 +563,10 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
         await session.commit()
         print(f"[INFO] Indsat {inserted} observationer for {obserkode}/{aar}")
 
-    # Pipeline: Lister -> Scoreboards
+    # 7) Pipeline: generér lister (matrikel-filter anvendes her) og byg scoreboards
     await generate_user_lists(obserkode, aar)
     await generate_scoreboards_from_lists(aar)
+
 
 async def daily_update_all_jsons():
     """Opdater alle brugere: sync + build scoreboards."""
@@ -475,6 +668,37 @@ async def delete_obserkode(kode: str, request: Request):
         await session.execute(Obserkode.__table__.delete().where(Obserkode.kode == kode))
         await session.commit()
     return {"msg": "Obserkode og data slettet"}
+
+@app.get("/api/get_userprefs")
+async def get_userprefs(request: Request):
+    """
+    Returnér den aktuelle brugers navn, obserkode og valgte lokalafdeling fra databasen eller session.
+    """
+    # Prøv først session
+    afdeling = request.session.get("lokalafdeling")
+    obserkode = request.session.get("obserkode")
+    navn = request.session.get("navn")
+    if afdeling and obserkode and navn:
+        return {
+            "lokalafdeling": afdeling,
+            "obserkode": obserkode,
+            "navn": navn
+        }
+
+    # Ellers hent fra database
+    user_id = request.session.get("obserkode")
+    if not user_id:
+        return {"lokalafdeling": None, "obserkode": None, "navn": None}
+    async with SessionLocal() as session:
+        result = await session.execute(select(User).where(User.obserkode == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            return {
+                "lokalafdeling": user.lokalafdeling,
+                "obserkode": user.obserkode,
+                "navn": user.navn
+            }
+    return {"lokalafdeling": None, "obserkode": None, "navn": None}
 
 # ---------------------------------------------------------
 #  API: Sync
@@ -598,6 +822,157 @@ async def api_obser(request: Request):
         afdeling = params.get("afdeling")
         return {"firsts": data.get(afdeling, {}).get("alle", [])}
     return {key: data}
+
+@app.get("/api/user_scoreboard")
+async def user_scoreboard(request: Request, aar: int = Query(None)):
+    """
+    Returnerer brugerens placering, antal arter, seneste art og dato for:
+    - Lokalafdeling (hvis sat): alle + matrikel
+    - Nationalt: alle + matrikel
+    - Grupper: alle + matrikel (samme format)
+    Med debug-logging.
+    """
+    obserkode = request.session.get("obserkode")
+    print("[DEBUG] Session obserkode:", obserkode)
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+    if aar is None:
+        aar = await get_global_year()
+    print("[DEBUG] År:", aar)
+    _, SCOREBOARD_DIR, OBSER_DIR = get_data_dirs(aar)
+    print("[DEBUG] SCOREBOARD_DIR:", SCOREBOARD_DIR)
+
+    def get_row(rows):
+        for i, r in enumerate(rows, 1):
+            print("[DEBUG] Tjekker row:", r)
+            if r.get("obserkode") == obserkode:
+                print("[DEBUG] Match fundet:", r)
+                return {
+                    "placering": r.get("placering", i),
+                    "antal_arter": r.get("antal_arter", 0),
+                    "sidste_art": r.get("sidste_art", ""),
+                    "sidste_dato": r.get("sidste_dato", "")
+                }
+        print("[DEBUG] Ingen match for obserkode:", obserkode)
+        return None
+
+    result = {}
+
+    # Nationalt - alle
+    try:
+        path = os.path.join(SCOREBOARD_DIR, "global_alle", "scoreboard.json")
+        print("[DEBUG] Læser national_alle fra:", path)
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        result["national_alle"] = get_row(rows)
+    except Exception as e:
+        print("[DEBUG] national_alle fejl:", e)
+        result["national_alle"] = None
+
+    # Nationalt - matrikel
+    try:
+        path = os.path.join(SCOREBOARD_DIR, "global_matrikel", "scoreboard.json")
+        print("[DEBUG] Læser national_matrikel fra:", path)
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        result["national_matrikel"] = get_row(rows)
+    except Exception as e:
+        print("[DEBUG] national_matrikel fejl:", e)
+        result["national_matrikel"] = None
+
+    # Lokalafdeling (hent fra session eller database)
+    lokalafdeling = request.session.get("lokalafdeling")
+    print("[DEBUG] Session lokalafdeling:", lokalafdeling)
+    if not lokalafdeling:
+        async with SessionLocal() as session:
+            user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+            if user and user.lokalafdeling:
+                lokalafdeling = user.lokalafdeling
+                request.session["lokalafdeling"] = lokalafdeling
+                print("[DEBUG] Lokalafdeling hentet fra database:", lokalafdeling)
+    if lokalafdeling:
+        try:
+            filename = f"{lokalafdeling.replace(' ', '_')}.json"
+            path = os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle", filename)
+            print("[DEBUG] Læser lokalafdeling_alle fra:", path)
+            with open(path, encoding="utf-8") as f:
+                rows = json.load(f)
+            result["lokalafdeling_alle"] = get_row(rows)
+        except Exception as e:
+            print("[DEBUG] lokalafdeling_alle fejl:", e)
+            result["lokalafdeling_alle"] = None
+        try:
+            filename = f"{lokalafdeling.replace(' ', '_')}.json"
+            path = os.path.join(SCOREBOARD_DIR, "lokalafdeling_matrikel", filename)
+            print("[DEBUG] Læser lokalafdeling_matrikel fra:", path)
+            with open(path, encoding="utf-8") as f:
+                rows = json.load(f)
+            result["lokalafdeling_matrikel"] = get_row(rows)
+        except Exception as e:
+            print("[DEBUG] lokalafdeling_matrikel fejl:", e)
+            result["lokalafdeling_matrikel"] = None
+    else:
+        print("[DEBUG] Ingen lokalafdeling sat i session eller database.")
+        result["lokalafdeling_alle"] = None
+        result["lokalafdeling_matrikel"] = None
+
+    # Grupper (beregn direkte)
+    async def beregn_gruppe_scoreboard(gruppe, scope, aar):
+        koder = gruppe.get("obserkoder", [])
+        rows = []
+        async with SessionLocal() as session:
+            users = (await session.execute(select(User).where(User.obserkode.in_(koder)))).scalars().all()
+        for u in users:
+            if scope == "gruppe_alle":
+                L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
+            elif scope == "gruppe_matrikel":
+                L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
+            else:
+                continue
+            a, art, dato = 0, "", ""
+            if L:
+                unique_arter = { (r.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+                                 for r in L if r.get("artnavn") and "sp." not in r.get("artnavn") and "/" not in r.get("artnavn") and " x " not in r.get("artnavn") }
+                a = len(unique_arter)
+                latest = max(L, key=lambda r: r.get("dato") or "", default={})
+                art = latest.get("artnavn", "")
+                dato = latest.get("dato", "")
+            rows.append({
+                "navn": u.navn or u.obserkode,
+                "obserkode": u.obserkode,
+                "antal_arter": a,
+                "sidste_art": art,
+                "sidste_dato": dato,
+            })
+        rows.sort(key=lambda x: x["antal_arter"], reverse=True)
+        for i, r in enumerate(rows, 1):
+            r["placering"] = i
+        return rows
+
+    grupper = load_grupper()
+    mine_grupper = [g for g in grupper if obserkode in g.get("obserkoder", [])]
+    print("[DEBUG] Mine grupper:", [g["navn"] for g in mine_grupper])
+    result["grupper"] = []
+    for g in mine_grupper:
+        gruppeinfo = {"navn": g["navn"]}
+        # alle
+        try:
+            rows_alle = await beregn_gruppe_scoreboard(g, "gruppe_alle", aar)
+            gruppeinfo["alle"] = get_row(rows_alle)
+        except Exception as e:
+            print("[DEBUG] gruppe_alle fejl:", e)
+            gruppeinfo["alle"] = None
+        # matrikel
+        try:
+            rows_matrikel = await beregn_gruppe_scoreboard(g, "gruppe_matrikel", aar)
+            gruppeinfo["matrikel"] = get_row(rows_matrikel)
+        except Exception as e:
+            print("[DEBUG] gruppe_matrikel fejl:", e)
+            gruppeinfo["matrikel"] = None
+        result["grupper"].append(gruppeinfo)
+
+    print("[DEBUG] Endeligt resultat:", result)
+    return result
 
 # ---------------------------------------------------------
 #  API: Bruger-login (DOFbasen) + afdeling
@@ -746,6 +1121,214 @@ async def get_matrix():
         "tid_brugt": tid_brugt,
         "antal_observationer": antal_observationer
     }
+
+
+
+# ---------------------------------------------------------
+#  Grupper
+# ---------------------------------------------------------
+
+# --- GRUPPEMODEL (i memory eller database, her som fil for demo) ---
+GRUPPEFIL = os.path.join(SERVER_DIR, "grupper.json")
+
+def load_grupper():
+    if not os.path.exists(GRUPPEFIL):
+        return []
+    with open(GRUPPEFIL, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_grupper(grupper):
+    with open(GRUPPEFIL, "w", encoding="utf-8") as f:
+        json.dump(grupper, f, ensure_ascii=False, indent=2)
+
+def find_gruppe(grupper, navn):
+    for g in grupper:
+        if g["navn"] == navn:
+            return g
+    return None
+
+# --- ENDPOINTS ---
+
+@app.get("/api/get_grupper")
+async def get_grupper(request: Request):
+    """Returnér alle grupper brugeren er medlem af."""
+    bruger = request.session.get("obserkode")
+    grupper = load_grupper()
+    mine = [g for g in grupper if bruger and bruger in g["obserkoder"]]
+    return mine
+
+@app.post("/api/create_gruppe")
+async def create_gruppe(request: Request, data: dict = Body(...)):
+    bruger = request.session.get("obserkode")
+    navn = sanitize_text(data.get("navn", "").strip())
+    if not bruger or not navn:
+        return JSONResponse({"ok": False, "msg": "Navn og login kræves"}, status_code=400)
+    grupper = load_grupper()
+    if any(g["navn"] == navn for g in grupper):
+        return JSONResponse({"ok": False, "msg": "Gruppenavn findes allerede"}, status_code=400)
+    grupper.append({"navn": navn, "obserkoder": [bruger]})
+    save_grupper(grupper)
+    return {"ok": True}
+
+@app.post("/api/rename_gruppe")
+async def rename_gruppe(request: Request, data: dict = Body(...)):
+    """Omdøb gruppe (kun hvis bruger er medlem)."""
+    bruger = request.session.get("obserkode")
+    gammel = sanitize_text(data.get("gammel_navn", "").strip())
+    ny = sanitize_text(data.get("nyt_navn", "").strip())
+    if not bruger or not gammel or not ny:
+        return JSONResponse({"ok": False, "msg": "Navne og login kræves"}, status_code=400)
+    grupper = load_grupper()
+    if any(g["navn"] == ny for g in grupper):
+        return JSONResponse({"ok": False, "msg": "Gruppenavn findes allerede"}, status_code=400)
+    g = find_gruppe(grupper, gammel)
+    if not g or bruger not in g["obserkoder"]:
+        return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
+    g["navn"] = ny
+    save_grupper(grupper)
+    return {"ok": True}
+
+@app.post("/api/delete_gruppe")
+async def delete_gruppe(request: Request, data: dict = Body(...)):
+    """Slet gruppe (kun hvis bruger er medlem)."""
+    bruger = request.session.get("obserkode")
+    navn = data.get("navn", "").strip()
+    grupper = load_grupper()
+    g = find_gruppe(grupper, navn)
+    if not g or bruger not in g["obserkoder"]:
+        return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
+    grupper = [x for x in grupper if x["navn"] != navn]
+    save_grupper(grupper)
+    return {"ok": True}
+
+@app.post("/api/add_gruppemedlem")
+async def add_gruppemedlem(request: Request, data: dict = Body(...)):
+    bruger = request.session.get("obserkode")
+    navn = sanitize_text(data.get("navn", "").strip())
+    kode = sanitize_text(data.get("obserkode", "").strip())
+    grupper = load_grupper()
+    g = find_gruppe(grupper, navn)
+    if not g or bruger not in g["obserkoder"]:
+        return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
+    if kode and kode not in g["obserkoder"]:
+        g["obserkoder"].append(kode)
+        save_grupper(grupper)
+    return {"ok": True}
+
+@app.post("/api/remove_gruppemedlem")
+async def remove_gruppemedlem(request: Request, data: dict = Body(...)):
+    """Fjern medlem fra gruppe (kun hvis bruger er medlem)."""
+    bruger = request.session.get("obserkode")
+    navn = data.get("navn", "").strip()
+    kode = data.get("obserkode", "").strip()
+    grupper = load_grupper()
+    g = find_gruppe(grupper, navn)
+    if not g or bruger not in g["obserkoder"]:
+        return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
+    if kode in g["obserkoder"]:
+        g["obserkoder"].remove(kode)
+        save_grupper(grupper)
+    return {"ok": True}
+
+@app.post("/api/gruppe_scoreboard")
+async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
+    """
+    Returnér scoreboard for en gruppe (global eller matrikel) + matrix-data.
+    Body: { "navn": "Fuglehold", "scope": "gruppe_alle" | "gruppe_matrikel", "aar": 2026 }
+    """
+    bruger = request.session.get("obserkode")
+    navn = data.get("navn", "").strip()
+    scope = data.get("scope")
+    aar = data.get("aar") or await get_global_year()
+    grupper = load_grupper()
+    g = find_gruppe(grupper, navn)
+    if not g or bruger not in g["obserkoder"]:
+        return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
+    # Find brugere i gruppen
+    koder = g["obserkoder"]
+    _, SCOREBOARD_DIR, OBSER_DIR = get_data_dirs(aar)
+    rows = []
+    async with SessionLocal() as session:
+        users = (await session.execute(select(User).where(User.obserkode.in_(koder)))).scalars().all()
+    # --- Matrix-data ---
+    all_arter = set()
+    hovedart_data = {}
+    matrix = []
+    for u in users:
+        if scope == "gruppe_alle":
+            L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
+        elif scope == "gruppe_matrikel":
+            L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
+        else:
+            return JSONResponse({"ok": False, "msg": "Ukendt scope"}, status_code=400)
+        # Scoreboard-row
+        a, art, dato = 0, "", ""
+        if L:
+            unique_arter = { (r.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+                             for r in L if r.get("artnavn") and "sp." not in r.get("artnavn") and "/" not in r.get("artnavn") and " x " not in r.get("artnavn") }
+            a = len(unique_arter)
+            latest = max(L, key=lambda r: r.get("dato") or "", default={})
+            art = latest.get("artnavn", "")
+            dato = latest.get("dato", "")
+        rows.append({
+            "navn": u.navn or u.obserkode,
+            "obserkode": u.obserkode,
+            "antal_arter": a,
+            "sidste_art": art,
+            "sidste_dato": dato,
+        })
+        # Matrix-data
+        for r in L:
+            ha = (r.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+            if "sp." in ha or "/" in ha or " x " in ha:
+                continue
+            all_arter.add(ha)
+            hovedart_data.setdefault(ha, {}).setdefault(u.obserkode, []).append(r.get("dato"))
+
+    arter = sorted(all_arter)
+    koder_sorted = sorted(koder)
+    # Build matrix
+    for art in arter:
+        row = []
+        for kode in koder_sorted:
+            datoer = hovedart_data.get(art, {}).get(kode, [])
+            # Find tidligste dato for arten for denne kode
+            if datoer:
+                try:
+                    d = min(datetime.datetime.strptime(d, "%d-%m-%Y") if isinstance(d, str) else d for d in datoer)
+                    row.append(d.strftime("%d-%m-%Y"))
+                except Exception:
+                    row.append("")
+            else:
+                row.append("")
+        matrix.append(row)
+    # Totals
+    totals = [sum(1 for art in arter if hovedart_data.get(art, {}).get(kode)) for kode in koder_sorted]
+    # Tid og observationer (dummy, tilpas evt. til din logik)
+    tid_brugt = ["00:00" for _ in koder_sorted]
+    # Antal observationer pr. bruger (summen af alle observationer i L for hver bruger)
+    antal_observationer = []
+    for kode in koder_sorted:
+        obs_count = 0
+        for art in arter:
+            obs_count += len(hovedart_data.get(art, {}).get(kode, []))
+        antal_observationer.append(obs_count)
+
+    # Sortér som de andre scoreboards
+    rows.sort(key=lambda x: x["antal_arter"], reverse=True)
+    for i, r in enumerate(rows, 1):
+        r["placering"] = i
+
+    return {
+        "rows": rows,
+        "arter": arter,
+        "koder": koder_sorted,
+        "matrix": matrix,
+        "totals": totals,
+        "tid_brugt": tid_brugt,
+        "antal_observationer": antal_observationer
+    }
+
 
 # ---------------------------------------------------------
 #  Startup

@@ -230,6 +230,16 @@
         "artnavn": "Gulspurv",
         "lokalitet": "Hvidbakke Skov",
         "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Grønspætte",
+        "lokalitet": "Hvidbakke Skov",
+        "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Sortspætte",
+        "lokalitet": "Hvidbakke Skov",
+        "dato": "04-01-2026"
       }
     ],
     "matrikel": [
@@ -422,6 +432,16 @@
         "artnavn": "Gulspurv",
         "lokalitet": "Hvidbakke Skov",
         "dato": "03-01-2026"
+      },
+      {
+        "artnavn": "Grønspætte",
+        "lokalitet": "Hvidbakke Skov",
+        "dato": "04-01-2026"
+      },
+      {
+        "artnavn": "Sortspætte",
+        "lokalitet": "Hvidbakke Skov",
+        "dato": "04-01-2026"
       }
     ]
   },

@@ -19,15 +19,17 @@
             const obserkode = document.getElementById('obserkode').value.trim();
             const adgangskode = document.getElementById('adgangskode').value;
             const res = await fetch('/api/validate-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ obserkode, adgangskode })
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ obserkode, adgangskode })
             });
             const data = await res.json();
             if (data.ok) {
-            window.location.href = "/settings.html";
+                // Hent brugerpræferencer og vent på svar
+                await fetch('/api/get_userprefs', { credentials: 'include' });
+                window.location.href = "/settings.html";
             } else {
-            alert(data.error || "Login fejlede");
+                alert(data.error || "Login fejlede");
             }
         };
         </script>

@@ -1,1 +1,102 @@
-[]
+[
+  {
+    "artnavn": "Islom",
+    "lokalitet": "Skagen Havn",
+    "dato": "02-01-2026"
+  },
+  {
+    "artnavn": "Ride",
+    "lokalitet": "Skagen Havn",
+    "dato": "02-01-2026"
+  },
+  {
+    "artnavn": "Stormmåge",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Sølvmåge",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Svartbag",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Lomvie",
+    "lokalitet": "Skagen Havn",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Gærdesmutte",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Fuglekonge",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Blåmejse",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Snespurv",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Gulspurv",
+    "lokalitet": "Pælebakke Klit",
+    "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Fiskehejre",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Grågås",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Skovsneppe",
+    "lokalitet": "Simested Ådal V for Døstrup",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Stenvender",
+    "lokalitet": "Skagen Havn",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Solsort",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Sjagger",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Musvit",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Skovspurv",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Dompap",
+    "lokalitet": "Drastrup Kær skove/agerland",
+    "dato": "04-01-2026"
+  }
+]

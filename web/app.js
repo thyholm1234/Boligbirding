@@ -1,5 +1,17 @@
-// Version: 1.3.4 - 2026-01-04 00.48.32
+// Version: 1.3.29 - 2026-01-05 01.16.21
 // © Christian Vemmelund Helligsø
+
+import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
+
+renderNavbar();
+initNavbar();
+initMobileNavbar();
+
+fetch('/api/get_grupper')
+  .then(res => res.json())
+  .then(grupper => {
+    addGruppeLinks(grupper);
+  });
 
 fetch('/api/is_logged_in').then(r => r.json()).then(data => {
   if (!data.ok) window.location.href = "/login.html";

@@ -1,4 +1,4 @@
-<!-- Version: 1.3.3 - 2026-01-03 22.48.04 -->
+<!-- Version: 1.3.29 - 2026-01-05 01.16.21 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -11,99 +11,80 @@
   <meta name="theme-color" content="#2b7a78" />
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.3.3">
+  <link rel="stylesheet" href="style.css?v=1.3.29">
 </head>
 <body>
-<nav class="navbar">
-    <span class="navbar-title">#BB26</span>
-    <div style="display:flex;align-items:center;gap:18px;">
-        <!-- Krydslister dropdown -->
-        <div class="dropdown">
-            <a id="krydsDropdownBtn" href="#" class="nav-link">Krydslister</a>
-            <div id="krydsDropdown" class="dropdown-content">
-                <a href="scoreboard.html?scope=global_alle">Danmark</a>
-                <div id="krydsLinks"></div>
-            </div>
-        </div>
-        <!-- Matrikellister dropdown -->
-        <div class="dropdown">
-            <a id="matrikelDropdownBtn" href="#" class="nav-link">Matrikellister</a>
-            <div id="matrikelDropdown" class="dropdown-content">
-                <a href="scoreboard.html?scope=global_matrikel">Danmark</a>
-                <div id="matrikelLinks"></div>
-            </div>
-        </div>
-        <a href="#" id="reglerLink" class="regler-link nav-link">REGLER</a>
-        <a href="#" class="regler-link nav-link" style="margin-right: 15px;" id="themeToggle" aria-label="Skift tema">TEMA</a>
-    </div>
-</nav>
-    <div id="chart-container" style="max-width:900px;margin-bottom:2em;">
-        <canvas id="leaderChart"></canvas>
-    </div>
-    <div id="result"></div>
+<main style="max-width:500px;margin:40px auto;padding:1em 1em 1em 1em;background:var(--card-bg);border-radius:16px;box-shadow:var(--card-shadow);display:flex;flex-direction:column;align-items:center;">
+  <h1 style="text-align:center;margin-bottom:0.7em;">Mine lister</h1>
+  <div id="feed" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;padding-left: 20px;padding-right: 20px;"></div>
+</main>
+<script>
+  async function hentStats() {
+    const res = await fetch('/api/user_scoreboard', { credentials: 'include' });
+    const data = await res.json();
+    let html = "";
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.3.3"></script>
-    <script src="app.js?v=1.3.3"></script>
+    // Grupper øverst
+    if (data.grupper && data.grupper.length) {
+      for (const g of data.grupper) {
+        html += `
+          <div class="card obserkode-card" style="margin-bottom:1.5em;padding:1.2em 1em;width:100%;">
+            <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;">
+              <span style="font-size:1.3em;vertical-align:-0.2em;">🏷️</span> ${g.navn}
+            </div>
+            <div style="margin-bottom:0.3em;">Alle: <b>${g.alle?.antal_arter ?? '-'}</b> arter, placering <b>${g.alle?.placering ?? '-'}</b></div>
+            <div style="margin-bottom:0.3em;">Matrikel: <b>${g.matrikel?.antal_arter ?? '-'}</b> arter, placering <b>${g.matrikel?.placering ?? '-'}</b></div>
+            <div style="color:var(--text-muted);font-size:0.98em;">
+              Seneste art: <span style="font-weight:500;">${g.alle?.sidste_art ?? '-'}</span> (${g.alle?.sidste_dato ?? '-'})
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Nationalt
+    html += `
+      <div class="card obserkode-card" style="margin-bottom:1.5em;padding:1.2em 1em;width:100%;">
+        <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;">
+          <span style="font-size:1.3em;vertical-align:-0.2em;">🇩🇰</span> Nationalt
+        </div>
+        <div style="margin-bottom:0.3em;">Alle: <b>${data.national_alle?.antal_arter ?? '-'}</b> arter, placering <b>${data.national_alle?.placering ?? '-'}</b></div>
+        <div style="margin-bottom:0.3em;">Matrikel: <b>${data.national_matrikel?.antal_arter ?? '-'}</b> arter, placering <b>${data.national_matrikel?.placering ?? '-'}</b></div>
+        <div style="color:var(--text-muted);font-size:0.98em;">
+          Seneste art: <span style="font-weight:500;">${data.national_alle?.sidste_art ?? '-'}</span> (${data.national_alle?.sidste_dato ?? '-'})
+        </div>
+      </div>
+    `;
+
+    // Lokalafdeling
+    html += `
+      <div class="card obserkode-card" style="padding:1.2em 1em;width:100%;">
+        <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;">
+          <span style="font-size:1.3em;vertical-align:-0.2em;">🏠</span> Lokalafdeling
+        </div>
+        <div style="margin-bottom:0.3em;">Alle: <b>${data.lokalafdeling_alle?.antal_arter ?? '-'}</b> arter, placering <b>${data.lokalafdeling_alle?.placering ?? '-'}</b></div>
+        <div style="margin-bottom:0.3em;">Matrikel: <b>${data.lokalafdeling_matrikel?.antal_arter ?? '-'}</b> arter, placering <b>${data.lokalafdeling_matrikel?.placering ?? '-'}</b></div>
+        <div style="color:var(--text-muted);font-size:0.98em;">
+          Seneste art: <span style="font-weight:500;">${data.lokalafdeling_alle?.sidste_art ?? '-'}</span> (${data.lokalafdeling_alle?.sidste_dato ?? '-'})
+        </div>
+      </div>
+    `;
+
+    document.getElementById('feed').innerHTML = html;
+  }
+  hentStats();
+</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.3.29"></script>
+    <script type="module" src="app.js?v=1.3.29"></script>
     <script>
         // Registrér service worker når siden er loadet
         if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js?v=1.3.3' /*, { scope: '/' } */)
+            navigator.serviceWorker.register('/sw.js?v=1.3.29' /*, { scope: '/' } */)
             .then(reg => console.log('Service Worker registreret:', reg.scope))
             .catch(err => console.error('SW registrering fejlede:', err));
         });
         }
-    </script>
-    <script>
-const AFDELINGER = [
-    "DOF København",
-    "DOF Nordsjælland",
-    "DOF Vestsjælland",
-    "DOF Storstrøm",
-    "DOF Bornholm",
-    "DOF Fyn",
-    "DOF Sønderjylland",
-    "DOF Sydvestjylland",
-    "DOF Sydøstjylland",
-    "DOF Vestjylland",
-    "DOF Østjylland",
-    "DOF Nordvestjylland",
-    "DOF Nordjylland"
-];
-
-// Fyld dropdowns med lokalafdelinger
-const krydsLinks = document.getElementById('krydsLinks');
-const matrikelLinks = document.getElementById('matrikelLinks');
-AFDELINGER.forEach(afd => {
-    const safe = encodeURIComponent(afd);
-    krydsLinks.innerHTML += `<a href="scoreboard.html?scope=lokal_alle&afdeling=${safe}" style="display:block;padding:8px 16px;">${afd}</a>`;
-    matrikelLinks.innerHTML += `<a href="scoreboard.html?scope=lokal_matrikel&afdeling=${safe}" style="display:block;padding:8px 16px;">${afd}</a>`;
-});
-
-// Dropdown vis/skjul for begge
-const krydsBtn = document.getElementById('krydsDropdownBtn');
-const krydsDropdown = document.getElementById('krydsDropdown');
-const matrikelBtn = document.getElementById('matrikelDropdownBtn');
-const matrikelDropdown = document.getElementById('matrikelDropdown');
-
-krydsBtn.onclick = function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    krydsDropdown.style.display = krydsDropdown.style.display === "block" ? "none" : "block";
-    matrikelDropdown.style.display = "none";
-};
-matrikelBtn.onclick = function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    matrikelDropdown.style.display = matrikelDropdown.style.display === "block" ? "none" : "block";
-    krydsDropdown.style.display = "none";
-};
-document.body.onclick = function() {
-    krydsDropdown.style.display = "none";
-    matrikelDropdown.style.display = "none";
-};
-krydsDropdown.onclick = function(e) { e.stopPropagation(); };
-matrikelDropdown.onclick = function(e) { e.stopPropagation(); };
     </script>
 </body>
 </html>

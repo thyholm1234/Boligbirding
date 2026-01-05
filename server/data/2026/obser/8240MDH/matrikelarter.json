@@ -100,12 +100,22 @@
     "dato": "02-01-2026"
   },
   {
+    "artnavn": "Rød Glente",
+    "lokalitet": "Nørre Snede",
+    "dato": "02-01-2026"
+  },
+  {
     "artnavn": "Musvåge",
     "lokalitet": "Nørre Snede",
     "dato": "02-01-2026"
   },
   {
     "artnavn": "Sjagger",
+    "lokalitet": "Nørre Snede",
+    "dato": "02-01-2026"
+  },
+  {
+    "artnavn": "Bomlærke",
     "lokalitet": "Nørre Snede",
     "dato": "02-01-2026"
   },
@@ -121,11 +131,6 @@
   },
   {
     "artnavn": "Pibesvane",
-    "lokalitet": "Nørre Snede",
-    "dato": "02-01-2026"
-  },
-  {
-    "artnavn": "Rød Glente",
     "lokalitet": "Nørre Snede",
     "dato": "02-01-2026"
   },
@@ -170,8 +175,28 @@
     "dato": "02-01-2026"
   },
   {
-    "artnavn": "Bomlærke",
+    "artnavn": "Blisgås",
     "lokalitet": "Nørre Snede",
-    "dato": "02-01-2026"
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Bramgås",
+    "lokalitet": "Nørre Snede",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Dobbeltbekkasin",
+    "lokalitet": "Nørre Snede",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Vindrossel",
+    "lokalitet": "Nørre Snede",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Grønsisken",
+    "lokalitet": "Nørre Snede",
+    "dato": "04-01-2026"
   }
 ]

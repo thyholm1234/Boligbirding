@@ -1,12 +1,27 @@
 [
   {
-    "artnavn": "Tårnfalk",
+    "artnavn": "Ringdue",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Tyrkerdue",
     "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Stor Flagspætte",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
     "artnavn": "Rødhals",
     "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Solsort",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
@@ -16,12 +31,32 @@
   },
   {
     "artnavn": "Blåmejse",
-    "lokalitet": "Lillering by/agerland",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Musvit",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Spætmejse",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Husskade",
+    "lokalitet": "Tåstrup Mose",
     "dato": "01-01-2026"
   },
   {
     "artnavn": "Skovspurv",
     "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Bogfinke",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
@@ -36,7 +71,67 @@
   },
   {
     "artnavn": "Dompap",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Kernebider",
     "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Tårnfalk",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Gærdesmutte",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Skovskade",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Gulspurv",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Skarv",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Knopsvane",
+    "lokalitet": "Tåstrup Sø",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Gråand",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Hvinand",
+    "lokalitet": "Tåstrup Sø",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Rød Glente",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Spurvehøg",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Dobbeltbekkasin",
+    "lokalitet": "Tåstrup Mose",
     "dato": "01-01-2026"
   },
   {
@@ -55,18 +150,18 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Ringdue",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Bjergpiber",
+    "lokalitet": "Tåstrup Mose",
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Tyrkerdue",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Fuglekonge",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Solsort",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Halemejse",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
@@ -75,8 +170,18 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Musvit",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Sortmejse",
+    "lokalitet": "Lillering Skov",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Træløber",
+    "lokalitet": "Tåstrup Mose",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Korttået Træløber",
+    "lokalitet": "Lillering Skov",
     "dato": "01-01-2026"
   },
   {
@@ -95,19 +200,14 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Bogfinke",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Grønsisken",
+    "lokalitet": "Tåstrup Mose",
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Kernebider",
-    "lokalitet": "Lillering by/agerland",
+    "artnavn": "Gråsisken",
+    "lokalitet": "Tåstrup Mose",
     "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Gærdesmutte",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "02-01-2026"
   },
   {
     "artnavn": "Jernspurv",
@@ -115,18 +215,18 @@
     "dato": "02-01-2026"
   },
   {
-    "artnavn": "Spætmejse",
+    "artnavn": "Musvåge",
     "lokalitet": "Lillering by/agerland",
-    "dato": "02-01-2026"
+    "dato": "04-01-2026"
   },
   {
-    "artnavn": "Skovskade",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "02-01-2026"
+    "artnavn": "Søkonge",
+    "lokalitet": "Århus Havn",
+    "dato": "04-01-2026"
   },
   {
-    "artnavn": "Gulspurv",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "02-01-2026"
+    "artnavn": "Klippedue",
+    "lokalitet": "Århus Havn",
+    "dato": "04-01-2026"
   }
 ]

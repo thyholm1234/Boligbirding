@@ -1,11 +1,21 @@
 [
   {
-    "artnavn": "Tårnfalk",
+    "artnavn": "Ringdue",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Tyrkerdue",
     "lokalitet": "Lillering by/agerland",
     "dato": "01-01-2026"
   },
   {
     "artnavn": "Rødhals",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Solsort",
     "lokalitet": "Lillering by/agerland",
     "dato": "01-01-2026"
   },
@@ -20,7 +30,17 @@
     "dato": "01-01-2026"
   },
   {
+    "artnavn": "Musvit",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
     "artnavn": "Skovspurv",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Bogfinke",
     "lokalitet": "Lillering by/agerland",
     "dato": "01-01-2026"
   },
@@ -40,6 +60,16 @@
     "dato": "01-01-2026"
   },
   {
+    "artnavn": "Kernebider",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Tårnfalk",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "01-01-2026"
+  },
+  {
     "artnavn": "Hættemåge",
     "lokalitet": "Lillering by/agerland",
     "dato": "01-01-2026"
@@ -55,27 +85,7 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Ringdue",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Tyrkerdue",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Solsort",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
     "artnavn": "Sumpmejse",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Musvit",
     "lokalitet": "Lillering by/agerland",
     "dato": "01-01-2026"
   },
@@ -95,27 +105,17 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Bogfinke",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Kernebider",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Gærdesmutte",
-    "lokalitet": "Lillering by/agerland",
-    "dato": "02-01-2026"
-  },
-  {
     "artnavn": "Jernspurv",
     "lokalitet": "Lillering by/agerland",
     "dato": "02-01-2026"
   },
   {
     "artnavn": "Spætmejse",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "02-01-2026"
+  },
+  {
+    "artnavn": "Gærdesmutte",
     "lokalitet": "Lillering by/agerland",
     "dato": "02-01-2026"
   },
@@ -128,5 +128,20 @@
     "artnavn": "Gulspurv",
     "lokalitet": "Lillering by/agerland",
     "dato": "02-01-2026"
+  },
+  {
+    "artnavn": "Musvåge",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Stor Flagspætte",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Husskade",
+    "lokalitet": "Lillering by/agerland",
+    "dato": "04-01-2026"
   }
 ]

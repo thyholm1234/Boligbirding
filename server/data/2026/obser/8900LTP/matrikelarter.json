@@ -1,11 +1,16 @@
 [
   {
-    "artnavn": "Skarv",
+    "artnavn": "Sangsvane",
     "lokalitet": "Neder Hornbæk v. Randers",
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Sangsvane",
+    "artnavn": "Gråand",
+    "lokalitet": "Neder Hornbæk v. Randers",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Skarv",
     "lokalitet": "Neder Hornbæk v. Randers",
     "dato": "01-01-2026"
   },
@@ -46,11 +51,6 @@
   },
   {
     "artnavn": "Krage",
-    "lokalitet": "Neder Hornbæk v. Randers",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Gråand",
     "lokalitet": "Neder Hornbæk v. Randers",
     "dato": "01-01-2026"
   },
@@ -183,5 +183,10 @@
     "artnavn": "Stær",
     "lokalitet": "Neder Hornbæk v. Randers",
     "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Svartbag",
+    "lokalitet": "Hornbæk Enge, v. Gudenåen",
+    "dato": "04-01-2026"
   }
 ]

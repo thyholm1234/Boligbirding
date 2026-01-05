@@ -1,42 +1,82 @@
 [
   {
-    "navn": "9520APS",
-    "obserkode": "9520APS",
-    "antal_arter": 40,
-    "sidste_art": "Gulspurv",
+    "navn": "8900LTP",
+    "obserkode": "8900LTP",
+    "antal_arter": 63,
+    "sidste_art": "Hvinand",
     "sidste_dato": "03-01-2026",
     "placering": 1
   },
   {
-    "navn": "6600JF",
-    "obserkode": "6600JF",
-    "antal_arter": 38,
-    "sidste_art": "Gulspurv",
-    "sidste_dato": "03-01-2026",
+    "navn": "8230ESB",
+    "obserkode": "8230ESB",
+    "antal_arter": 46,
+    "sidste_art": "Musvåge",
+    "sidste_dato": "04-01-2026",
     "placering": 2
   },
   {
-    "navn": "8900LTP",
-    "obserkode": "8900LTP",
-    "antal_arter": 37,
-    "sidste_art": "Stær",
+    "navn": "9520APS",
+    "obserkode": "9520APS",
+    "antal_arter": 40,
+    "sidste_art": "Skarv",
     "sidste_dato": "03-01-2026",
     "placering": 3
   },
   {
-    "navn": "Christian Vemmelund Helligsø",
-    "obserkode": "8220CVH",
-    "antal_arter": 30,
-    "sidste_art": "Gulspurv",
-    "sidste_dato": "03-01-2026",
+    "navn": "6600JF",
+    "obserkode": "6600JF",
+    "antal_arter": 40,
+    "sidste_art": "Grønspætte",
+    "sidste_dato": "04-01-2026",
     "placering": 4
   },
   {
-    "navn": "8230ESB",
-    "obserkode": "8230ESB",
-    "antal_arter": 26,
-    "sidste_art": "Gulspurv",
-    "sidste_dato": "02-01-2026",
+    "navn": "Christian Vemmelund Helligsø",
+    "obserkode": "8220CVH",
+    "antal_arter": 34,
+    "sidste_art": "Rødhals",
+    "sidste_dato": "04-01-2026",
     "placering": 5
+  },
+  {
+    "navn": "8960JODK",
+    "obserkode": "8960JODK",
+    "antal_arter": 7,
+    "sidste_art": "Fiskehejre",
+    "sidste_dato": "04-01-2026",
+    "placering": 6
+  },
+  {
+    "navn": "8240MDH",
+    "obserkode": "8240MDH",
+    "antal_arter": 0,
+    "sidste_art": "",
+    "sidste_dato": "",
+    "placering": 7
+  },
+  {
+    "navn": "6600JB",
+    "obserkode": "6600JB",
+    "antal_arter": 0,
+    "sidste_art": "",
+    "sidste_dato": "",
+    "placering": 8
+  },
+  {
+    "navn": "8240EKM",
+    "obserkode": "8240EKM",
+    "antal_arter": 0,
+    "sidste_art": "",
+    "sidste_dato": "",
+    "placering": 9
+  },
+  {
+    "navn": "8000KECL",
+    "obserkode": "8000KECL",
+    "antal_arter": 0,
+    "sidste_art": "",
+    "sidste_dato": "",
+    "placering": 10
   }
 ]

@@ -1,6 +1,6 @@
 [
   {
-    "artnavn": "Knopsvane",
+    "artnavn": "Lille Lappedykker",
     "lokalitet": "Voervadsbro",
     "dato": "01-01-2026"
   },
@@ -15,17 +15,27 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Rød Glente",
-    "lokalitet": "Voervadsbro",
-    "dato": "01-01-2026"
-  },
-  {
     "artnavn": "Musvåge",
     "lokalitet": "Voervadsbro",
     "dato": "01-01-2026"
   },
   {
     "artnavn": "Isfugl",
+    "lokalitet": "Voervadsbro",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Ravn",
+    "lokalitet": "Voervadsbro",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Knopsvane",
+    "lokalitet": "Voervadsbro",
+    "dato": "01-01-2026"
+  },
+  {
+    "artnavn": "Rød Glente",
     "lokalitet": "Voervadsbro",
     "dato": "01-01-2026"
   },
@@ -56,11 +66,6 @@
   },
   {
     "artnavn": "Kernebider",
-    "lokalitet": "Voervadsbro",
-    "dato": "01-01-2026"
-  },
-  {
-    "artnavn": "Lille Lappedykker",
     "lokalitet": "Voervadsbro",
     "dato": "01-01-2026"
   },
@@ -150,14 +155,14 @@
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Ravn",
+    "artnavn": "Skovspurv",
     "lokalitet": "Voervadsbro",
     "dato": "01-01-2026"
   },
   {
-    "artnavn": "Skovspurv",
+    "artnavn": "Gråand",
     "lokalitet": "Voervadsbro",
-    "dato": "01-01-2026"
+    "dato": "02-01-2026"
   },
   {
     "artnavn": "Sølvhejre",
@@ -171,11 +176,6 @@
   },
   {
     "artnavn": "Halemejse",
-    "lokalitet": "Voervadsbro",
-    "dato": "02-01-2026"
-  },
-  {
-    "artnavn": "Gråand",
     "lokalitet": "Voervadsbro",
     "dato": "02-01-2026"
   },
@@ -230,6 +230,11 @@
     "dato": "02-01-2026"
   },
   {
+    "artnavn": "Stor Skallesluger",
+    "lokalitet": "Voervadsbro",
+    "dato": "03-01-2026"
+  },
+  {
     "artnavn": "Fiskehejre",
     "lokalitet": "Voervadsbro",
     "dato": "03-01-2026"
@@ -241,11 +246,6 @@
   },
   {
     "artnavn": "Canadagås",
-    "lokalitet": "Voervadsbro",
-    "dato": "03-01-2026"
-  },
-  {
-    "artnavn": "Stor Skallesluger",
     "lokalitet": "Voervadsbro",
     "dato": "03-01-2026"
   },
@@ -263,5 +263,20 @@
     "artnavn": "Kvækerfinke",
     "lokalitet": "Voervadsbro",
     "dato": "03-01-2026"
+  },
+  {
+    "artnavn": "Kortnæbbet Gås",
+    "lokalitet": "Voervadsbro",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Stor Tornskade",
+    "lokalitet": "Voervadsbro",
+    "dato": "04-01-2026"
+  },
+  {
+    "artnavn": "Gulspurv",
+    "lokalitet": "Voervadsbro",
+    "dato": "04-01-2026"
   }
 ]
