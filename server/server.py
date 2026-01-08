@@ -5,6 +5,7 @@ import time
 import asyncio
 import datetime
 import secrets
+import math
 import hashlib
 import requests
 import pandas as pd
@@ -21,7 +22,10 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, String, Date, Integer, select
+from sqlalchemy import Column, String, Date, Integer, select, func
+
+from starlette.middleware.sessions import SessionMiddleware
+
 
 # ---------------------------------------------------------
 #  App & Database
@@ -31,7 +35,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SUPERADMIN = os.environ.get("SUPERADMIN", "")
 SUPERADMIN_PASSWORD = os.environ.get("SUPERADMIN_PASSWORD", "")
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./boligbirding.db")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 SessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -42,8 +46,19 @@ ROOT_DIR   = os.path.dirname(SERVER_DIR)                    # .../Boligbirding
 WEB_DIR    = os.path.join(ROOT_DIR, "web")                 # .../Boligbirding/web
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get("ADMIN_SECRET", secrets.token_hex(16)))
+SESSION_SECRET = os.environ.get("ADMIN_SECRET")
+if not SESSION_SECRET:
+    # Gør det eksplicit at produktion *kræver* en konstant nøgle
+    raise RuntimeError("ADMIN_SECRET mangler. Sæt en fælles, stærk nøgle i miljøet for alle workers.")
 
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    session_cookie=os.environ.get("SESSION_COOKIE", "bb_session"),
+    same_site="lax",            # eller "strict" hvis det passer din frontend
+    https_only=bool(int(os.environ.get("SESSION_HTTPS_ONLY", "1"))),
+    max_age=60*60*24*30,        # 30 dage - tilpas efter behov
+)
 # ---------------------------------------------------------
 #  Models
 # ---------------------------------------------------------
@@ -52,13 +67,22 @@ class Observation(Base):
     id         = Column(Integer, primary_key=True, index=True)
     obserkode  = Column(String, index=True)
     artnavn    = Column(String, index=True)
+    antal      = Column(Integer, nullable=True)
     dato       = Column(Date)
     turid      = Column(String, index=True)
+    obsid      = Column(String, index=True, nullable=True)
     turtidfra  = Column(String, nullable=True)
     turtidtil  = Column(String, nullable=True)
     turnoter   = Column(String, nullable=True)
-    afdeling   = Column(String, nullable=True)   # DOF_afdeling (CSV)
-    loknavn    = Column(String, nullable=True)   # Loknavn (CSV)
+    afdeling   = Column(String, nullable=True)
+    loknavn    = Column(String, nullable=True)
+
+class Lokation(Base):
+    __tablename__ = "lokationer"
+    id = Column(Integer, primary_key=True)
+    site_number = Column(Integer, index=True)
+    site_name = Column(String)
+    kommune_id = Column(Integer, index=True)
 
 class Obserkode(Base):
     __tablename__ = "obserkoder"
@@ -81,6 +105,7 @@ class User(Base):
     obserkode     = Column(String, unique=True, index=True)
     navn          = Column(String)
     lokalafdeling = Column(String, nullable=True)
+    kommune       = Column(String, nullable=True)
 
 class AdminPassword(Base):
     __tablename__ = "adminpassword"
@@ -121,6 +146,20 @@ def hash_password(p: str) -> str:
 def sanitize_text(s):
     """Tillad kun bogstaver, tal og mellemrum."""
     return re.sub(r'[^a-zA-ZæøåÆØÅ0-9 ]', '', str(s or ''))
+
+def resolve_filter_tag(filt: str, aar: int) -> str:
+    """
+    Returnerer filter-tagget, hvor #BB automatisk får tilføjet de to sidste cifre af årstallet.
+    """
+    if filt == "#BB":
+        return f"#BB{str(aar)[-2:]}"
+    return filt
+
+def safe_str(val):
+    # Konverterer nan og None til tom string
+    if val is None or (isinstance(val, float) and math.isnan(val)):
+        return ""
+    return str(val)
 
 # ---------------------------------------------------------
 #  Global filter & year
@@ -182,6 +221,7 @@ async def generate_user_lists(obserkode: str, aar: int):
         )
         obs = (await session.execute(q)).scalars().all()
         filt = await get_global_filter()
+    filt = resolve_filter_tag(filt, aar)
 
     # Global (alle)
     global_list = _firsts_from_obs(obs)
@@ -243,13 +283,20 @@ async def artdata(
     aar: int = Query(None, description="År (valgfri, default: global year)")
 ):
     """
-    Returnerer akkumuleret data + statistik for en art.
+    Returnerer akkumuleret data + statistik for en art,
+    samt observationer pr. turid pr. dag og sidste fund pr. matrikel.
     """
+    import unicodedata
     if aar is None:
         aar = await get_global_year()
     _, _, OBSER_DIR = get_data_dirs(aar)
     user_dirs = [os.path.join(OBSER_DIR, d) for d in os.listdir(OBSER_DIR) if os.path.isdir(os.path.join(OBSER_DIR, d))]
-    datoer = []
+    ankomstgraf = []
+    sidste_fund = []
+
+    artnavn_norm = unicodedata.normalize("NFC", artnavn.strip())
+
+    # 1. Akkumuleret statistik (ankomstgraf) og sidste fund pr. matrikel
     for user_dir in user_dirs:
         if scope == "matrikel":
             path = os.path.join(user_dir, "matrikelarter.json")
@@ -259,20 +306,69 @@ async def artdata(
             continue
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
+        # Ankomst pr. matrikel (første fund)
         for row in rows:
             navn = (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()
-            if navn == artnavn and row.get("dato"):
-                datoer.append(row["dato"])
+            navn_norm = unicodedata.normalize("NFC", navn)
+            if navn_norm == artnavn_norm and row.get("dato"):
+                ankomstgraf.append({
+                    "matrikel": os.path.basename(user_dir),
+                    "ankomst_dato": row["dato"]
+                })
                 break  # kun første gang brugeren får arten
 
-    # Lav akkumuleret optælling
-    datoer_dt = sorted([datetime.datetime.strptime(d, "%d-%m-%Y") for d in datoer])
-    out = []
-    counter = 0
-    for d in datoer_dt:
-        counter += 1
-        out.append({"dato": d.strftime("%d-%m-%Y"), "antal": counter})
-    return out  # <-- Tilføj denne linje!
+        # Sidste fund pr. matrikel (kun matrikel)
+        if scope == "matrikel":
+            datoer_fund = [
+                row["dato"] for row in rows
+                if unicodedata.normalize("NFC", (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()) == artnavn_norm and row.get("dato")
+            ]
+            if datoer_fund:
+                sidste = max(datoer_fund, key=lambda d: [int(x) for x in d.split('-')[::-1]])
+                sidste_fund.append({
+                    "matrikel": os.path.basename(user_dir),
+                    "sidste_dato": sidste
+                })
+
+    # 2. Observationer pr. turid pr. dag (kun for scope == "matrikel")
+    obs_per_turid = []
+    if scope == "matrikel":
+        async with SessionLocal() as session:
+            rows = (await session.execute(
+                select(
+                    Observation.dato,
+                    Observation.turid,
+                    func.sum(Observation.antal).label("antal")
+                )
+                .where(
+                    func.replace(func.replace(func.replace(Observation.artnavn, "(", ""), ")", ""), ",", "").ilike(f"%{artnavn}%"),
+                    Observation.dato >= datetime.date(aar, 1, 1),
+                    Observation.dato <= datetime.date(aar, 12, 31)
+                )
+                .group_by(Observation.dato, Observation.turid)
+            )).all()
+            # Saml alle observationer pr. dato
+            obs_by_date = {}
+            for row in rows:
+                d = row.dato.strftime("%d-%m-%Y") if row.dato else ""
+                if d not in obs_by_date:
+                    obs_by_date[d] = {"antal": 0, "turids": set()}
+                obs_by_date[d]["antal"] += row.antal or 0
+                obs_by_date[d]["turids"].add(row.turid)
+            # Lav ratio pr. dato
+            obs_per_turid = [
+                {
+                    "dato": d,
+                    "ratio": (v["antal"] / len(v["turids"])) if v["turids"] else 0
+                }
+                for d, v in sorted(obs_by_date.items())
+            ]
+
+    return {
+        "ankomstgraf": ankomstgraf,
+        "obs_per_turid": obs_per_turid,
+        "sidste_fund": sidste_fund
+    }
 
 # ---------------------------------------------------------
 #  Scoreboards (fra listerne)
@@ -448,24 +544,19 @@ async def generate_scoreboards_from_lists(aar: int):
 
 async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
     """
-    Henter observationer fra DOFbasen (CSV), indsætter ALLE rækker i DB for det valgte år,
-    og bygger derefter per-bruger lister + alle scoreboards.
-
-    VIGTIGT:
-    - Admin-filter (GlobalFilter) anvendes KUN til matrikel-listerne i generate_user_lists(...).
-      Her i fetch_and_store(...) bruger vi det kun til info-log—IKKE til at filtrere CSV -> DB.
+    Henter observationer fra DOFbasen (CSV), indsætter ALLE rækker i DB for det angivne år,
+    og bygger derefter per-bruger lister + scoreboards for det år.
     """
     import io
     import datetime
     import pandas as pd
     import requests
 
-    # 1) Fastlæg år + (kun informativt) aktuel globalt filter
     if aar is None:
         aar = await get_global_year()
     filter_ = await get_global_filter()
+    filter_tag = resolve_filter_tag(filter_, aar)
 
-    # 2) Forsøg HTTP-hentning fra DOFbasen
     url = (
         "https://dofbasen.dk/excel/search_result1.php"
         "?design=excel&soeg=soeg&periode=maanedaar"
@@ -475,11 +566,10 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
     )
     df = None
     try:
-        resp = requests.get(url, timeout=12)
+        resp = requests.get(url, timeout=30)
         resp.raise_for_status()
-        # DOFbasen CSV er latin1; separator ';'
         df = pd.read_csv(io.StringIO(resp.content.decode("latin1")), sep=";", dtype=str)
-        print(f"[INFO] Hentet {len(df)} rækker fra DOFbasen for {obserkode}/{aar}")
+        print(f"[INFO] Hentet {len(df)} rækker fra DOFbasen for {obserkode} ({aar})")
     except Exception as e:
         print(f"[WARN] HTTP-fejl ({e}) – prøver lokal CSV fallback...")
 
@@ -498,7 +588,7 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
                 except Exception as e:
                     print(f"[ERROR] Kunne ikke parse {p}: {e}")
 
-    # 4) Ingen data -> skriv tomme lister og scoreboards
+    # 4) Ingen data -> skriv tomme lister og scoreboards for det valgte år
     if df is None or df.empty:
         print(f"[ERROR] Ingen data til {obserkode}/{aar}. Skriver tomme lister.")
         await generate_user_lists(obserkode, aar)
@@ -506,36 +596,36 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
         return
 
     # 5) (INFO) Vis hvad admin-filter ville give—men ANVEND DET IKKE på CSV -> DB
-    if filter_:
+    if filter_tag:
         try:
             before = len(df)
-            after = len(df[df["Turnoter"].fillna("").str.contains(filter_)])
-            print(f"[INFO] (info) Filter '{filter_}': {before} -> {after} rækker (for {obserkode}) [ikke anvendt til DB]")
+            after = len(df[df["Turnoter"].fillna("").str.contains(filter_tag)])
+            print(f"[INFO] (info) Filter '{filter_tag}': {before} -> {after} rækker (for {obserkode}) [ikke anvendt til DB]")
         except Exception:
-            # Ignorér evt. manglende kolonner/format
             pass
 
-    # 6) Indsæt ALLE rækker i DB for året (ryddes først for brugeren)
+    # 6) Indsæt ALLE rækker i DB for det valgte år (rydder ALT for brugeren for det år) - batch-inserts
+    BATCH_SIZE = 25000
+    start_date = datetime.date(aar, 1, 1)
+    end_date = datetime.date(aar, 12, 31)
     async with SessionLocal() as session:
         await session.execute(
             Observation.__table__.delete().where(
                 Observation.obserkode == obserkode,
-                Observation.dato >= datetime.date(aar, 1, 1),
-                Observation.dato <= datetime.date(aar, 12, 31),
+                Observation.dato >= start_date,
+                Observation.dato <= end_date
             )
         )
         await session.commit()
 
         inserted = 0
+        batch = []
         for _, row in df.iterrows():
             raw_dato = (row.get("Dato", "") or "").strip()
             if not raw_dato:
                 continue
-            # Nogle CSV'er kan have tid efter dato—trim til 10 tegn
             if len(raw_dato) > 10:
                 raw_dato = raw_dato[:10]
-
-            # Robust dato-parsing (tillad både 'YYYY-MM-DD' og 'DD-MM-YYYY')
             dato = None
             for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
                 try:
@@ -543,41 +633,218 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
                     break
                 except Exception:
                     pass
-            if not dato:
+            if not dato or not (start_date <= dato <= end_date):
+                continue
+
+            antal = int(row.get("Antal", "") or 0)
+            if antal == 0:
                 continue
 
             obs = Observation(
-                obserkode=row.get("Obserkode", "") or obserkode,
-                artnavn=row.get("Artnavn", "") or "",
+                obserkode=safe_str(row.get("Obserkode", "") or obserkode),
+                artnavn=safe_str(row.get("Artnavn", "") or ""),
                 dato=dato,
-                turid=row.get("Turid"),
-                turtidfra=row.get("Turtidfra"),
-                turtidtil=row.get("Turtidtil"),
-                turnoter=row.get("Turnoter", "") or "",
-                afdeling=row.get("DOF_afdeling", "") or "",
-                loknavn=row.get("Loknavn", "") or "",
+                turid=safe_str(row.get("Turid")),
+                obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
+                turtidfra=safe_str(row.get("Turtidfra")),
+                turtidtil=safe_str(row.get("Turtidtil")),
+                turnoter=safe_str(row.get("Turnoter", "") or ""),
+                afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
+                loknavn=safe_str(row.get("Loknavn", "") or ""),
+                antal=antal
             )
-            session.add(obs)
+            batch.append(obs)
             inserted += 1
+            if len(batch) >= BATCH_SIZE:
+                session.add_all(batch)
+                await session.commit()
+                batch = []
+        if batch:
+            session.add_all(batch)
+            await session.commit()
+        print(f"[INFO] Indsat {inserted} observationer for {obserkode} ({aar})")
 
-        await session.commit()
-        print(f"[INFO] Indsat {inserted} observationer for {obserkode}/{aar}")
-
-    # 7) Pipeline: generér lister (matrikel-filter anvendes her) og byg scoreboards
+    # 7) Generér lister og scoreboards kun for det valgte år
     await generate_user_lists(obserkode, aar)
     await generate_scoreboards_from_lists(aar)
 
+async def fetch_and_store_sites_for_kommune(kommune_id: int):
+    url = f"https://statistik.dofbasen.dk/sites/group_{kommune_id}.json"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        sites = resp.json()
+    except Exception as e:
+        print(f"[ERROR] Kunne ikke hente sites for kommune {kommune_id}: {e}")
+        return
+
+    async with SessionLocal() as session:
+        # Slet eksisterende sites for denne kommune
+        await session.execute(
+            Lokation.__table__.delete().where(Lokation.kommune_id == kommune_id)
+        )
+        # Indsæt nye
+        for site in sites:
+            session.add(Lokation(
+                site_number=site["siteNumber"],
+                site_name=site["siteName"],
+                kommune_id=kommune_id
+            ))
+        await session.commit()
+    print(f"[INFO] Opdateret {len(sites)} lokationer for kommune {kommune_id}")
+
+async def update_all_kommuner_sites():
+    kommuner_path = os.path.join(SERVER_DIR, "kommuner.csv")
+    ids = []
+    with open(kommuner_path, encoding="utf-8") as f:
+        next(f)  # skip header
+        for line in f:
+            if ";" in line:
+                kommune_id = int(line.strip().split(";")[0])
+                ids.append(kommune_id)
+    for kommune_id in ids:
+        await fetch_and_store_sites_for_kommune(kommune_id)
+
+@app.post("/api/update_lokationer")
+async def update_lokationer(request: Request):
+    # Kun superadmin må opdatere lokationer
+    admin_koder = [k.strip() for k in os.environ.get("SUPERADMIN", "").split(",") if k.strip()]
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not (obserkode and obserkode in admin_koder):
+        raise HTTPException(status_code=403, detail="Kun superadmin kan opdatere lokationer")
+    await update_all_kommuner_sites()
+    return {"msg": "Alle lokationer opdateret"}
 
 async def daily_update_all_jsons():
-    """Opdater alle brugere: sync + build scoreboards."""
+    """
+    Daglig fuld synkronisering:
+    1. Hent og indsæt ALLE observationer for ALLE brugere (1900-NU) direkte.
+    2. Generér lister og scoreboards for ALLE år med data (cacher alle år).
+    """
+    import io
+    import datetime
+    import pandas as pd
+    import requests
+
+    BATCH_SIZE = 25000
+
+    # 1. Hent alle brugerkoder
     async with SessionLocal() as session:
         koder = [k.kode for k in (await session.execute(select(Obserkode))).scalars().all()]
-    aar = await get_global_year()
+
+    # 2. Hent og indsæt observationer for alle brugere (rydder ALT for brugeren først)
     for kode in koder:
-        print(f"[SYNC ALL] {kode}")
-        await fetch_and_store(kode, aar)
-        await asyncio.sleep(3)
-    print("[SYNC ALL] færdig")
+        print(f"[DAILY SYNC] Henter og indsætter observationer for {kode}")
+        url = (
+            "https://dofbasen.dk/excel/search_result1.php"
+            "?design=excel&soeg=soeg&periode=maanedaar"
+            f"&aar_first=1900&aar_second={datetime.datetime.now().year}"
+            "&obstype=observationer&species=alle"
+            f"&obserdata={kode}&sortering=dato"
+        )
+        df = None
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            df = pd.read_csv(io.StringIO(resp.content.decode("latin1")), sep=";", dtype=str)
+            print(f"[INFO] Hentet {len(df)} rækker fra DOFbasen for {kode} (1900-NU)")
+        except Exception as e:
+            print(f"[WARN] HTTP-fejl ({e}) – prøver lokal CSV fallback...")
+            df = None
+
+        # Lokal fallback (valgfri)
+        if df is None or df.empty:
+            candidates = [
+                os.path.join(ROOT_DIR, "search_result (3).csv"),
+                os.path.join(SERVER_DIR, "search_result (3).csv"),
+            ]
+            for p in candidates:
+                if os.path.exists(p):
+                    try:
+                        df = pd.read_csv(p, sep=";", dtype=str, encoding="latin1")
+                        print(f"[INFO] Lokal CSV: {len(df)} rækker fra {p}")
+                        break
+                    except Exception as e:
+                        print(f"[ERROR] Kunne ikke parse {p}: {e}")
+
+        # Indsæt i DB (ryd ALT for brugeren først) - nu med batch-inserts
+        async with SessionLocal() as session:
+            await session.execute(
+                Observation.__table__.delete().where(
+                    Observation.obserkode == kode
+                )
+            )
+            await session.commit()
+
+            inserted = 0
+            batch = []
+            if df is not None and not df.empty:
+                for _, row in df.iterrows():
+                    raw_dato = (row.get("Dato", "") or "").strip()
+                    if not raw_dato:
+                        continue
+                    if len(raw_dato) > 10:
+                        raw_dato = raw_dato[:10]
+                    dato = None
+                    for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+                        try:
+                            dato = datetime.datetime.strptime(raw_dato, fmt).date()
+                            break
+                        except Exception:
+                            pass
+                    if not dato:
+                        continue
+
+                    antal = int(row.get("Antal", "") or 0)
+                    if antal == 0:
+                        continue
+
+                    obs = Observation(
+                        obserkode=safe_str(row.get("Obserkode", "")),
+                        artnavn=safe_str(row.get("Artnavn", "") or ""),
+                        dato=dato,
+                        turid=safe_str(row.get("Turid")),
+                        obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
+                        turtidfra=safe_str(row.get("Turtidfra")),
+                        turtidtil=safe_str(row.get("Turtidtil")),
+                        turnoter=safe_str(row.get("Turnoter", "") or ""),
+                        afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
+                        loknavn=safe_str(row.get("Loknavn", "") or ""),
+                        antal=antal
+                    )
+                    batch.append(obs)
+                    inserted += 1
+                    if len(batch) >= BATCH_SIZE:
+                        session.add_all(batch)
+                        await session.commit()
+                        batch = []
+                if batch:
+                    session.add_all(batch)
+                    await session.commit()
+            print(f"[INFO] Indsat {inserted} observationer for {kode} (1900-NU)")
+
+    print("[DAILY SYNC] Alle observationer hentet og indsat.")
+
+    # 3. Find alle årstal med data på tværs af brugere
+    async with SessionLocal() as session:
+        years = (await session.execute(
+            select(func.extract("year", Observation.dato)).distinct()
+        )).scalars().all()
+        years = [int(y) for y in years if y is not None]
+
+        # Find alle brugere igen (til generate_user_lists)
+        brugere = [u.obserkode for u in (await session.execute(select(User))).scalars().all()]
+
+    # 4. Generér lister og scoreboards for alle år og alle brugere
+    for aar in sorted(years):
+        for kode in brugere:
+            await generate_user_lists(kode, aar)
+        await generate_scoreboards_from_lists(aar)
+        print(f"[DAILY SYNC] Scoreboards og lister genereret for {aar}")
+
+    print("[DAILY SYNC] Færdig med scoreboards og lister for alle år.")
+
 
 # ---------------------------------------------------------
 #  API: Admin
@@ -585,15 +852,16 @@ async def daily_update_all_jsons():
 @app.post("/api/admin_login")
 async def admin_login(request: Request, data: Dict[str, Any]):
     password = data.get("password", "")
-    async with SessionLocal() as session:
-        row = (await session.execute(select(AdminPassword).order_by(AdminPassword.id.desc()))).scalars().first()
+    session = request.session
+    async with SessionLocal() as dbsession:
+        row = (await dbsession.execute(select(AdminPassword).order_by(AdminPassword.id.desc()))).scalars().first()
         if not row:
-            session.add(AdminPassword(password_hash=hash_password(password)))
-            await session.commit()
-            request.session["is_admin"] = True
+            dbsession.add(AdminPassword(password_hash=hash_password(password)))
+            await dbsession.commit()
+            session["is_admin"] = True
             return {"ok": True, "first": True}
         if hash_password(password) == row.password_hash:
-            request.session["is_admin"] = True
+            session["is_admin"] = True
             return {"ok": True}
         return JSONResponse({"ok": False}, status_code=401)
 
@@ -601,18 +869,21 @@ async def admin_login(request: Request, data: Dict[str, Any]):
 async def adminlogin(request: Request, data: dict):
     kode = data.get("obserkode", "").strip()
     password = data.get("password", "")
+    session = request.session
     if kode == SUPERADMIN and password == SUPERADMIN_PASSWORD:
-        request.session["is_admin"] = True
+        session["is_admin"] = True
         return {"ok": True}
     return JSONResponse({"ok": False, "msg": "Forkert admin-login"}, status_code=401)
 
 @app.get("/api/is_admin")
 async def is_admin(request: Request):
-    return {"is_admin": bool(request.session.get("is_admin", False))}
+    session = request.session
+    return {"is_admin": bool(session.get("is_admin", False))}
 
 @app.post("/api/admin_logout")
 async def admin_logout(request: Request):
-    request.session.clear()
+    session = request.session
+    session.clear()
     return {"ok": True}
 
 @app.get("/api/obser_is_admin")
@@ -620,15 +891,16 @@ async def obser_is_admin(request: Request):
     """
     Returnér om brugeren er admin (tjekker både session, .env og database).
     """
-    obserkode = request.session.get("obserkode")
+    session = request.session
+    obserkode = session.get("obserkode")
     admin_koder = [k.strip() for k in os.environ.get("SUPERADMIN", "").split(",") if k.strip()]
     # Først: tjek om obserkode matcher admin_koder
     if obserkode and obserkode in admin_koder:
         return {"is_admin": True}
     # Ellers: tjek om bruger er markeret som admin i databasen
     if obserkode:
-        async with SessionLocal() as session:
-            user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        async with SessionLocal() as dbsession:
+            user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
             if user and getattr(user, "is_admin", False):
                 return {"is_admin": True}
     return {"is_admin": False}
@@ -660,27 +932,38 @@ async def get_year_api():
 @app.get("/api/obserkoder")
 async def get_obserkoder():
     async with SessionLocal() as session:
-        return [{"kode": k.kode} for k in (await session.execute(select(Obserkode))).scalars().all()]
+        return [
+            {"kode": u.obserkode, "navn": u.navn}
+            for u in (await session.execute(select(User))).scalars().all()
+        ]
 
 @app.post("/api/add_obserkode")
 async def add_obserkode(kode: str, request: Request):
-    if not request.session.get("is_admin"):
+    session = request.session
+    if not session.get("is_admin"):
         raise HTTPException(status_code=403, detail="Kun admin kan tilføje obserkoder")
-    async with SessionLocal() as session:
-        exists = (await session.execute(select(Obserkode).where(Obserkode.kode == kode))).scalar()
+    async with SessionLocal() as dbsession:
+        exists = (await dbsession.execute(select(Obserkode).where(Obserkode.kode == kode))).scalar()
         if exists:
             raise HTTPException(status_code=400, detail="Obserkode findes allerede")
-        session.add(Obserkode(kode=kode))
-        await session.commit()
-    return {"msg": "Obserkode tilføjet"}
+        dbsession.add(Obserkode(kode=kode))
+        # Opret også User hvis den ikke findes
+        user_exists = (await dbsession.execute(select(User).where(User.obserkode == kode))).scalar()
+        if not user_exists:
+            dbsession.add(User(obserkode=kode, navn=kode, lokalafdeling=None))
+        await dbsession.commit()
+    return {"msg": "Obserkode og bruger tilføjet"}
 
 @app.delete("/api/delete_obserkode")
 async def delete_obserkode(kode: str, request: Request):
-    if not request.session.get("is_admin"):
+    session = request.session
+    if not session.get("is_admin"):
         raise HTTPException(status_code=403, detail="Kun admin kan slette obserkoder")
     async with SessionLocal() as session:
+        # Tjek om brugeren findes i mindst én af tabellerne
         ok = (await session.execute(select(Obserkode).where(Obserkode.kode == kode))).scalar()
-        if not ok:
+        user = (await session.execute(select(User).where(User.obserkode == kode))).scalar()
+        if not ok and not user:
             raise HTTPException(status_code=404, detail="Obserkode ikke fundet")
         # Slet alle observationer
         await session.execute(Observation.__table__.delete().where(Observation.obserkode == kode))
@@ -697,36 +980,43 @@ async def delete_obserkode(kode: str, request: Request):
     save_grupper(grupper)
     return {"msg": "Obserkode, bruger og alle data slettet"}
 
+@app.get("/api/afdelinger")
+async def afdelinger():
+    def read_csv_names(filepath):
+        if not os.path.exists(filepath):
+            return []
+        with open(filepath, encoding="utf-8") as f:
+            lines = f.readlines()
+        # Skip header, return only 'navn' column
+        return [line.strip().split(";")[1] for line in lines[1:] if ";" in line]
+
+    kommuner_path = os.path.join(SERVER_DIR, "kommuner.csv")
+    afdelinger_path = os.path.join(SERVER_DIR, "lokalafdelinger.csv")
+
+    kommuner = read_csv_names(kommuner_path)
+    afdelinger = read_csv_names(afdelinger_path)
+
+    return {
+        "kommuner": kommuner,
+        "lokalafdelinger": afdelinger
+    }
+
 @app.get("/api/get_userprefs")
 async def get_userprefs(request: Request):
-    """
-    Returnér den aktuelle brugers navn, obserkode og valgte lokalafdeling fra databasen eller session.
-    """
-    # Prøv først session
-    afdeling = request.session.get("lokalafdeling")
-    obserkode = request.session.get("obserkode")
-    navn = request.session.get("navn")
-    if afdeling and obserkode and navn:
-        return {
-            "lokalafdeling": afdeling,
-            "obserkode": obserkode,
-            "navn": navn
-        }
-
-    # Ellers hent fra database
-    user_id = request.session.get("obserkode")
-    if not user_id:
-        return {"lokalafdeling": None, "obserkode": None, "navn": None}
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not obserkode:
+        return {"lokalafdeling": None, "kommune": None, "obserkode": None, "navn": None}
     async with SessionLocal() as session:
-        result = await session.execute(select(User).where(User.obserkode == user_id))
-        user = result.scalar_one_or_none()
+        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         if user:
             return {
                 "lokalafdeling": user.lokalafdeling,
+                "kommune": getattr(user, "kommune", None),
                 "obserkode": user.obserkode,
                 "navn": user.navn
             }
-    return {"lokalafdeling": None, "obserkode": None, "navn": None}
+    return {"lokalafdeling": None, "kommune": None, "obserkode": None, "navn": None}
 
 # ---------------------------------------------------------
 #  API: Sync
@@ -757,7 +1047,8 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     """
     Synkroniserer observationer for den aktuelle bruger (kræver login).
     """
-    obserkode = request.session.get("obserkode")
+    session = request.session
+    obserkode = session.get("obserkode")
     if not obserkode:
         raise HTTPException(status_code=401, detail="Ikke logget ind")
     if aar is None:
@@ -772,7 +1063,8 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
 async def api_firsts(payload: Dict[str, Any] = Body(...), request: Request = None):
     scope      = payload.get("scope", "global")  # "global" | "matrikel" | "lokalafdeling"
     afdeling   = payload.get("afdeling")
-    obserkode  = payload.get("obserkode") or (request.session.get("obserkode") if request else None)
+    session = request.session if request else None
+    obserkode  = payload.get("obserkode") or (session.get("obserkode") if session else None)
     aar        = payload.get("aar") or await get_global_year()
     if not obserkode:
         raise HTTPException(status_code=401, detail="Ingen obserkode angivet")
@@ -886,7 +1178,8 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
     - Grupper: alle + matrikel (samme format)
     Med debug-logging.
     """
-    obserkode = request.session.get("obserkode")
+    session = request.session
+    obserkode = session.get("obserkode")
     print("[DEBUG] Session obserkode:", obserkode)
     if not obserkode:
         raise HTTPException(status_code=401, detail="Ikke logget ind")
@@ -935,14 +1228,14 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         result["national_matrikel"] = None
 
     # Lokalafdeling (hent fra session eller database)
-    lokalafdeling = request.session.get("lokalafdeling")
+    lokalafdeling = session.get("lokalafdeling")
     print("[DEBUG] Session lokalafdeling:", lokalafdeling)
     if not lokalafdeling:
-        async with SessionLocal() as session:
-            user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        async with SessionLocal() as dbsession:
+            user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
             if user and user.lokalafdeling:
                 lokalafdeling = user.lokalafdeling
-                request.session["lokalafdeling"] = lokalafdeling
+                session["lokalafdeling"] = lokalafdeling
                 print("[DEBUG] Lokalafdeling hentet fra database:", lokalafdeling)
     if lokalafdeling:
         try:
@@ -1035,11 +1328,13 @@ login_attempts = defaultdict(list)
 
 @app.get("/api/is_logged_in")
 async def is_logged_in(request: Request):
-    return {"ok": bool(request.session.get("obserkode")), "lokalafdeling": request.session.get("lokalafdeling")}
+    session = request.session
+    return {"ok": bool(session.get("obserkode")), "lokalafdeling": session.get("lokalafdeling")}
 
+# filepath: [server.py](http://_vscodecontentref_/1)
 @app.post("/api/validate-login")
 async def validate_login(data: Dict[str, Any] = Body(...), request: Request = None):
-    obserkode   = data.get("obserkode")
+    obserkode   = (data.get("obserkode") or "").upper()
     adgangskode = data.get("adgangskode")
 
     # rate limit: max 5 / 10 min pr kode
@@ -1079,34 +1374,45 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
 
     # Gem/Opdater bruger
     async with SessionLocal() as session:
-        row = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar()
-        if row:
-            row.navn = navn or row.navn
+        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar()
+        if user:
+            if navn and user.navn != navn:
+                user.navn = navn
         else:
             session.add(User(obserkode=obserkode, navn=navn or obserkode))
+        # Sørg for at der også findes en Obserkode-række
+        ok = (await session.execute(select(Obserkode).where(Obserkode.kode == obserkode))).scalar()
+        if not ok:
             session.add(Obserkode(kode=obserkode))
         await session.commit()
 
     if request:
-        request.session["obserkode"]     = obserkode
-        request.session["navn"]          = navn
-        request.session["lokalafdeling"] = None
+        session = request.session
+        session["obserkode"]     = obserkode
+        session["navn"]          = navn
+        session["lokalafdeling"] = None
 
     return {"ok": True, "token": token, "navn": navn}
 
 @app.post("/api/set_afdeling")
-async def set_afdeling(data: Dict[str, Any] = Body(...), request: Request = None):
+async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
     lokalafdeling = data.get("lokalafdeling")
-    if not request or not request.session.get("obserkode"):
+    kommune = data.get("kommune")
+    if not request:
         raise HTTPException(status_code=401, detail="Ikke logget ind")
-    obserkode = request.session.get("obserkode")
-    async with SessionLocal() as session:
-        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar()
+    web_session = request.session
+    if not web_session.get("obserkode"):
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+    obserkode = web_session.get("obserkode")
+    async with SessionLocal() as dbsession:
+        user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
         user.lokalafdeling = lokalafdeling
-        await session.commit()
-    request.session["lokalafdeling"] = lokalafdeling
+        user.kommune = kommune
+        await dbsession.commit()
+    web_session["lokalafdeling"] = lokalafdeling
+    web_session["kommune"] = kommune
     return {"ok": True}
 
 # ---------------------------------------------------------
@@ -1206,14 +1512,16 @@ def find_gruppe(grupper, navn):
 @app.get("/api/get_grupper")
 async def get_grupper(request: Request):
     """Returnér alle grupper brugeren er medlem af."""
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     grupper = load_grupper()
     mine = [g for g in grupper if bruger and bruger in g["obserkoder"]]
     return mine
 
 @app.post("/api/create_gruppe")
 async def create_gruppe(request: Request, data: dict = Body(...)):
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     navn = sanitize_text(data.get("navn", "").strip())
     if not bruger or not navn:
         return JSONResponse({"ok": False, "msg": "Navn og login kræves"}, status_code=400)
@@ -1227,7 +1535,8 @@ async def create_gruppe(request: Request, data: dict = Body(...)):
 @app.post("/api/rename_gruppe")
 async def rename_gruppe(request: Request, data: dict = Body(...)):
     """Omdøb gruppe (kun hvis bruger er medlem)."""
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     gammel = sanitize_text(data.get("gammel_navn", "").strip())
     ny = sanitize_text(data.get("nyt_navn", "").strip())
     if not bruger or not gammel or not ny:
@@ -1245,7 +1554,8 @@ async def rename_gruppe(request: Request, data: dict = Body(...)):
 @app.post("/api/delete_gruppe")
 async def delete_gruppe(request: Request, data: dict = Body(...)):
     """Slet gruppe (kun hvis bruger er medlem)."""
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     navn = data.get("navn", "").strip()
     grupper = load_grupper()
     g = find_gruppe(grupper, navn)
@@ -1257,7 +1567,8 @@ async def delete_gruppe(request: Request, data: dict = Body(...)):
 
 @app.post("/api/add_gruppemedlem")
 async def add_gruppemedlem(request: Request, data: dict = Body(...)):
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     navn = sanitize_text(data.get("navn", "").strip())
     kode = sanitize_text(data.get("obserkode", "").strip())
     grupper = load_grupper()
@@ -1272,7 +1583,8 @@ async def add_gruppemedlem(request: Request, data: dict = Body(...)):
 @app.post("/api/remove_gruppemedlem")
 async def remove_gruppemedlem(request: Request, data: dict = Body(...)):
     """Fjern medlem fra gruppe (kun hvis bruger er medlem)."""
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     navn = data.get("navn", "").strip()
     kode = data.get("obserkode", "").strip()
     grupper = load_grupper()
@@ -1290,7 +1602,8 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
     Returnér scoreboard for en gruppe (global eller matrikel) + matrix-data.
     Body: { "navn": "Fuglehold", "scope": "gruppe_alle" | "gruppe_matrikel", "aar": 2026 }
     """
-    bruger = request.session.get("obserkode")
+    session = request.session
+    bruger = session.get("obserkode")
     navn = data.get("navn", "").strip()
     scope = data.get("scope")
     aar = data.get("aar") or await get_global_year()
@@ -1392,8 +1705,9 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
 # ---------------------------------------------------------
 from fastapi import Depends
 
-def require_admin(request: Request):
-    if not request.session.get("is_admin"):
+async def require_admin(request: Request):
+    session = request.session
+    if not session.get("is_admin"):
         raise HTTPException(status_code=403, detail="Kun admin adgang")
     return True
 

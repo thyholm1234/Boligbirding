@@ -1,4 +1,4 @@
-// Version: 1.3.63 - 2026-01-05 14.37.38
+// Version: 1.8.0 - 2026-01-08 01.25.05
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -38,6 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (data.lokalafdeling && document.getElementById('lokalafdeling')) {
         document.getElementById('lokalafdeling').value = data.lokalafdeling;
+      }
+      // Sæt kommune-dropdown hvis værdi findes
+      if (data.kommune && document.getElementById('kommune')) {
+        document.getElementById('kommune').value = data.kommune;
       }
     });
 
@@ -196,4 +200,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // HENT GRUPPER VED LOAD
   hentGrupper();
+
+  // Hent afdelinger og kommuner og opret dropdowns
+  fetch('/api/afdelinger')
+    .then(res => res.json())
+    .then(data => {
+      const afdelingForm = document.getElementById('afdelingForm');
+      if (afdelingForm) {
+        afdelingForm.innerHTML = `
+          <label for="lokalafdeling">Lokalafdeling:</label>
+          <select id="lokalafdeling" name="lokalafdeling" style="width:100%;margin-bottom:1em;">
+            <option value="">Vælg...</option>
+            ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
+          </select>
+          <label for="kommune">Kommune:</label>
+          <select id="kommune" name="kommune" style="width:100%;">
+            <option value="">Vælg...</option>
+            ${data.kommuner.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
+          </select>
+        `;
+      }
+
+      // Hent brugerpræferencer EFTER dropdowns er oprettet
+      fetch('/api/get_userprefs')
+        .then(res => res.json())
+        .then(data => {
+          if (data.lokalafdeling && document.getElementById('lokalafdeling')) {
+            document.getElementById('lokalafdeling').value = data.lokalafdeling;
+          }
+          if (data.kommune && document.getElementById('kommune')) {
+            document.getElementById('kommune').value = data.kommune;
+          }
+        });
+
+      // GEM VED ÆNDRING
+      const lokalafdelingInput = document.getElementById('lokalafdeling');
+      const kommuneInput = document.getElementById('kommune');
+      function gemAfdelingKommune() {
+        fetch('/api/set_afdeling', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lokalafdeling: lokalafdelingInput.value,
+            kommune: kommuneInput.value
+          })
+        });
+      }
+      if (lokalafdelingInput) lokalafdelingInput.addEventListener('change', gemAfdelingKommune);
+      if (kommuneInput) kommuneInput.addEventListener('change', gemAfdelingKommune);
+    });
 });

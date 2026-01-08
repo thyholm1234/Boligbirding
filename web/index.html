@@ -1,29 +1,28 @@
-<!-- Version: 1.3.63 - 2026-01-05 14.37.38 -->
+<!-- Version: 1.8.0 - 2026-01-08 01.25.05 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Boligbirding</title>
+  <title>FugleLiga</title>
   <!-- PWA: manifest + tema -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#2b7a78" />
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.3.63">
+  <link rel="stylesheet" href="style.css?v=1.8.0">
 </head>
 <body>
-<main style="max-width:500px;margin:40px auto;padding:1em 1em 1em 1em;background:var(--card-bg);border-radius:16px;box-shadow:var(--card-shadow);display:flex;flex-direction:column;align-items:center;">
+<main style="max-width:500px;margin:0px auto;padding:1em 1em 1em 1em;background:var(--card-bg);border-radius:16px;box-shadow:var(--card-shadow);display:flex;flex-direction:column;align-items:center;">
   
-  <button id="sync-btn" style="margin-bottom:1.2em;padding:0.7em 2.2em;font-size:1.12em;border-radius:8px;border:none;background:#2b7a78;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.07);cursor:pointer;transition:background 0.15s;">🔄 Synkronisér mine observationer</button>
+  <button id="sync-btn" style="margin-bottom:1.2em;padding:0.7em 2.2em;font-size:1.12em;border-radius:8px;border:none;background:#2b7a78;color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.07);cursor:pointer;transition:background 0.15s;">🔄 Synkronisér observationer</button>
 
   <!-- Info-kort om DOFbassen og #BB26 -->
   <div class="card" style="background:#e3f2fd;padding:1.2em 1em 1em 1em;margin-bottom:1.5em;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.07);width:100%;max-width:420px;">
-    <b>Sådan får du dine DOFbassen-observationer på listen:</b>
+    <b>Sådan får du dine matrikel-arter på listen:</b>
     <ul style="margin:0.7em 0 0.7em 1.2em;">
       <li>Tilføj tagget <b>#BB26</b> i turnoten på dine DOFbassen-observationer.</li>
-      <li>Systemet henter automatisk alle observationer med dette tag.</li>
     </ul>
     <div style="color:#1976d2;font-size:0.98em;margin-top:0.5em;">
       Listerne opdateres automatisk hver dag kl. 18:00.
@@ -32,120 +31,16 @@
 
   <!-- Resten af dine kort og indhold -->
 
-  <h1 style="text-align:center;margin-bottom:0.7em;">Mine lister</h1>
-  <div id="feed" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;padding-left: 20px;padding-right: 20px;"></div>
+  <h1 style="text-align:center;margin-bottom:0.7em;">Mine årslister</h1>
+  <div id="feed" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;padding-left: 0px;padding-right: 0px;"></div>
 </main>
-<script>
-  document.getElementById('sync-btn').onclick = async function() {
-    const btn = this;
-    btn.disabled = true;
-    btn.textContent = "Synkroniserer...";
-    try {
-      const res = await fetch('/api/sync_mine_observationer', { method: 'POST', credentials: 'include' });
-      const data = await res.json();
-      if (data.ok) {
-        btn.textContent = "✅ Synkroniseret!";
-        await hentStats();
-      } else {
-        btn.textContent = "Fejl i sync";
-        alert(data.msg || "Der opstod en fejl under synkronisering.");
-      }
-    } catch (e) {
-      btn.textContent = "Fejl i sync";
-      alert("Der opstod en fejl under synkronisering.");
-    }
-    setTimeout(() => {
-      btn.textContent = "🔄 Synkronisér mine observationer";
-      btn.disabled = false;
-    }, 1800);
-  };
-
-  async function hentStats() {
-    const res = await fetch('/api/user_scoreboard', { credentials: 'include' });
-    const data = await res.json();
-    let html = "";
-
-    // Grupper øverst
-    if (data.grupper && data.grupper.length) {
-      for (const g of data.grupper) {
-        html += `
-          <div class="card obserkode-card" style="margin-bottom:1.5em;padding:1.2em 1em;width:100%;">
-            <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
-              <span style="font-size:1.3em;">🏷️</span> ${g.navn}
-            </div>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <a class="card obserkode-card" href="/scoreboard.html?scope=gruppe_alle&gruppe=${encodeURIComponent(g.navn)}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-                <div>Alle: <b>${g.alle?.antal_arter ?? '-'}</b> arter</div>
-                <div>Placering <b>#${g.alle?.placering ?? '-'}</b></div>
-              </a>
-              <a class="card obserkode-card" href="/scoreboard.html?scope=gruppe_matrikel&gruppe=${encodeURIComponent(g.navn)}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-                <div>Matrikel: <b>${g.matrikel?.antal_arter ?? '-'}</b> arter</div>
-                <div>Placering <b>#${g.matrikel?.placering ?? '-'}</b></div>
-              </a>
-            </div>
-            <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
-              Seneste art: <span style="font-weight:500;">${g.alle?.sidste_art ?? '-'}</span> (${g.alle?.sidste_dato ?? '-'})
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    // Nationalt
-    html += `
-      <div class="card obserkode-card" style="margin-bottom:1.5em;padding:1.2em 1em;width:100%;">
-        <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
-          <span style="font-size:1.3em;">🇩🇰</span> Nationalt
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <a class="card obserkode-card" href="/scoreboard.html?scope=global_alle" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-            <div>Alle: <b>${data.national_alle?.antal_arter ?? '-'}</b> arter</div>
-            <div>Placering <b>#${data.national_alle?.placering ?? '-'}</b></div>
-          </a>
-          <a class="card obserkode-card" href="/scoreboard.html?scope=global_matrikel" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-            <div>Matrikel: <b>${data.national_matrikel?.antal_arter ?? '-'}</b> arter</div>
-            <div>Placering <b>#${data.national_matrikel?.placering ?? '-'}</b></div>
-          </a>
-        </div>
-        <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
-          Seneste art: <span style="font-weight:500;">${data.national_alle?.sidste_art ?? '-'}</span> (${data.national_alle?.sidste_dato ?? '-'})
-        </div>
-      </div>
-    `;
-
-    // Lokalafdeling
-    html += `
-      <div class="card obserkode-card" style="padding:1.2em 1em;width:100%;">
-        <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
-          <span style="font-size:1.3em;">🏠</span> Lokalafdeling
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <a class="card obserkode-card" href="/scoreboard.html?scope=lokalafdeling_alle" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-            <div>Alle: <b>${data.lokalafdeling_alle?.antal_arter ?? '-'}</b> arter</div>
-            <div>Placering <b>#${data.lokalafdeling_alle?.placering ?? '-'}</b></div>
-          </a>
-          <a class="card obserkode-card" href="/scoreboard.html?scope=lokalafdeling_matrikel" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
-            <div>Matrikel: <b>${data.lokalafdeling_matrikel?.antal_arter ?? '-'}</b> arter</div>
-            <div>Placering <b>#${data.lokalafdeling_matrikel?.placering ?? '-'}</b></div>
-          </a>
-        </div>
-        <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
-          Seneste art: <span style="font-weight:500;">${data.lokalafdeling_alle?.sidste_art ?? '-'}</span> (${data.lokalafdeling_alle?.sidste_dato ?? '-'})
-        </div>
-      </div>
-    `;
-
-    document.getElementById('feed').innerHTML = html;
-  }
-  hentStats();
-</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.3.63"></script>
-<script type="module" src="app.js?v=1.3.63"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.8.0"></script>
+<script type="module" src="app.js?v=1.8.0"></script>
 <script>
     // Registrér service worker når siden er loadet
     if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=1.3.63' /*, { scope: '/' } */)
+        navigator.serviceWorker.register('/sw.js?v=1.8.0' /*, { scope: '/' } */)
         .then(reg => console.log('Service Worker registreret:', reg.scope))
         .catch(err => console.error('SW registrering fejlede:', err));
     });

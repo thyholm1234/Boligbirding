@@ -1,4 +1,4 @@
-// Version: 1.3.63 - 2026-01-05 14.37.38
+// Version: 1.8.0 - 2026-01-08 01.25.05
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
@@ -11,7 +11,7 @@ async function hentObserkoder() {
         card.innerHTML = `
             <div class="card-top">
                 <div class="left">
-                    <b>${k.kode}</b>
+                    <b>${k.kode}</b>${k.navn ? ` <span class="muted">(${k.navn})</span>` : ""}
                 </div>
                 <div class="right admin-btn-wrap">
                     <button data-kode="${k.kode}" class="sync">Sync</button>
@@ -85,6 +85,21 @@ document.getElementById('syncAllBtn').onclick = async function() {
     }
 };
 
+document.getElementById('updateLokationerBtn').onclick = async function() {
+    const btn = this;
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = "Opdaterer lokationer...";
+    try {
+        const res = await fetch('/api/update_lokationer', { method: "POST" });
+        const data = await res.json();
+        btn.textContent = data.msg || "✓ Opdateret";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+    } catch (e) {
+        btn.textContent = "Fejl!";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+    }
+};
 
 // Admin-login funktionalitet
 async function checkAdmin() {

@@ -1,4 +1,4 @@
-// Version: 1.3.63 - 2026-01-05 14.37.38
+// Version: 1.8.0 - 2026-01-08 01.25.05
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -35,7 +35,7 @@ function linkHTML(href, label) {
 export function renderNavbar() {
   const navHtml = `
     <nav class="navbar">
-      <a class="navbar-title" href="/">BirdBox</a>
+      <a class="navbar-title" href="/">FugleLiga</a>
 
       <!-- DESKTOP -->
       <div class="navbar-links">
