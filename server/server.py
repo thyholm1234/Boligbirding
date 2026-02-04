@@ -19,6 +19,12 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Quer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
+from html import escape
+from passlib.context import CryptContext
+
+SAFE_OBSERKODE_RE = re.compile(r"^[A-Z0-9]{2,16}$")
+CSRF_HEADER = "x-csrf-token"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -141,7 +147,45 @@ def get_data_dirs(aar: int):
     return base, scoreboards, obser
 
 def hash_password(p: str) -> str:
-    return hashlib.sha256(p.encode("utf-8")).hexdigest()
+    return pwd_context.hash(p)
+
+def verify_password(password: str, hashed: str) -> bool:
+    if not hashed:
+        return False
+    if hashed.startswith("$2"):
+        return pwd_context.verify(password, hashed)
+    return hashlib.sha256(password.encode("utf-8")).hexdigest() == hashed
+
+def generate_csrf_token(session: dict) -> str:
+    token = secrets.token_hex(32)
+    session["csrf_token"] = token
+    return token
+
+def ensure_csrf(request: Request):
+    expected = request.session.get("csrf_token")
+    provided = request.headers.get(CSRF_HEADER)
+    if not expected or not provided or not secrets.compare_digest(expected, provided):
+        raise HTTPException(status_code=403, detail="CSRF-beskyttelse fejlede")
+    
+def normalize_obserkode(kode: str) -> str:
+    value = (kode or "").strip().upper()
+    if not SAFE_OBSERKODE_RE.fullmatch(value):
+        raise ValueError("Ugyldig obserkode")
+    return value
+
+def ensure_obserkode_access(request: Request, obserkode: str):
+    session = request.session
+    if session.get("is_admin"):
+        return
+    if session.get("obserkode") != obserkode:
+        raise HTTPException(status_code=403, detail="Ingen adgang til denne obserkode")
+
+def get_user_dir(aar: int, obserkode: str) -> str:
+    _, _, OBSER_DIR = get_data_dirs(aar)
+    return os.path.join(OBSER_DIR, normalize_obserkode(obserkode))
+
+def safe_output(value: str) -> str:
+    return escape(str(value or ""), quote=True)
 
 def sanitize_text(s):
     """Tillad kun bogstaver, tal og mellemrum."""
@@ -190,27 +234,34 @@ async def set_global_year(value: int):
 #  First lists (individuelle)
 # ---------------------------------------------------------
 def _firsts_from_obs(obs_iter: List[Observation]) -> List[Dict[str, Any]]:
-    """Første dato pr. hovedart, sorteret kronologisk."""
     firsts: Dict[str, Dict[str, Any]] = {}
     for o in obs_iter:
         navn = (o.artnavn or "").split('(')[0].split(',')[0].strip()
         if "sp." in navn or "/" in navn or " x " in navn:
             continue
         if navn not in firsts or o.dato < firsts[navn]["dato"]:
-            firsts[navn] = {"artnavn": navn, "lokalitet": o.loknavn or "", "dato": o.dato}
+            firsts[navn] = {
+                "artnavn": safe_output(navn),
+                "lokalitet": safe_output(o.loknavn or ""),
+                "dato": o.dato
+            }
     return sorted(
         (
-            {"artnavn": v["artnavn"], "lokalitet": v["lokalitet"], "dato": v["dato"].strftime("%d-%m-%Y")}
+            {
+                "artnavn": v["artnavn"],
+                "lokalitet": v["lokalitet"],
+                "dato": v["dato"].strftime("%d-%m-%Y")
+            }
             for v in firsts.values()
         ),
         key=lambda x: datetime.datetime.strptime(x["dato"], "%d-%m-%Y"),
     )
 
 async def generate_user_lists(obserkode: str, aar: int):
-    """Skriv globale, matrikel- og lokalafdelings-lister for brugeren (alle afdelinger)."""
+    obserkode = normalize_obserkode(obserkode)
     _, _, OBSER_DIR = get_data_dirs(aar)
     safe_makedirs(OBSER_DIR)
-    user_dir = os.path.join(OBSER_DIR, obserkode)
+    user_dir = get_user_dir(aar, obserkode)
     safe_makedirs(user_dir)
 
     async with SessionLocal() as session:
@@ -443,7 +494,10 @@ async def generate_scoreboards_from_lists(aar: int):
 
     # --- Brugere ---
     async with SessionLocal() as session:
-        users = (await session.execute(select(User))).scalars().all()
+        users = [
+            u for u in (await session.execute(select(User))).scalars().all()
+            if SAFE_OBSERKODE_RE.fullmatch(u.obserkode or "")
+        ]
 
     # ======================================================================
     # 1) MATRIIKEL: global_matrikel + lokalafdeling_matrikel
@@ -459,11 +513,11 @@ async def generate_scoreboards_from_lists(aar: int):
         L_m = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
         a, art, dato = _score_from_list(L_m)
         gm_rows.append({
-            "navn": u.navn or u.obserkode,
+            "navn": safe_output(u.navn or u.obserkode),
             "obserkode": u.obserkode,
             "antal_arter": a,
-            "sidste_art": art,
-            "sidste_dato": dato,
+            "sidste_art": safe_output(art),
+            "sidste_dato": safe_output(dato),
         })
         print(f"[SB-IN] {u.obserkode} global_matrikel: list={len(L_m)} -> antal={a}, sidste={art} @ {dato}")
 
@@ -551,6 +605,8 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
     import datetime
     import pandas as pd
     import requests
+
+    obserkode = normalize_obserkode(obserkode)
 
     if aar is None:
         aar = await get_global_year()
@@ -640,8 +696,13 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
             if antal == 0:
                 continue
 
+            row_obserkode = row.get("Obserkode", obserkode) or obserkode
+            try:
+                row_obserkode = normalize_obserkode(row_obserkode)
+            except ValueError:
+                row_obserkode = obserkode
             obs = Observation(
-                obserkode=safe_str(row.get("Obserkode", "") or obserkode),
+                obserkode=row_obserkode,
                 artnavn=safe_str(row.get("Artnavn", "") or ""),
                 dato=dato,
                 turid=safe_str(row.get("Turid")),
@@ -731,7 +792,11 @@ async def daily_update_all_jsons():
 
     # 1. Hent alle brugerkoder
     async with SessionLocal() as session:
-        koder = [k.kode for k in (await session.execute(select(Obserkode))).scalars().all()]
+        koder = [
+            normalize_obserkode(k.kode)
+            for k in (await session.execute(select(Obserkode))).scalars().all()
+            if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
+        ]
 
     # 2. Hent og indsæt observationer for alle brugere (rydder ALT for brugeren først)
     for kode in koder:
@@ -859,10 +924,15 @@ async def admin_login(request: Request, data: Dict[str, Any]):
             dbsession.add(AdminPassword(password_hash=hash_password(password)))
             await dbsession.commit()
             session["is_admin"] = True
-            return {"ok": True, "first": True}
-        if hash_password(password) == row.password_hash:
+            token = generate_csrf_token(session)
+            return {"ok": True, "first": True, "csrf_token": token}
+        if verify_password(password, row.password_hash):
+            if not row.password_hash.startswith("$2"):
+                row.password_hash = hash_password(password)
+                await dbsession.commit()
             session["is_admin"] = True
-            return {"ok": True}
+            token = generate_csrf_token(session)
+            return {"ok": True, "csrf_token": token}
         return JSONResponse({"ok": False}, status_code=401)
 
 @app.post("/api/adminlogin")
@@ -872,7 +942,8 @@ async def adminlogin(request: Request, data: dict):
     session = request.session
     if kode == SUPERADMIN and password == SUPERADMIN_PASSWORD:
         session["is_admin"] = True
-        return {"ok": True}
+        token = generate_csrf_token(session)
+        return {"ok": True, "csrf_token": token}
     return JSONResponse({"ok": False, "msg": "Forkert admin-login"}, status_code=401)
 
 @app.get("/api/is_admin")
@@ -1334,7 +1405,10 @@ async def is_logged_in(request: Request):
 # filepath: [server.py](http://_vscodecontentref_/1)
 @app.post("/api/validate-login")
 async def validate_login(data: Dict[str, Any] = Body(...), request: Request = None):
-    obserkode   = (data.get("obserkode") or "").upper()
+    try:
+        obserkode = normalize_obserkode(data.get("obserkode"))
+    except ValueError:
+        return {"ok": False, "error": "Ugyldig obserkode"}
     adgangskode = data.get("adgangskode")
 
     # rate limit: max 5 / 10 min pr kode
@@ -1391,8 +1465,11 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
         session["obserkode"]     = obserkode
         session["navn"]          = navn
         session["lokalafdeling"] = None
+        csrf_token = generate_csrf_token(session)
+    else:
+        csrf_token = None
 
-    return {"ok": True, "token": token, "navn": navn}
+    return {"ok": True, "token": token, "navn": navn, "csrf_token": csrf_token}
 
 @app.post("/api/set_afdeling")
 async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
@@ -1612,6 +1689,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
     if not g or bruger not in g["obserkoder"]:
         return JSONResponse({"ok": False, "msg": "Ingen adgang"}, status_code=403)
     # Find brugere i gruppen
+   
     koder = g["obserkoder"]
     _, SCOREBOARD_DIR, OBSER_DIR = get_data_dirs(aar)
     rows = []
