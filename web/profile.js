@@ -26,8 +26,8 @@ function formatNumber(value) {
   return num.toLocaleString('da-DK');
 }
 
-function renderYearList(years, user) {
-  const target = document.getElementById('year-list');
+function renderYearList(targetId, years, user, scope) {
+  const target = document.getElementById(targetId);
   if (!target) return;
   const filtered = (years || []).filter(y => {
     const count = Number.parseInt(y.count, 10);
@@ -39,7 +39,7 @@ function renderYearList(years, user) {
   }
   const rows = filtered.map(y => {
     const params = new URLSearchParams({
-      scope: 'user_global',
+      scope: scope,
       obserkode: user.obserkode || '',
       navn: user.navn || user.obserkode || '',
       aar: String(y.year)
@@ -121,7 +121,8 @@ async function loadProfile() {
       </div>
     `;
   }
-  renderYearList(data.years || [], user);
+  renderYearList('year-list', data.years || [], user, 'user_global');
+  renderYearList('matrikel-year-list', data.matrikel_years || [], user, 'user_matrikel');
 
   const chartGlobal = data.charts?.global_by_year || [];
   const chartMatrikel = data.charts?.matrikel_by_year || [];

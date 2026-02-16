@@ -1719,6 +1719,7 @@ async def profile_data(request: Request):
     year_dirs.sort()
 
     years = []
+    matrikel_years = []
     global_by_year: Dict[int, int] = {}
     matrikel_by_year: Dict[int, int] = {}
 
@@ -1731,8 +1732,10 @@ async def profile_data(request: Request):
         global_by_year[year] = gcount
 
         mlist = _load_json(os.path.join(user_dir, "matrikelarter.json"))
+        mcount = 0
         if mlist is not None:
-            matrikel_by_year[year] = len(mlist)
+            mcount = len(mlist)
+            matrikel_by_year[year] = mcount
 
         rank = None
         sb_path = os.path.join(data_root, str(year), "scoreboards", "global_alle", "scoreboard.json")
@@ -1744,6 +1747,16 @@ async def profile_data(request: Request):
 
         if gcount > 0:
             years.append({"year": year, "count": gcount, "rank": rank})
+
+        if mcount > 0:
+            rank_matrikel = None
+            sb_m_path = os.path.join(data_root, str(year), "scoreboards", "global_matrikel", "scoreboard.json")
+            sb_m_rows = _load_json(sb_m_path) or []
+            for row in sb_m_rows:
+                if row.get("obserkode") == obserkode:
+                    rank_matrikel = row.get("placering")
+                    break
+            matrikel_years.append({"year": year, "count": mcount, "rank": rank_matrikel})
 
     # Observationer pr. aar (fra DB)
     obs_by_year: Dict[int, int] = {}
@@ -1788,6 +1801,7 @@ async def profile_data(request: Request):
             }
         },
         "years": years,
+        "matrikel_years": matrikel_years,
         "charts": {
             "global_by_year": chart_global,
             "matrikel_by_year": chart_matrikel,
