@@ -1,4 +1,4 @@
-// Version: 1.8.15 - 2026-02-16 20.42.18
+// Version: 1.8.16 - 2026-02-16 21.02.23
 // © Christian Vemmelund Helligsø
 
 
@@ -11,6 +11,7 @@ initMobileNavbar();
 // ---------- Global state ----------
 let lastScoreboardParams = null;
 let firstsSortMode = "alphabetical"; // "alphabetical" | "newest" | "oldest"
+let cachedGlobalYear = null;
 
 // Snapshot af originale data pr. scope/gruppe (til robust filtrering)
 let masterData = null;            // { rows, koder, matrix, totals, arter }
@@ -26,6 +27,89 @@ function parseDmyToTime(value) {
   const date = new Date(year, month - 1, day);
   const time = date.getTime();
   return Number.isNaN(time) ? 0 : time;
+}
+
+async function ensureGlobalYear() {
+  if (cachedGlobalYear) return cachedGlobalYear;
+  try {
+    const res = await fetch('/api/get_year');
+    const data = await res.json();
+    if (data && data.year) {
+      cachedGlobalYear = Number(data.year);
+      return cachedGlobalYear;
+    }
+  } catch (err) {
+    console.warn('Kunne ikke hente aktuelt år:', err);
+  }
+  cachedGlobalYear = new Date().getFullYear();
+  return cachedGlobalYear;
+}
+
+function shouldShowYearSelector(params) {
+  return String(params.aar) !== "global";
+}
+
+function getSelectedYear(params) {
+  const parsed = Number.parseInt(params.aar, 10);
+  if (!Number.isNaN(parsed) && String(params.aar) !== "global") return parsed;
+  if (cachedGlobalYear) return cachedGlobalYear;
+  return new Date().getFullYear();
+}
+
+function createYearSelector(params) {
+  if (!shouldShowYearSelector(params)) return null;
+
+  const selectedYear = getSelectedYear(params);
+  const minYear = 2022;
+  const maxYear = Math.max(minYear, selectedYear);
+  const years = [];
+  for (let y = maxYear; y >= minYear; y--) years.push(y);
+
+  const wrap = document.createElement("div");
+  wrap.id = "yearSelectWrap";
+  wrap.style.display = "flex";
+  wrap.style.alignItems = "center";
+  wrap.style.gap = "0.5em";
+
+  const label = document.createElement("label");
+  label.htmlFor = "yearSelect";
+  label.textContent = "År:";
+
+  const select = document.createElement("select");
+  select.id = "yearSelect";
+  select.style.padding = "0.4em 0.6em";
+  select.innerHTML = years
+    .map(y => `<option value="${y}" ${y === selectedYear ? "selected" : ""}>${y}</option>`)
+    .join("\n");
+
+  select.addEventListener("change", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set("aar", select.value);
+    window.history.replaceState({}, "", "?" + urlParams.toString());
+    visSide();
+  });
+
+  wrap.appendChild(label);
+  wrap.appendChild(select);
+  return wrap;
+}
+
+function insertYearSelectorRow(params, container) {
+  if (!container) return;
+  const existing = container.querySelector('#scoreboard-year-row');
+  if (existing) existing.remove();
+
+  const yearSelector = createYearSelector(params);
+  if (!yearSelector) return;
+
+  const row = document.createElement("div");
+  row.id = "scoreboard-year-row";
+  row.style.display = "flex";
+  row.style.justifyContent = "center";
+  row.style.margin = "1em 0";
+  row.appendChild(yearSelector);
+
+  container.prepend(row);
 }
 
 // Hent grupper til navbar
@@ -86,6 +170,7 @@ async function visSide() {
   // ------- SCOREBOARD -------
   if (!params.scope || !params.scope.startsWith("user_")) {
     lastScoreboardParams = params;
+    await ensureGlobalYear();
 
     // Gem et master-snapshot som basis for al filtrering
     masterData = {
@@ -125,6 +210,10 @@ async function visSide() {
         Sidste art: ${row.sidste_art ? row.sidste_art + (row.sidste_dato ? " (" + row.sidste_dato + ")" : "") : ""}
       </div>
     `).join("");
+
+    if (!params.scope || !params.scope.startsWith("gruppe_")) {
+      insertYearSelectorRow(params, container);
+    }
 
     // Filter-knap for grupper
     if (params.scope && params.scope.startsWith("gruppe_")) {
@@ -697,6 +786,10 @@ function tilføjGruppeFilterKnappen(data, params, container) {
   // Undgå duplikat
   const existing = container.querySelector('#gruppeFilterBtn');
   if (existing) existing.remove();
+  const existingYearWrap = container.querySelector('#yearSelectWrap');
+  if (existingYearWrap) existingYearWrap.remove();
+  const existingRow = container.querySelector('#scoreboard-year-row');
+  if (existingRow) existingRow.remove();
 
   const filterBtn = document.createElement("button");
   filterBtn.id = "gruppeFilterBtn";
@@ -708,7 +801,12 @@ function tilføjGruppeFilterKnappen(data, params, container) {
   const wrapper = document.createElement("div");
   wrapper.style.display = "flex";
   wrapper.style.justifyContent = "center";
+  wrapper.style.gap = "0.75em";
+  wrapper.style.flexWrap = "wrap";
   wrapper.appendChild(filterBtn);
+
+  const yearSelector = createYearSelector(params);
+  if (yearSelector) wrapper.appendChild(yearSelector);
 
   container.prepend(wrapper);
 }
