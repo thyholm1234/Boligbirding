@@ -177,11 +177,8 @@ async function loadCurrentUser() {
 
 // Main initialization
 const queryObserkode = getQueryParam('obserkode');
-const searchContainer = document.getElementById('search-container');
 const statisticsContent = document.getElementById('statistics-content');
 
-// Always show search bar and statistics content
-searchContainer.style.display = 'block';
 statisticsContent.style.display = 'block';
 initSearch();
 

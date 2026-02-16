@@ -10,16 +10,16 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.8.17"></script>
 </head>
 <body>
-  <div id="search-container" class="card" style="margin-bottom: 1em;">
-    <h3>Søg efter observatør</h3>
-    <div style="display: flex; gap: 0.5em;">
-      <input type="text" id="obserkode-input" placeholder="Skriv obserkode..." style="flex: 1; padding: 0.5em; border: 1px solid var(--border); border-radius: 0.25em;">
-      <button id="search-btn" style="padding: 0.5em 1em; background: var(--primary); color: white; border: none; border-radius: 0.25em; cursor: pointer;">Søg</button>
-    </div>
-  </div>
-
   <div id="statistics-content">
     <h1>Statistik</h1>
+    
+    <div id="search-container" class="card" style="margin-bottom: 1.5em; padding: 1em;">
+      <div style="display: flex; gap: 0.5em; align-items: center;">
+        <input type="text" id="obserkode-input" placeholder="Søg efter observatør..." style="flex: 1; padding: 0.5em; border: 1px solid var(--border); border-radius: 0.25em;">
+        <button id="search-btn" style="padding: 0.5em 1em; background: var(--primary); color: white; border: none; border-radius: 0.25em; cursor: pointer;">Søg</button>
+      </div>
+    </div>
+
     <div id="profile-header" class="card profile-card"></div>
 
   <div class="profile-chart-stack">
