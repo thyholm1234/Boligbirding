@@ -1,4 +1,4 @@
-// Version: 1.8.11 - 2026-02-16 20.20.22
+// Version: 1.8.12 - 2026-02-16 20.36.46
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -40,9 +40,9 @@ export function renderNavbar() {
       <!-- DESKTOP -->
       <div class="navbar-links">
 
-        <!-- Krydslister -->
+        <!-- Årskrydslister -->
         <div class="dropdown" id="dd-krydslister">
-          <button class="nav-link" type="button">Krydslister</button>
+          <button class="nav-link" type="button">Årskrydslister</button>
           <div class="dropdown-content" style="min-width: 300px;">
             <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
             <div class="js-gruppe-alle"></div>
@@ -55,9 +55,9 @@ export function renderNavbar() {
           </div>
         </div>
 
-        <!-- Matrikellister -->
+        <!-- Årsmatriklister -->
         <div class="dropdown" id="dd-matrikellister">
-          <button class="nav-link" type="button">Matrikellister</button>
+          <button class="nav-link" type="button">Årsmatriklister</button>
           <div class="dropdown-content" style="min-width: 300px;">
             <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
             <div class="js-gruppe-matrikel"></div>
@@ -67,6 +67,36 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-matrikel"></div>
+          </div>
+        </div>
+
+        <!-- Krydslister (all time) -->
+        <div class="dropdown" id="dd-krydslister-alltime">
+          <button class="nav-link" type="button">Krydslister</button>
+          <div class="dropdown-content" style="min-width: 300px;">
+            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
+            <div class="js-gruppe-alle-alltime"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
+            ${linkHTML('?scope=global_alle&aar=global', 'Danmark')}
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
+            <div class="js-afdeling-alle-alltime"></div>
+          </div>
+        </div>
+
+        <!-- Matrikellister (all time) -->
+        <div class="dropdown" id="dd-matrikellister-alltime">
+          <button class="nav-link" type="button">Matrikellister</button>
+          <div class="dropdown-content" style="min-width: 300px;">
+            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
+            <div class="js-gruppe-matrikel-alltime"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
+            ${linkHTML('?scope=global_matrikel&aar=global', 'Danmark')}
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
+            <div class="js-afdeling-matrikel-alltime"></div>
           </div>
         </div>
 
@@ -95,9 +125,9 @@ export function renderNavbar() {
           <!-- Forside -->
           <button class="nav-link" onclick="location.href='/index.html'" type="button">Forside</button>
 
-          <!-- Krydslister (mobil) -->
+          <!-- Årskrydslister (mobil) -->
           <div class="dropdown">
-            <button class="nav-link" type="button">Krydslister</button>
+            <button class="nav-link" type="button">Årskrydslister</button>
             <div class="dropdown-content" style="padding:10px;">
               <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
               <div class="js-gruppe-alle"></div>
@@ -108,9 +138,9 @@ export function renderNavbar() {
             </div>
           </div>
 
-          <!-- Matrikellister (mobil) -->
+          <!-- Årsmatriklister (mobil) -->
           <div class="dropdown">
-            <button class="nav-link" type="button">Matrikellister</button>
+            <button class="nav-link" type="button">Årsmatriklister</button>
             <div class="dropdown-content" style="padding:10px;">
               <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
               <div class="js-gruppe-matrikel"></div>
@@ -118,6 +148,32 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_matrikel', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-matrikel"></div>
+            </div>
+          </div>
+
+          <!-- Krydslister (all time, mobil) -->
+          <div class="dropdown">
+            <button class="nav-link" type="button">Krydslister</button>
+            <div class="dropdown-content" style="padding:10px;">
+              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
+              <div class="js-gruppe-alle-alltime"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
+              ${linkHTML('?scope=global_alle&aar=global', 'Danmark')}
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
+              <div class="js-afdeling-alle-alltime"></div>
+            </div>
+          </div>
+
+          <!-- Matrikellister (all time, mobil) -->
+          <div class="dropdown">
+            <button class="nav-link" type="button">Matrikellister</button>
+            <div class="dropdown-content" style="padding:10px;">
+              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
+              <div class="js-gruppe-matrikel-alltime"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
+              ${linkHTML('?scope=global_matrikel&aar=global', 'Danmark')}
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
+              <div class="js-afdeling-matrikel-alltime"></div>
             </div>
           </div>
         
@@ -314,6 +370,13 @@ export function addGruppeLinks(grupper) {
       }).join('')
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen grupper</span>`;
 
+  const htmlAlleAllTime = items.length
+    ? items.map(it => {
+        const enc = encodeURIComponent(it.navn);
+        return linkHTML(`?scope=gruppe_alle&gruppe=${enc}&aar=global`, it.navn);
+      }).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen grupper</span>`;
+
   const htmlMatrikel = items.length
     ? items.map(it => {
         const enc = encodeURIComponent(it.navn);
@@ -321,9 +384,18 @@ export function addGruppeLinks(grupper) {
       }).join('')
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen grupper</span>`;
 
+  const htmlMatrikelAllTime = items.length
+    ? items.map(it => {
+        const enc = encodeURIComponent(it.navn);
+        return linkHTML(`?scope=gruppe_matrikel&gruppe=${enc}&aar=global`, it.navn);
+      }).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen grupper</span>`;
+
   // Skriv til alle containere (desktop + mobil)
   document.querySelectorAll('.js-gruppe-alle').forEach(c => c.innerHTML = htmlAlle);
   document.querySelectorAll('.js-gruppe-matrikel').forEach(c => c.innerHTML = htmlMatrikel);
+  document.querySelectorAll('.js-gruppe-alle-alltime').forEach(c => c.innerHTML = htmlAlleAllTime);
+  document.querySelectorAll('.js-gruppe-matrikel-alltime').forEach(c => c.innerHTML = htmlMatrikelAllTime);
 }
 
 // -----------------------------------------------------
@@ -347,6 +419,13 @@ export function addAfdelingerLinks(afdelinger) {
       }).join('')
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen lokalafdelinger</span>`;
 
+  const htmlAlleAllTime = items.length
+    ? items.map(it => {
+        const enc = encodeURIComponent(it.navn);
+        return linkHTML(`?scope=lokal_alle&afdeling=${enc}&aar=global`, it.navn);
+      }).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen lokalafdelinger</span>`;
+
   const htmlMatrikel = items.length
     ? items.map(it => {
         const enc = encodeURIComponent(it.navn);
@@ -354,7 +433,16 @@ export function addAfdelingerLinks(afdelinger) {
       }).join('')
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen lokalafdelinger</span>`;
 
+  const htmlMatrikelAllTime = items.length
+    ? items.map(it => {
+        const enc = encodeURIComponent(it.navn);
+        return linkHTML(`?scope=lokal_matrikel&afdeling=${enc}&aar=global`, it.navn);
+      }).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen lokalafdelinger</span>`;
+
   // Skriv til alle containere (desktop + mobil)
   document.querySelectorAll('.js-afdeling-alle').forEach(c => c.innerHTML = htmlAlle);
   document.querySelectorAll('.js-afdeling-matrikel').forEach(c => c.innerHTML = htmlMatrikel);
+  document.querySelectorAll('.js-afdeling-alle-alltime').forEach(c => c.innerHTML = htmlAlleAllTime);
+  document.querySelectorAll('.js-afdeling-matrikel-alltime').forEach(c => c.innerHTML = htmlMatrikelAllTime);
 }
