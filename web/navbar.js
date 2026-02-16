@@ -107,8 +107,7 @@ export function renderNavbar() {
         <div class="dropdown" id="dd-profil">
           <button class="nav-link" type="button">Profil</button>
           <div class="dropdown-content" style="min-width: 220px;">
-            ${linkHTML('/profile.html', 'Profil')}
-            ${linkHTML('/observationer.html', 'Observationer')}
+            ${linkHTML('/statistik.html', 'Statistik')}
             ${linkHTML('/settings.html', 'Indstillinger')}
           </div>
         </div>
@@ -191,7 +190,7 @@ export function renderNavbar() {
         <div class="dropdown">
           <button class="nav-link" type="button">Profil</button>
           <div class="dropdown-content" style="padding:10px;">
-            ${linkHTML('/profile.html', 'Profil')}
+            ${linkHTML('/statistik.html', 'Statistik')}
             ${linkHTML('/observationer.html', 'Observationer')}
             ${linkHTML('/settings.html', 'Indstillinger')}
           </div>
