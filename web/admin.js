@@ -1,4 +1,4 @@
-// Version: 1.8.12 - 2026-02-16 20.36.46
+// Version: 1.8.13 - 2026-02-16 20.39.49
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');

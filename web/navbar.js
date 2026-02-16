@@ -1,4 +1,4 @@
-// Version: 1.8.12 - 2026-02-16 20.36.46
+// Version: 1.8.13 - 2026-02-16 20.39.49
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -40,36 +40,6 @@ export function renderNavbar() {
       <!-- DESKTOP -->
       <div class="navbar-links">
 
-        <!-- Årskrydslister -->
-        <div class="dropdown" id="dd-krydslister">
-          <button class="nav-link" type="button">Årskrydslister</button>
-          <div class="dropdown-content" style="min-width: 300px;">
-            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
-            <div class="js-gruppe-alle"></div>
-
-            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
-            ${linkHTML('?scope=global_alle', 'Danmark')}
-
-            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
-            <div class="js-afdeling-alle"></div>
-          </div>
-        </div>
-
-        <!-- Årsmatriklister -->
-        <div class="dropdown" id="dd-matrikellister">
-          <button class="nav-link" type="button">Årsmatriklister</button>
-          <div class="dropdown-content" style="min-width: 300px;">
-            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
-            <div class="js-gruppe-matrikel"></div>
-
-            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
-            ${linkHTML('?scope=global_matrikel', 'Danmark')}
-
-            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
-            <div class="js-afdeling-matrikel"></div>
-          </div>
-        </div>
-
         <!-- Krydslister (all time) -->
         <div class="dropdown" id="dd-krydslister-alltime">
           <button class="nav-link" type="button">Krydslister</button>
@@ -85,6 +55,21 @@ export function renderNavbar() {
           </div>
         </div>
 
+        <!-- Årskrydslister -->
+        <div class="dropdown" id="dd-krydslister">
+          <button class="nav-link" type="button">Årskrydslister</button>
+          <div class="dropdown-content" style="min-width: 300px;">
+            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
+            <div class="js-gruppe-alle"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
+            ${linkHTML('?scope=global_alle', 'Danmark')}
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
+            <div class="js-afdeling-alle"></div>
+          </div>
+        </div>
+
         <!-- Matrikellister (all time) -->
         <div class="dropdown" id="dd-matrikellister-alltime">
           <button class="nav-link" type="button">Matrikellister</button>
@@ -97,6 +82,21 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-matrikel-alltime"></div>
+          </div>
+        </div>
+
+        <!-- Årsmatriklister -->
+        <div class="dropdown" id="dd-matrikellister">
+          <button class="nav-link" type="button">Årsmatriklister</button>
+          <div class="dropdown-content" style="min-width: 300px;">
+            <div class="muted" style="padding:8px 16px;font-weight:700;">Mine grupper</div>
+            <div class="js-gruppe-matrikel"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Danmark</div>
+            ${linkHTML('?scope=global_matrikel', 'Danmark')}
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
+            <div class="js-afdeling-matrikel"></div>
           </div>
         </div>
 
@@ -125,32 +125,6 @@ export function renderNavbar() {
           <!-- Forside -->
           <button class="nav-link" onclick="location.href='/index.html'" type="button">Forside</button>
 
-          <!-- Årskrydslister (mobil) -->
-          <div class="dropdown">
-            <button class="nav-link" type="button">Årskrydslister</button>
-            <div class="dropdown-content" style="padding:10px;">
-              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
-              <div class="js-gruppe-alle"></div>
-              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
-              ${linkHTML('?scope=global_alle', 'Danmark')}
-              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
-              <div class="js-afdeling-alle"></div>
-            </div>
-          </div>
-
-          <!-- Årsmatriklister (mobil) -->
-          <div class="dropdown">
-            <button class="nav-link" type="button">Årsmatriklister</button>
-            <div class="dropdown-content" style="padding:10px;">
-              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
-              <div class="js-gruppe-matrikel"></div>
-              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
-              ${linkHTML('?scope=global_matrikel', 'Danmark')}
-              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
-              <div class="js-afdeling-matrikel"></div>
-            </div>
-          </div>
-
           <!-- Krydslister (all time, mobil) -->
           <div class="dropdown">
             <button class="nav-link" type="button">Krydslister</button>
@@ -164,6 +138,19 @@ export function renderNavbar() {
             </div>
           </div>
 
+          <!-- Årskrydslister (mobil) -->
+          <div class="dropdown">
+            <button class="nav-link" type="button">Årskrydslister</button>
+            <div class="dropdown-content" style="padding:10px;">
+              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
+              <div class="js-gruppe-alle"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
+              ${linkHTML('?scope=global_alle', 'Danmark')}
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
+              <div class="js-afdeling-alle"></div>
+            </div>
+          </div>
+
           <!-- Matrikellister (all time, mobil) -->
           <div class="dropdown">
             <button class="nav-link" type="button">Matrikellister</button>
@@ -174,6 +161,19 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_matrikel&aar=global', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-matrikel-alltime"></div>
+            </div>
+          </div>
+
+          <!-- Årsmatriklister (mobil) -->
+          <div class="dropdown">
+            <button class="nav-link" type="button">Årsmatriklister</button>
+            <div class="dropdown-content" style="padding:10px;">
+              <div class="muted" style="padding:8px 0 4px 0;font-weight:700;">Mine grupper</div>
+              <div class="js-gruppe-matrikel"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Danmark</div>
+              ${linkHTML('?scope=global_matrikel', 'Danmark')}
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
+              <div class="js-afdeling-matrikel"></div>
             </div>
           </div>
         
