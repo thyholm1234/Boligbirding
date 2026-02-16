@@ -148,8 +148,6 @@ function initSearch() {
   const input = document.getElementById('obserkode-input');
   const btn = document.getElementById('search-btn');
 
-  searchContainer.style.display = 'block';
-
   btn.addEventListener('click', () => {
     const value = input.value.trim();
     if (value) {
@@ -164,16 +162,37 @@ function initSearch() {
   });
 }
 
+async function loadCurrentUser() {
+  try {
+    const res = await fetch('/api/profile_data');
+    if (res.ok) {
+      const data = await res.json();
+      return data.user?.obserkode;
+    }
+  } catch (e) {
+    // Fall through if not logged in
+  }
+  return null;
+}
+
 // Main initialization
 const queryObserkode = getQueryParam('obserkode');
 const searchContainer = document.getElementById('search-container');
 const statisticsContent = document.getElementById('statistics-content');
 
+// Always show search bar and statistics content
+searchContainer.style.display = 'block';
+statisticsContent.style.display = 'block';
+initSearch();
+
+// Load statistics
 if (queryObserkode) {
-  searchContainer.style.display = 'none';
-  statisticsContent.style.display = 'block';
   loadStatistik(queryObserkode);
 } else {
-  statisticsContent.style.display = 'none';
-  initSearch();
+  // Load current user's statistics
+  loadCurrentUser().then(obserkode => {
+    if (obserkode) {
+      loadStatistik(obserkode);
+    }
+  });
 }
