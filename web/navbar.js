@@ -1,4 +1,4 @@
-// Version: 1.8.17 - 2026-02-16 21.04.34
+// Version: 1.9.0 - 2026-02-16 21.22.45
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -104,7 +104,14 @@ export function renderNavbar() {
         <button class="nav-link" onclick="location.href='/art.html'" type="button">Matrikelartsdata</button>
 
         <!-- PROFIL -->
-        <button class="nav-link" onclick="location.href='/settings.html'" type="button">Profil</button>
+        <div class="dropdown" id="dd-profil">
+          <button class="nav-link" type="button">Profil</button>
+          <div class="dropdown-content" style="min-width: 220px;">
+            ${linkHTML('/profile.html', 'Profil')}
+            ${linkHTML('/observationer.html', 'Observationer')}
+            ${linkHTML('/settings.html', 'Indstillinger')}
+          </div>
+        </div>
 
 
 
@@ -181,7 +188,14 @@ export function renderNavbar() {
         <button class="nav-link" onclick="location.href='/art.html'" type="button">Matrikelartsdata</button>
 
         <!-- PROFIL -->
-        <button class="nav-link" onclick="location.href='/settings.html'" type="button">Profil</button>
+        <div class="dropdown">
+          <button class="nav-link" type="button">Profil</button>
+          <div class="dropdown-content" style="padding:10px;">
+            ${linkHTML('/profile.html', 'Profil')}
+            ${linkHTML('/observationer.html', 'Observationer')}
+            ${linkHTML('/settings.html', 'Indstillinger')}
+          </div>
+        </div>
 
 
         </div>

@@ -1628,6 +1628,232 @@ async def get_userprefs(request: Request):
             }
     return {"lokalafdeling": None, "kommune": None, "obserkode": None, "navn": None}
 
+
+def _normalize_artname(name: str) -> str:
+    return (name or "").split("(")[0].split(",")[0].strip()
+
+
+def _sort_list_by_date(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(items, key=lambda x: _parse_ddmmyyyy(x.get("dato")))
+
+
+@app.get("/api/profile_data")
+async def profile_data(request: Request):
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+
+    async with SessionLocal() as dbsession:
+        user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        user_info = {
+            "navn": user.navn if user else None,
+            "obserkode": obserkode,
+            "lokalafdeling": getattr(user, "lokalafdeling", None) if user else None,
+            "kommune": getattr(user, "kommune", None) if user else None
+        }
+
+    global_dir = get_global_user_dir(obserkode)
+    global_list_path = os.path.join(global_dir, "global.json")
+    matrikel_list_path = os.path.join(global_dir, "matrikelarter.json")
+
+    if not os.path.exists(global_list_path):
+        await generate_user_global_lists(obserkode)
+
+    global_list = _load_json(global_list_path) or []
+    matrikel_list = _load_json(matrikel_list_path) or []
+
+    global_list = _sort_list_by_date(global_list)
+    matrikel_list = _sort_list_by_date(matrikel_list)
+
+    # Blockers: arter kun set af denne bruger (global all-time)
+    art_counts: Dict[str, int] = {}
+    async with SessionLocal() as dbsession:
+        all_users = (await dbsession.execute(select(User))).scalars().all()
+
+    for u in all_users:
+        if not u.obserkode:
+            continue
+        u_dir = get_global_user_dir(u.obserkode)
+        u_list = _load_json(os.path.join(u_dir, "global.json")) or []
+        unique_arts = {
+            _normalize_artname(x.get("artnavn"))
+            for x in u_list
+            if x.get("artnavn")
+        }
+        for art in {a for a in unique_arts if a}:
+            art_counts[art] = art_counts.get(art, 0) + 1
+
+    obs_counts: Dict[str, int] = {}
+    async with SessionLocal() as dbsession:
+        obs_rows = (await dbsession.execute(
+            select(Observation.artnavn).where(Observation.obserkode == obserkode)
+        )).scalars().all()
+        for art in obs_rows:
+            norm = _normalize_artname(art)
+            if not norm:
+                continue
+            obs_counts[norm] = obs_counts.get(norm, 0) + 1
+
+    current_arts = {
+        _normalize_artname(x.get("artnavn"))
+        for x in global_list
+        if x.get("artnavn")
+    }
+    blockers = [
+        {"art": art, "count": obs_counts.get(art, 0)}
+        for art in sorted(current_arts)
+        if art_counts.get(art, 0) == 1
+    ]
+
+    # Aar-data og placeringer
+    data_root = os.path.join(SERVER_DIR, "data")
+    year_dirs = [int(n) for n in os.listdir(data_root) if n.isdigit()]
+    year_dirs.sort()
+
+    years = []
+    global_by_year: Dict[int, int] = {}
+    matrikel_by_year: Dict[int, int] = {}
+
+    for year in year_dirs:
+        user_dir = os.path.join(data_root, str(year), "obser", obserkode)
+        glist = _load_json(os.path.join(user_dir, "global.json"))
+        if glist is None:
+            continue
+        gcount = len(glist)
+        global_by_year[year] = gcount
+
+        mlist = _load_json(os.path.join(user_dir, "matrikelarter.json"))
+        if mlist is not None:
+            matrikel_by_year[year] = len(mlist)
+
+        rank = None
+        sb_path = os.path.join(data_root, str(year), "scoreboards", "global_alle", "scoreboard.json")
+        sb_rows = _load_json(sb_path) or []
+        for row in sb_rows:
+            if row.get("obserkode") == obserkode:
+                rank = row.get("placering")
+                break
+
+        years.append({"year": year, "count": gcount, "rank": rank})
+
+    # Observationer pr. aar (fra DB)
+    obs_by_year: Dict[int, int] = {}
+    async with SessionLocal() as dbsession:
+        obs_dates = (await dbsession.execute(
+            select(Observation.dato).where(Observation.obserkode == obserkode)
+        )).scalars().all()
+        for d in obs_dates:
+            if not d:
+                continue
+            obs_by_year[d.year] = obs_by_year.get(d.year, 0) + 1
+
+    all_years = sorted(set(year_dirs) | set(obs_by_year.keys()) | set(matrikel_by_year.keys()))
+
+    chart_global = [{"year": y, "count": global_by_year.get(y, 0)} for y in all_years]
+    chart_matrikel = [{"year": y, "count": matrikel_by_year.get(y, 0)} for y in all_years]
+    chart_obs = [{"year": y, "count": obs_by_year.get(y, 0)} for y in all_years]
+
+    return {
+        "user": user_info,
+        "lists": {
+            "danmark": {
+                "count": len(global_list),
+                "items": global_list,
+                "blockers": blockers
+            },
+            "vp": {
+                "count": len(matrikel_list),
+                "items": matrikel_list
+            }
+        },
+        "years": years,
+        "charts": {
+            "global_by_year": chart_global,
+            "matrikel_by_year": chart_matrikel,
+            "obs_by_year": chart_obs
+        }
+    }
+
+
+@app.get("/api/observationer_table")
+async def observationer_table(request: Request):
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+
+    url = (
+        "https://statistik.dofbasen.dk/arter"
+        f"?aar=&slutAar=&startAar=&afdeling=&kommune=&lokalitet=&obser={obserkode}"
+        "&visArter=ja&_visArter=on&_visHybrider=on&_visUbestemte=on&_visAndre=on"
+    )
+
+    try:
+        resp = requests.get(url, timeout=20)
+    except Exception:
+        return JSONResponse({"rows": [], "error": "Kunne ikke hente data"}, status_code=502)
+
+    if resp.status_code != 200:
+        return JSONResponse({"rows": [], "error": "Ugyldigt svar"}, status_code=502)
+
+    try:
+        tables = pd.read_html(resp.text)
+    except Exception:
+        tables = []
+
+    if not tables:
+        return {"rows": []}
+
+    df = tables[0]
+
+    def _find_col(candidates: List[str]):
+        for cand in candidates:
+            for col in df.columns:
+                if str(col).strip().lower() == cand:
+                    return col
+        return None
+
+    col_artnr = _find_col(["artnr.", "artnr", "artnr "])
+    col_navn = _find_col(["navn"])
+    col_latin = _find_col(["latin"])
+    col_obs = _find_col(["observationer"])
+    col_ind = _find_col(["individer"])
+
+    def _format_artnr(value: Any) -> str:
+        s = str(value).strip()
+        if s.isdigit():
+            return s.zfill(5)
+        return s
+
+    rows = []
+    current_year = datetime.datetime.now().year
+    for _, row in df.iterrows():
+        artnr = _format_artnr(row[col_artnr]) if col_artnr else ""
+        navn = str(row[col_navn]) if col_navn else ""
+        latin = str(row[col_latin]) if col_latin else ""
+        obs_val = row[col_obs] if col_obs else ""
+        ind_val = row[col_ind] if col_ind else ""
+        link = ""
+        if artnr:
+            link = (
+                "https://dofbasen.dk/search/result.php?design=table&soeg=soeg"
+                "&obstype=observationer&species=alle&subspecies=yes&sortering=art&artdata=art"
+                f"&hiddenart={artnr}&periode=mellemdato&dato_first=01-01-1800"
+                f"&dato_second=31-12-{current_year}&obserdata={obserkode}"
+            )
+
+        rows.append({
+            "artnr": artnr,
+            "navn": navn,
+            "latin": latin,
+            "observationer": obs_val,
+            "individer": ind_val,
+            "link": link
+        })
+
+    return {"rows": rows}
+
 # ---------------------------------------------------------
 #  API: Sync
 # ---------------------------------------------------------

@@ -1,4 +1,4 @@
-/* Version: 1.8.17 - 2026-02-16 21.04.34 */
+/* Version: 1.9.0 - 2026-02-16 21.22.45 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -1053,4 +1053,103 @@ main .nav-link:not(.navbar-links .nav-link) {
   padding-left: 16px;
   padding-right: 16px;
   text-align: left;
+}
+
+/* --- Profile pages --- */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2em;
+  margin-bottom: 1.5em;
+}
+
+.profile-card {
+  max-width: none;
+}
+
+.profile-title {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin-bottom: 0.4em;
+  color: var(--primary-dark);
+}
+
+.profile-meta {
+  display: grid;
+  gap: 0.3em;
+}
+
+.profile-metrics {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  margin-bottom: 0.6em;
+}
+
+.profile-blockers {
+  margin-bottom: 0.8em;
+}
+
+.profile-list {
+  display: none;
+  margin-top: 0.8em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--card-border);
+}
+
+.profile-list.is-open {
+  display: block;
+}
+
+.profile-list-ul {
+  margin: 0.6em 0 0 1.2em;
+  padding: 0;
+}
+
+.profile-toggle {
+  margin-top: 0.4em;
+}
+
+.profile-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.profile-toolbar input {
+  flex: 1;
+  padding: 0.5em 0.7em;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  font-size: 1em;
+}
+
+.profile-table-wrap {
+  overflow-x: auto;
+}
+
+.profile-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.profile-table th,
+.profile-table td {
+  padding: 0.6em 0.7em;
+  border-bottom: 1px solid var(--card-border);
+  text-align: left;
+}
+
+.profile-table thead th {
+  background: var(--table-header);
+}
+
+.text-right {
+  text-align: right;
+}
+
+.chart-wrap {
+  width: 100%;
+  min-height: 220px;
 }

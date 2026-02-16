@@ -1,4 +1,4 @@
-// Version: 1.8.17 - 2026-02-16 21.04.34
+// Version: 1.9.0 - 2026-02-16 21.22.45
 // © Christian Vemmelund Helligsø
 
 
@@ -239,7 +239,7 @@ async function visSide() {
   // ------- BRUGERLISTE -------
   else {
     firstsSortMode = params.sort || "alphabetical";
-    await visUserFirsts(params.obserkode, params.navn || "", firstsSortMode);
+    await visUserFirsts(params.obserkode, params.navn || "", firstsSortMode, params);
   }
 }
 

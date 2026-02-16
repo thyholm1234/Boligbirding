@@ -1,0 +1,62 @@
+<!-- Version: 1.8.17 - 2026-02-16 21.04.34 -->
+<!-- © Christian Vemmelund Helligsø -->
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Profil</title>
+  <link rel="stylesheet" href="style.css?v=1.8.17">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.8.17"></script>
+</head>
+<body>
+  <h1>Profil</h1>
+
+  <div id="profile-header" class="card profile-card"></div>
+
+  <div class="profile-grid">
+    <div class="card profile-card" id="danmark-card">
+      <h3>Danske arter</h3>
+      <div class="profile-metrics" id="danmark-metrics"></div>
+      <div class="profile-blockers" id="danmark-blockers"></div>
+      <button class="profile-toggle" data-target="danmark-list">Se liste</button>
+      <div class="profile-list" id="danmark-list"></div>
+    </div>
+
+    <div class="card profile-card" id="vp-card">
+      <h3>VP artslisten</h3>
+      <div class="profile-metrics" id="vp-metrics"></div>
+      <button class="profile-toggle" data-target="vp-list">Se liste</button>
+      <div class="profile-list" id="vp-list"></div>
+    </div>
+  </div>
+
+  <div class="card profile-card" id="year-card">
+    <h3>DK årsarter</h3>
+    <div id="year-list"></div>
+  </div>
+
+  <div class="profile-grid">
+    <div class="card profile-card">
+      <h3>Arter pr. år</h3>
+      <div class="chart-wrap">
+        <canvas id="chart-global" height="200"></canvas>
+      </div>
+    </div>
+    <div class="card profile-card">
+      <h3>Matrikelarter pr. år</h3>
+      <div class="chart-wrap">
+        <canvas id="chart-matrikel" height="200"></canvas>
+      </div>
+    </div>
+    <div class="card profile-card">
+      <h3>Observationer pr. år</h3>
+      <div class="chart-wrap">
+        <canvas id="chart-obs" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./profile.js?v=1.8.17"></script>
+</body>
+</html>
