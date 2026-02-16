@@ -118,6 +118,13 @@ class AdminPassword(Base):
     id           = Column(Integer, primary_key=True, index=True)
     password_hash = Column(String, nullable=False)
 
+
+def _parse_ddmmyyyy(value: Optional[str]) -> datetime.datetime:
+    try:
+        return datetime.datetime.strptime(value or "", "%d-%m-%Y")
+    except Exception:
+        return datetime.datetime.min
+
 # ---------------------------------------------------------
 #  Helpers & Constants
 # ---------------------------------------------------------
@@ -1352,7 +1359,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
                 unique_arter = { (r.get("artnavn") or "").split("(")[0].split(",")[0].strip()
                                  for r in L if r.get("artnavn") and "sp." not in r.get("artnavn") and "/" not in r.get("artnavn") and " x " not in r.get("artnavn") }
                 a = len(unique_arter)
-                latest = max(L, key=lambda r: r.get("dato") or "", default={})
+                latest = max(L, key=lambda r: _parse_ddmmyyyy(r.get("dato")), default={})
                 art = latest.get("artnavn", "")
                 dato = latest.get("dato", "")
             rows.append({
@@ -1712,7 +1719,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             unique_arter = { (r.get("artnavn") or "").split("(")[0].split(",")[0].strip()
                              for r in L if r.get("artnavn") and "sp." not in r.get("artnavn") and "/" not in r.get("artnavn") and " x " not in r.get("artnavn") }
             a = len(unique_arter)
-            latest = max(L, key=lambda r: r.get("dato") or "", default={})
+            latest = max(L, key=lambda r: _parse_ddmmyyyy(r.get("dato")), default={})
             art = latest.get("artnavn", "")
             dato = latest.get("dato", "")
         rows.append({

@@ -1,4 +1,4 @@
-// Version: 1.8.1 - 2026-02-04 23.57.10
+// Version: 1.8.2 - 2026-02-16 14.49.21
 // © Christian Vemmelund Helligsø
 
 
@@ -15,6 +15,18 @@ let firstsSortMode = "alphabetical"; // "alphabetical" | "newest" | "oldest"
 // Snapshot af originale data pr. scope/gruppe (til robust filtrering)
 let masterData = null;            // { rows, koder, matrix, totals, arter }
 let lastSelectedKoder = null;     // Husk sidste brugervalg i filteret
+
+function parseDmyToTime(value) {
+  const parts = (value || "").split("-");
+  if (parts.length !== 3) return 0;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  if (!day || !month || !year) return 0;
+  const date = new Date(year, month - 1, day);
+  const time = date.getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
 
 // Hent grupper til navbar
 fetch('/api/get_grupper')
@@ -288,9 +300,9 @@ function renderFirsts(firsts, sortMode, scope) {
   if (sortMode === "alphabetical") {
     sorted.sort((a, b) => a.artnavn.localeCompare(b.artnavn));
   } else if (sortMode === "newest") {
-    sorted.sort((a, b) => b.dato.localeCompare(a.dato));
+    sorted.sort((a, b) => parseDmyToTime(b.dato) - parseDmyToTime(a.dato));
   } else if (sortMode === "oldest") {
-    sorted.sort((a, b) => a.dato.localeCompare(b.dato));
+    sorted.sort((a, b) => parseDmyToTime(a.dato) - parseDmyToTime(b.dato));
   }
   const hideLokalitet = scope === "user_matrikel";
   const cards = sorted.map(f => `
@@ -407,7 +419,7 @@ function buildSingleUserMatrixData(obserkode) {
   }
   // Sortér arter efter dato (nyeste øverst)
   const combined = arter.map((art, i) => ({ art, dato: matrixFiltered[i][0], idx: i }));
-  combined.sort((a, b) => b.dato.localeCompare(a.dato));
+  combined.sort((a, b) => parseDmyToTime(b.dato) - parseDmyToTime(a.dato));
   const arterSorted = combined.map(x => x.art);
   const matrixSorted = combined.map(x => [x.dato]);
   return {
@@ -461,7 +473,7 @@ function visScoreboardBlockers(data) {
       const val = (origIdx >= 0 && matrix[i]) ? matrix[i][origIdx] : null;
       if (val) kryds.push({ art: arter[i], dato: val });
     }
-    kryds.sort((a, b) => b.dato.localeCompare(a.dato));
+    kryds.sort((a, b) => parseDmyToTime(b.dato) - parseDmyToTime(a.dato));
     latestCrossings[kode] = kryds.slice(0, 5);
   });
 
