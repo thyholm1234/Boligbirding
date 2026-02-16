@@ -1,4 +1,4 @@
-// Version: 1.8.3 - 2026-02-16 14.52.26
+// Version: 1.8.10 - 2026-02-16 20.18.58
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <label for="kommune">Kommune:</label>
           <select id="kommune" name="kommune" style="width:100%;">
             <option value="">Vælg...</option>
-            ${data.kommuner.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
+            ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
         `;
       }

@@ -1,4 +1,4 @@
-// Version: 1.8.3 - 2026-02-16 14.52.26
+// Version: 1.8.10 - 2026-02-16 20.18.58
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
@@ -87,16 +87,20 @@ document.getElementById('syncAllBtn').onclick = async function() {
 
 document.getElementById('updateLokationerBtn').onclick = async function() {
     const btn = this;
+    const statusEl = document.getElementById('updateLokationerStatus');
     btn.disabled = true;
     const originalText = btn.textContent;
     btn.textContent = "Opdaterer lokationer...";
+    if (statusEl) statusEl.textContent = "";
     try {
         const res = await fetch('/api/update_lokationer', { method: "POST" });
         const data = await res.json();
         btn.textContent = data.msg || "✓ Opdateret";
+        if (statusEl) statusEl.textContent = data.msg || "✓ Opdateret";
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
     } catch (e) {
         btn.textContent = "Fejl!";
+        if (statusEl) statusEl.textContent = "Fejl ved opdatering.";
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
     }
 };

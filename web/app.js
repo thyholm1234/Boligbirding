@@ -1,4 +1,4 @@
-// Version: 1.8.3 - 2026-02-16 14.52.26
+// Version: 1.8.10 - 2026-02-16 20.18.58
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -131,7 +131,7 @@ export async function hentStats() {
   html += `
   <div class="card obserkode-card" style="padding:1.2em 1em;width:100%;">
     <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
-      <span style="font-size:1.3em;">🏠</span> ${lokalafdelingNavn}
+      <span style="font-size:1.3em;">🏘️</span> ${lokalafdelingNavn}
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <a class="card obserkode-card" href="/scoreboard.html?scope=lokal_alle&afdeling=${encodeURIComponent(lokalafdelingNavn)}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
@@ -148,6 +148,58 @@ export async function hentStats() {
     </div>
   </div>
   `;
+
+  // Kommune
+  let kommuneId = data.kommune_id;
+  let kommuneNavn = data.kommune_navn;
+
+  if (!kommuneId || !kommuneNavn) {
+    try {
+      const prefsRes = await fetch('/api/get_userprefs', { credentials: 'include' });
+      if (prefsRes.ok) {
+        const prefs = await prefsRes.json();
+        kommuneId = kommuneId || prefs.kommune;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (kommuneId && !kommuneNavn) {
+    try {
+      const kommunerRes = await fetch('/api/afdelinger');
+      if (kommunerRes.ok) {
+        const kommunerData = await kommunerRes.json();
+        const match = (kommunerData.kommuner || []).find(k => k.id === String(kommuneId));
+        kommuneNavn = match ? match.navn : "Kommune";
+      }
+    } catch {
+      kommuneNavn = "Kommune";
+    }
+  }
+
+  if (kommuneId) {
+    html += `
+    <div class="card obserkode-card" style="padding:1.2em 1em;width:100%;margin-top:1.5em;">
+      <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
+        <span style="font-size:1.3em;">🏠</span> ${kommuneNavn || "Kommune"}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a class="card obserkode-card" href="/scoreboard.html?scope=kommune_alle&kommune=${encodeURIComponent(kommuneId)}&kommune_navn=${encodeURIComponent(kommuneNavn || "Kommune")}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+          <div>Alle: <b>${data.kommune_alle?.antal_arter ?? '-'}</b> arter</div>
+          <div>Placering <b>#${data.kommune_alle?.placering ?? '-'}</b></div>
+        </a>
+        <a class="card obserkode-card" href="/scoreboard.html?scope=kommune_matrikel&kommune=${encodeURIComponent(kommuneId)}&kommune_navn=${encodeURIComponent(kommuneNavn || "Kommune")}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+          <div>Matrikel: <b>${data.kommune_matrikel?.antal_arter ?? '-'}</b> arter</div>
+          <div>Placering <b>#${data.kommune_matrikel?.placering ?? '-'}</b></div>
+        </a>
+      </div>
+      <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
+        Seneste art: <span style="font-weight:500;">${data.kommune_alle?.sidste_art ?? '-'}</span> (${data.kommune_alle?.sidste_dato ?? '-'})
+      </div>
+    </div>
+    `;
+  }
 
   const feedEl = document.getElementById('feed');
   if (feedEl) feedEl.innerHTML = html;

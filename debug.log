@@ -1,0 +1,2 @@
+[0216/153041.262:ERROR:third_party\crashpad\crashpad\util\win\registration_protocol_win.cc:108] CreateFile: Den angivne fil blev ikke fundet. (0x2)
+[0216/153041.594:ERROR:third_party\crashpad\crashpad\util\win\registration_protocol_win.cc:108] CreateFile: Den angivne fil blev ikke fundet. (0x2)

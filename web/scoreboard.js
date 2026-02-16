@@ -1,4 +1,4 @@
-// Version: 1.8.3 - 2026-02-16 14.52.26
+// Version: 1.8.10 - 2026-02-16 20.18.58
 // © Christian Vemmelund Helligsø
 
 
@@ -105,6 +105,8 @@ async function visSide() {
     else if (params.scope === "gruppe_matrikel") title = (params.gruppe ? params.gruppe + " – Matrikel-rangliste" : "Gruppe – Matrikel-rangliste");
     else if (params.scope === "lokal_alle") title = (params.afdeling ? params.afdeling + " – Rangliste" : "Lokalafdeling – Rangliste");
     else if (params.scope === "lokal_matrikel") title = (params.afdeling ? params.afdeling + " – Matrikel-rangliste" : "Lokalafdeling – Matrikel-rangliste");
+    else if (params.scope === "kommune_alle") title = (params.kommune_navn ? params.kommune_navn + " – Rangliste" : "Kommune – Rangliste");
+    else if (params.scope === "kommune_matrikel") title = (params.kommune_navn ? params.kommune_navn + " – Matrikel-rangliste" : "Kommune – Matrikel-rangliste");
 
     setResponsiveTitle(pageTitle, title);
 
@@ -194,6 +196,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const scope = parentParams.scope || 'global_alle';
   const gruppe = parentParams.gruppe;
   const afdeling = parentParams.afdeling;
+  const kommune = parentParams.kommune;
+  const aar = parentParams.aar;
 
   let apiScope = "user_global";
   const body = { scope: apiScope, obserkode };
@@ -205,7 +209,12 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     apiScope = "user_lokalafdeling";
     body.scope = apiScope;
     if (afdeling) body.afdeling = afdeling;
+  } else if (scope.startsWith("kommune")) {
+    apiScope = scope === "kommune_matrikel" ? "user_kommune_matrikel" : "user_kommune_alle";
+    body.scope = apiScope;
+    if (kommune) body.kommune = kommune;
   }
+  if (aar) body.aar = aar;
 
   // Opdater URL (så back/forward virker)
   const urlParams = new URLSearchParams({
@@ -216,6 +225,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   });
   if (gruppe) urlParams.set('gruppe', gruppe);
   if (afdeling) urlParams.set('afdeling', afdeling);
+  if (kommune) urlParams.set('kommune', kommune);
+  if (aar) urlParams.set('aar', aar);
   window.history.pushState({}, '', '?' + urlParams.toString());
 
   // Hent data
@@ -232,10 +243,11 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const pageTitle = document.getElementById("page-title");
 
   const visNavn = navn && !navn.startsWith("#") ? navn : obserkode;
+  const isAllTime = String(aar) === "global";
   let prefix = "Første observationer for ";
-  if (apiScope === "user_global") prefix = "Årsarter for ";
-  if (apiScope === "user_lokalafdeling") prefix = "Lokalarter for ";
-  if (apiScope === "user_matrikel") prefix = "Matrikelarter for ";
+  if (apiScope === "user_global") prefix = isAllTime ? "Arter (alle år) for " : "Årsarter for ";
+  if (apiScope === "user_lokalafdeling") prefix = isAllTime ? "Lokalarter (alle år) for " : "Lokalarter for ";
+  if (apiScope === "user_matrikel") prefix = isAllTime ? "Matrikelarter (alle år) for " : "Matrikelarter for ";
   pageTitle.textContent = prefix + visNavn;
 
   // Underrubrik for lokalafdeling
