@@ -1,4 +1,4 @@
-// Version: 1.8.16 - 2026-02-16 21.02.23
+// Version: 1.8.17 - 2026-02-16 21.04.34
 // © Christian Vemmelund Helligsø
 
 
@@ -60,8 +60,8 @@ function createYearSelector(params) {
   if (!shouldShowYearSelector(params)) return null;
 
   const selectedYear = getSelectedYear(params);
-  const minYear = 2022;
-  const maxYear = Math.max(minYear, selectedYear);
+  const minYear = 1950;
+  const maxYear = new Date().getFullYear();
   const years = [];
   for (let y = maxYear; y >= minYear; y--) years.push(y);
 
