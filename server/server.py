@@ -1646,11 +1646,18 @@ async def profile_data(request: Request):
 
     async with SessionLocal() as dbsession:
         user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        kommune_navn = getattr(user, "kommune", None) if user else None
+        if kommune_navn and str(kommune_navn).isdigit():
+            for row in _read_kommuner():
+                if str(row.get("id")) == str(kommune_navn):
+                    kommune_navn = row.get("navn")
+                    break
         user_info = {
             "navn": user.navn if user else None,
             "obserkode": obserkode,
             "lokalafdeling": getattr(user, "lokalafdeling", None) if user else None,
-            "kommune": getattr(user, "kommune", None) if user else None
+            "kommune": getattr(user, "kommune", None) if user else None,
+            "kommune_navn": kommune_navn
         }
 
     global_dir = get_global_user_dir(obserkode)

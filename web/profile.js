@@ -26,59 +26,15 @@ function formatNumber(value) {
   return num.toLocaleString('da-DK');
 }
 
-function formatListItem(item) {
-  const dato = item.dato ? item.dato : '';
-  const art = item.artnavn ? item.artnavn : '';
-  const lok = item.lokalitet ? ` (${item.lokalitet})` : '';
-  return `${dato} - ${art}${lok}`.trim();
-}
-
-function renderList(targetId, items) {
-  const target = document.getElementById(targetId);
-  if (!target) return;
-  if (!items || !items.length) {
-    target.innerHTML = '<div class="muted">Ingen data.</div>';
-    return;
-  }
-  target.innerHTML = `<ul class="profile-list-ul">${items
-    .map(it => `<li>${formatListItem(it)}</li>`)
-    .join('')}</ul>`;
-}
-
-function renderBlockers(targetId, blockers) {
-  const target = document.getElementById(targetId);
-  if (!target) return;
-  if (!blockers || !blockers.length) {
-    target.innerHTML = '<span class="muted">Blockers: 0</span>';
-    return;
-  }
-  const maxItems = 20;
-  const shown = blockers.slice(0, maxItems);
-  const list = shown.map(b => `${b.art}${b.count ? ` (${b.count})` : ''}`);
-  const suffix = blockers.length > maxItems ? ` +${blockers.length - maxItems} flere` : '';
-  target.innerHTML = `<b>Blockers (${blockers.length}):</b> ${list.join(', ')}${suffix}`;
-}
-
-function setupToggles() {
-  document.querySelectorAll('.profile-toggle').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-target');
-      const target = document.getElementById(targetId);
-      if (!target) return;
-      const isOpen = target.classList.toggle('is-open');
-      btn.textContent = isOpen ? 'Skjul liste' : 'Se liste';
-    });
-  });
-}
-
 function renderYearList(years, user) {
   const target = document.getElementById('year-list');
   if (!target) return;
-  if (!years || !years.length) {
+  const filtered = (years || []).filter(y => Number(y.count) > 0);
+  if (!filtered.length) {
     target.innerHTML = '<div class="muted">Ingen årsdata fundet.</div>';
     return;
   }
-  const rows = years.map(y => {
+  const rows = filtered.map(y => {
     const params = new URLSearchParams({
       scope: 'user_global',
       obserkode: user.obserkode || '',
@@ -152,41 +108,17 @@ async function loadProfile() {
   const user = data.user || {};
   const header = document.getElementById('profile-header');
   if (header) {
+    const kommune = user.kommune_navn || user.kommune || '-';
     header.innerHTML = `
       <div class="profile-title">${user.navn || 'Ukendt bruger'}</div>
       <div class="profile-meta">
         <div><b>Obserkode:</b> ${user.obserkode || '-'}</div>
         <div><b>Lokalafdeling:</b> ${user.lokalafdeling || '-'}</div>
-        <div><b>Kommune:</b> ${user.kommune || '-'}</div>
+        <div><b>Kommune:</b> ${kommune}</div>
       </div>
     `;
   }
-
-  const danmark = data.lists?.danmark || { items: [], count: 0 };
-  const vp = data.lists?.vp || { items: [], count: 0 };
-
-  const danmarkMetrics = document.getElementById('danmark-metrics');
-  if (danmarkMetrics) {
-    danmarkMetrics.innerHTML = `
-      <div><b>Kryds:</b> ${formatNumber(danmark.count || 0)}</div>
-      <div class="muted">Kronologisk</div>
-    `;
-  }
-
-  const vpMetrics = document.getElementById('vp-metrics');
-  if (vpMetrics) {
-    vpMetrics.innerHTML = `
-      <div><b>Kryds:</b> ${formatNumber(vp.count || 0)}</div>
-      <div class="muted">Kronologisk</div>
-    `;
-  }
-
-  renderBlockers('danmark-blockers', danmark.blockers || []);
-  renderList('danmark-list', danmark.items || []);
-  renderList('vp-list', vp.items || []);
   renderYearList(data.years || [], user);
-
-  setupToggles();
 
   const chartGlobal = data.charts?.global_by_year || [];
   const chartMatrikel = data.charts?.matrikel_by_year || [];

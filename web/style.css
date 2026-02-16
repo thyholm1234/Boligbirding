@@ -1,4 +1,4 @@
-/* Version: 1.9.0 - 2026-02-16 21.22.45 */
+/* Version: 1.10.0 - 2026-02-16 21.27.12 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -1063,6 +1063,14 @@ main .nav-link:not(.navbar-links .nav-link) {
   margin-bottom: 1.5em;
 }
 
+.profile-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2em;
+  align-items: stretch;
+  width: 100%;
+}
+
 .profile-card {
   max-width: none;
 }
@@ -1152,4 +1160,8 @@ main .nav-link:not(.navbar-links .nav-link) {
 .chart-wrap {
   width: 100%;
   min-height: 220px;
+}
+
+.chart-wrap canvas {
+  width: 100% !important;
 }
