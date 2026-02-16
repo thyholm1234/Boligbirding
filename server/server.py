@@ -1742,7 +1742,8 @@ async def profile_data(request: Request):
                 rank = row.get("placering")
                 break
 
-        years.append({"year": year, "count": gcount, "rank": rank})
+        if gcount > 0:
+            years.append({"year": year, "count": gcount, "rank": rank})
 
     # Observationer pr. aar (fra DB)
     obs_by_year: Dict[int, int] = {}
@@ -1757,9 +1758,21 @@ async def profile_data(request: Request):
 
     all_years = sorted(set(year_dirs) | set(obs_by_year.keys()) | set(matrikel_by_year.keys()))
 
-    chart_global = [{"year": y, "count": global_by_year.get(y, 0)} for y in all_years]
-    chart_matrikel = [{"year": y, "count": matrikel_by_year.get(y, 0)} for y in all_years]
-    chart_obs = [{"year": y, "count": obs_by_year.get(y, 0)} for y in all_years]
+    chart_global = [
+        {"year": y, "count": global_by_year.get(y, 0)}
+        for y in all_years
+        if global_by_year.get(y, 0) > 0
+    ]
+    chart_matrikel = [
+        {"year": y, "count": matrikel_by_year.get(y, 0)}
+        for y in all_years
+        if matrikel_by_year.get(y, 0) > 0
+    ]
+    chart_obs = [
+        {"year": y, "count": obs_by_year.get(y, 0)}
+        for y in all_years
+        if obs_by_year.get(y, 0) > 0
+    ]
 
     return {
         "user": user_info,

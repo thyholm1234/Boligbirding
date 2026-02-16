@@ -1,4 +1,4 @@
-<!-- Version: 1.10.0 - 2026-02-16 21.27.12 -->
+<!-- Version: 1.10.1 - 2026-02-16 21.29.50 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#2b7a78" />
   <!-- (valgfrit) ikon-link til desktop/iOS osv. -->
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.10.0">
+  <link rel="stylesheet" href="style.css?v=1.10.1">
 </head>
 <body>
 <main style="max-width:500px;margin:0px auto;padding:1em 1em 1em 1em;background:var(--card-bg);border-radius:16px;box-shadow:var(--card-shadow);display:flex;flex-direction:column;align-items:center;">
@@ -34,13 +34,13 @@
   <h1 style="text-align:center;margin-bottom:0.7em;">Mine årslister</h1>
   <div id="feed" style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;padding-left: 0px;padding-right: 0px;"></div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.10.0"></script>
-<script type="module" src="app.js?v=1.10.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.10.1"></script>
+<script type="module" src="app.js?v=1.10.1"></script>
 <script>
     // Registrér service worker når siden er loadet
     if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=1.10.0' /*, { scope: '/' } */)
+        navigator.serviceWorker.register('/sw.js?v=1.10.1' /*, { scope: '/' } */)
         .then(reg => console.log('Service Worker registreret:', reg.scope))
         .catch(err => console.error('SW registrering fejlede:', err));
     });

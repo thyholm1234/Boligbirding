@@ -29,7 +29,10 @@ function formatNumber(value) {
 function renderYearList(years, user) {
   const target = document.getElementById('year-list');
   if (!target) return;
-  const filtered = (years || []).filter(y => Number(y.count) > 0);
+  const filtered = (years || []).filter(y => {
+    const count = Number.parseInt(y.count, 10);
+    return Number.isFinite(count) && count > 0;
+  });
   if (!filtered.length) {
     target.innerHTML = '<div class="muted">Ingen årsdata fundet.</div>';
     return;
@@ -124,12 +127,16 @@ async function loadProfile() {
   const chartMatrikel = data.charts?.matrikel_by_year || [];
   const chartObs = data.charts?.obs_by_year || [];
 
-  const labelsGlobal = chartGlobal.map(d => d.year);
-  const valuesGlobal = chartGlobal.map(d => d.count);
-  const labelsMatrikel = chartMatrikel.map(d => d.year);
-  const valuesMatrikel = chartMatrikel.map(d => d.count);
-  const labelsObs = chartObs.map(d => d.year);
-  const valuesObs = chartObs.map(d => d.count);
+  const filteredGlobal = chartGlobal.filter(d => Number(d.count) > 0);
+  const filteredMatrikel = chartMatrikel.filter(d => Number(d.count) > 0);
+  const filteredObs = chartObs.filter(d => Number(d.count) > 0);
+
+  const labelsGlobal = filteredGlobal.map(d => d.year);
+  const valuesGlobal = filteredGlobal.map(d => d.count);
+  const labelsMatrikel = filteredMatrikel.map(d => d.year);
+  const valuesMatrikel = filteredMatrikel.map(d => d.count);
+  const labelsObs = filteredObs.map(d => d.year);
+  const valuesObs = filteredObs.map(d => d.count);
 
   buildLineChart('chart-global', labelsGlobal, valuesGlobal, 'Arter', '#2b7a78');
   buildLineChart('chart-matrikel', labelsMatrikel, valuesMatrikel, 'Matrikelarter', '#3aafa9');
