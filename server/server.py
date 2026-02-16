@@ -1810,6 +1810,142 @@ async def profile_data(request: Request):
     }
 
 
+@app.get("/api/statistik_data")
+async def statistik_data(obserkode: str):
+    """Get statistics for any obserkode (public endpoint)"""
+    if not obserkode or obserkode.strip() == "":
+        raise HTTPException(status_code=400, detail="obserkode required")
+    
+    obserkode = obserkode.strip().upper()
+
+    async with SessionLocal() as dbsession:
+        user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="Observatør ikke fundet")
+        
+        kommune_navn = getattr(user, "kommune", None)
+        if kommune_navn and str(kommune_navn).isdigit():
+            for row in _read_kommuner():
+                if str(row.get("id")) == str(kommune_navn):
+                    kommune_navn = row.get("navn")
+                    break
+        user_info = {
+            "navn": user.navn,
+            "obserkode": user.obserkode,
+            "lokalafdeling": getattr(user, "lokalafdeling", None),
+            "kommune": getattr(user, "kommune", None),
+            "kommune_navn": kommune_navn
+        }
+
+    global_dir = get_global_user_dir(obserkode)
+    global_list_path = os.path.join(global_dir, "global.json")
+    matrikel_list_path = os.path.join(global_dir, "matrikelarter.json")
+
+    if not os.path.exists(global_list_path):
+        await generate_user_global_lists(obserkode)
+
+    global_list = _load_json(global_list_path) or []
+    matrikel_list = _load_json(matrikel_list_path) or []
+
+    global_list = _sort_list_by_date(global_list)
+    matrikel_list = _sort_list_by_date(matrikel_list)
+
+    # Aar-data og placeringer
+    data_root = os.path.join(SERVER_DIR, "data")
+    year_dirs = [int(n) for n in os.listdir(data_root) if n.isdigit()]
+    year_dirs.sort()
+
+    years = []
+    matrikel_years = []
+    global_by_year: Dict[int, int] = {}
+    matrikel_by_year: Dict[int, int] = {}
+
+    for year in year_dirs:
+        user_dir = os.path.join(data_root, str(year), "obser", obserkode)
+        glist = _load_json(os.path.join(user_dir, "global.json"))
+        if glist is None:
+            continue
+        gcount = len(glist)
+        global_by_year[year] = gcount
+
+        mlist = _load_json(os.path.join(user_dir, "matrikelarter.json"))
+        mcount = 0
+        if mlist is not None:
+            mcount = len(mlist)
+            matrikel_by_year[year] = mcount
+
+        rank = None
+        sb_path = os.path.join(data_root, str(year), "scoreboards", "global_alle", "scoreboard.json")
+        sb_rows = _load_json(sb_path) or []
+        for row in sb_rows:
+            if row.get("obserkode") == obserkode:
+                rank = row.get("placering")
+                break
+
+        if gcount > 0:
+            years.append({"year": year, "count": gcount, "rank": rank})
+
+        if mcount > 0:
+            rank_matrikel = None
+            sb_m_path = os.path.join(data_root, str(year), "scoreboards", "global_matrikel", "scoreboard.json")
+            sb_m_rows = _load_json(sb_m_path) or []
+            for row in sb_m_rows:
+                if row.get("obserkode") == obserkode:
+                    rank_matrikel = row.get("placering")
+                    break
+            matrikel_years.append({"year": year, "count": mcount, "rank": rank_matrikel})
+
+    # Observationer pr. aar (fra DB)
+    obs_by_year: Dict[int, int] = {}
+    async with SessionLocal() as dbsession:
+        obs_dates = (await dbsession.execute(
+            select(Observation.dato).where(Observation.obserkode == obserkode)
+        )).scalars().all()
+        for d in obs_dates:
+            if not d:
+                continue
+            obs_by_year[d.year] = obs_by_year.get(d.year, 0) + 1
+
+    all_years = sorted(set(year_dirs) | set(obs_by_year.keys()) | set(matrikel_by_year.keys()))
+
+    chart_global = [
+        {"year": y, "count": global_by_year.get(y, 0)}
+        for y in all_years
+        if global_by_year.get(y, 0) > 0
+    ]
+    chart_matrikel = [
+        {"year": y, "count": matrikel_by_year.get(y, 0)}
+        for y in all_years
+        if matrikel_by_year.get(y, 0) > 0
+    ]
+    chart_obs = [
+        {"year": y, "count": obs_by_year.get(y, 0)}
+        for y in all_years
+        if obs_by_year.get(y, 0) > 0
+    ]
+
+    return {
+        "user": user_info,
+        "lists": {
+            "danmark": {
+                "count": len(global_list),
+                "items": global_list
+            },
+            "vp": {
+                "count": len(matrikel_list),
+                "items": matrikel_list
+            }
+        },
+        "years": years,
+        "matrikel_years": matrikel_years,
+        "charts": {
+            "global_by_year": chart_global,
+            "matrikel_by_year": chart_matrikel,
+            "obs_by_year": chart_obs
+        }
+    }
+
+
 @app.get("/api/observationer_table")
 async def observationer_table(request: Request):
     session = request.session

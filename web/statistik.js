@@ -10,16 +10,6 @@ fetch('/api/get_grupper')
   .then(res => res.json())
   .then(grupper => { addGruppeLinks(grupper); });
 
-async function ensureLoggedIn() {
-  const res = await fetch('/api/is_logged_in');
-  const data = await res.json();
-  if (!data.ok) {
-    window.location.href = '/login.html';
-    return false;
-  }
-  return true;
-}
-
 function formatNumber(value) {
   const num = Number(value);
   if (Number.isNaN(num)) return value;
@@ -100,12 +90,22 @@ function buildLineChart(canvasId, labels, data, label, color) {
   });
 }
 
-async function loadProfile() {
-  const res = await fetch('/api/profile_data');
-  if (res.status === 401) {
-    window.location.href = '/login.html';
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+async function loadStatistik(obserkode) {
+  const res = await fetch(`/api/statistik_data?obserkode=${encodeURIComponent(obserkode)}`);
+  if (res.status === 404) {
+    document.getElementById('profile-header').innerHTML = '<div class="muted">Observatør ikke fundet.</div>';
     return;
   }
+  if (!res.ok) {
+    document.getElementById('profile-header').innerHTML = '<div class="muted">Fejl ved indlæsning af data.</div>';
+    return;
+  }
+
   const data = await res.json();
 
   const user = data.user || {};
@@ -144,6 +144,36 @@ async function loadProfile() {
   buildLineChart('chart-obs', labelsObs, valuesObs, 'Observationer', '#1976d2');
 }
 
-ensureLoggedIn().then(ok => {
-  if (ok) loadProfile();
-});
+function initSearch() {
+  const input = document.getElementById('obserkode-input');
+  const btn = document.getElementById('search-btn');
+
+  searchContainer.style.display = 'block';
+
+  btn.addEventListener('click', () => {
+    const value = input.value.trim();
+    if (value) {
+      window.location.href = `statistik.html?obserkode=${encodeURIComponent(value)}`;
+    }
+  });
+
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      btn.click();
+    }
+  });
+}
+
+// Main initialization
+const queryObserkode = getQueryParam('obserkode');
+const searchContainer = document.getElementById('search-container');
+const statisticsContent = document.getElementById('statistics-content');
+
+if (queryObserkode) {
+  searchContainer.style.display = 'none';
+  statisticsContent.style.display = 'block';
+  loadStatistik(queryObserkode);
+} else {
+  statisticsContent.style.display = 'none';
+  initSearch();
+}
