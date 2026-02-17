@@ -1,4 +1,4 @@
-// Version: 1.10.11 - 2026-02-16 22.10.11
+// Version: 1.10.12 - 2026-02-17 01.07.29
 // © Christian Vemmelund Helligsø
 
 
@@ -198,6 +198,9 @@ async function visSide() {
     const rows = masterData.rows;
     if (!rows.length) {
       container.innerHTML = "<p>Ingen brugere fundet.</p>";
+      if (!params.scope || !params.scope.startsWith("gruppe_")) {
+        insertYearSelectorRow(params, container);
+      }
       clearSections();
       return;
     }
