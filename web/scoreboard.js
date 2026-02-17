@@ -1,4 +1,4 @@
-// Version: 1.10.21 - 2026-02-17 01.58.11
+// Version: 1.10.22 - 2026-02-17 01.59.28
 // © Christian Vemmelund Helligsø
 
 
@@ -367,7 +367,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   let html = `
     <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin-bottom:1em;">
       <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
-      <button id="statistikBtn" type="button">Statistik</button>
+      <button id="statistikBtn" type="button">Observatør statistik</button>
     </div>
   `;
   if (!firsts.length) {
