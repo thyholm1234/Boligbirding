@@ -1,4 +1,4 @@
-// Version: 1.10.19 - 2026-02-17 01.36.27
+// Version: 1.10.20 - 2026-02-17 01.48.10
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
@@ -16,6 +16,7 @@ async function hentObserkoder() {
                 <div class="right admin-btn-wrap">
                     <button data-kode="${k.kode}" class="sync">Sync</button>
                     <button data-kode="${k.kode}" class="full-sync">Full sync</button>
+                    <button data-kode="${k.kode}" class="edit-user">Rediger</button>
                     <button data-kode="${k.kode}" class="slet">Slet</button>
                 </div>
             </div>
@@ -68,6 +69,90 @@ async function hentObserkoder() {
             }
         };
     });
+    // Rediger bruger
+    listDiv.querySelectorAll('button.edit-user').forEach(btn => {
+        btn.onclick = async () => {
+            await openUserModal(btn.dataset.kode);
+        };
+    });
+}
+
+let cachedAfdelinger = null;
+let cachedKommuner = null;
+let currentEditKode = null;
+
+async function ensureAfdelingerLoaded() {
+    if (cachedAfdelinger && cachedKommuner) return;
+    const res = await fetch('/api/afdelinger');
+    const data = await res.json();
+    cachedAfdelinger = Array.isArray(data.lokalafdelinger) ? data.lokalafdelinger : [];
+    cachedKommuner = Array.isArray(data.kommuner) ? data.kommuner : [];
+}
+
+function fillSelect(selectEl, options, emptyLabel) {
+    selectEl.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = emptyLabel;
+    selectEl.appendChild(emptyOpt);
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        if (typeof opt === 'string') {
+            option.value = opt;
+            option.textContent = opt;
+        } else {
+            option.value = opt.id;
+            option.textContent = opt.navn;
+        }
+        selectEl.appendChild(option);
+    });
+}
+
+async function openUserModal(kode) {
+    const modal = document.getElementById('adminUserModal');
+    const status = document.getElementById('adminUserStatus');
+    const kodeEl = document.getElementById('adminUserModalKode');
+    const navnEl = document.getElementById('adminUserNavn');
+    const afdelingEl = document.getElementById('adminUserAfdeling');
+    const kommuneEl = document.getElementById('adminUserKommune');
+
+    status.textContent = '';
+    kodeEl.textContent = kode;
+    navnEl.value = '';
+    currentEditKode = kode;
+
+    await ensureAfdelingerLoaded();
+    fillSelect(afdelingEl, cachedAfdelinger, 'Ingen lokalafdeling');
+    fillSelect(kommuneEl, cachedKommuner, 'Ingen kommune');
+
+    try {
+        const res = await fetch(`/api/admin/user_profile?kode=${encodeURIComponent(kode)}`);
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+            status.textContent = data.detail || 'Kunne ikke hente brugerdata.';
+        } else {
+            navnEl.value = data.user.navn || '';
+            if (data.user.lokalafdeling) {
+                afdelingEl.value = data.user.lokalafdeling;
+            }
+            if (data.user.kommune_id) {
+                kommuneEl.value = data.user.kommune_id;
+            } else if (data.user.kommune_navn) {
+                const match = cachedKommuner.find(k => k.navn === data.user.kommune_navn);
+                if (match) kommuneEl.value = match.id;
+            }
+        }
+    } catch (e) {
+        status.textContent = 'Kunne ikke hente brugerdata.';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeUserModal() {
+    const modal = document.getElementById('adminUserModal');
+    modal.style.display = 'none';
+    currentEditKode = null;
 }
 
 document.getElementById('addForm').addEventListener('submit', async function(e) {
@@ -206,6 +291,60 @@ async function hentAktueltAar() {
     if (data.year) {
         document.getElementById('syncYear').value = data.year;
     }
+}
+
+const adminUserModal = document.getElementById('adminUserModal');
+const adminUserForm = document.getElementById('adminUserForm');
+const adminUserCancel = document.getElementById('adminUserCancel');
+
+if (adminUserModal) {
+    adminUserModal.addEventListener('click', e => {
+        if (e.target === adminUserModal) closeUserModal();
+    });
+}
+
+if (adminUserCancel) {
+    adminUserCancel.onclick = () => closeUserModal();
+}
+
+if (adminUserForm) {
+    adminUserForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const status = document.getElementById('adminUserStatus');
+        const navn = document.getElementById('adminUserNavn').value.trim();
+        const lokalafdeling = document.getElementById('adminUserAfdeling').value;
+        const kommune = document.getElementById('adminUserKommune').value;
+
+        if (!currentEditKode) return;
+        if (!navn) {
+            status.textContent = 'Navn mangler.';
+            return;
+        }
+
+        status.textContent = 'Gemmer...';
+        try {
+            const res = await fetch('/api/admin/update_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    obserkode: currentEditKode,
+                    navn,
+                    lokalafdeling,
+                    kommune
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                status.textContent = data.detail || 'Kunne ikke gemme.';
+                return;
+            }
+            status.textContent = data.msg || 'Gemt.';
+            await hentObserkoder();
+            setTimeout(() => closeUserModal(), 600);
+        } catch (err) {
+            status.textContent = 'Kunne ikke gemme.';
+        }
+    });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {

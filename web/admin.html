@@ -1,4 +1,4 @@
-<!-- Version: 1.10.19 - 2026-02-17 01.36.27 -->
+<!-- Version: 1.10.20 - 2026-02-17 01.48.10 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin</title>
-    <link rel="stylesheet" href="style.css?v=1.10.19">
+    <link rel="stylesheet" href="style.css?v=1.10.20">
     <script type="module">
         import { renderNavbar, initNavbar, initMobileNavbar } from './navbar.js';
         renderNavbar();
@@ -37,6 +37,28 @@
         <div id="obserkodeList"></div>
         <div id="gruppeList" style="margin-top:2em;"></div>
     </div>
-    <script src="admin.js?v=1.10.19"></script>
+    <div id="adminUserModal">
+        <div>
+            <h3>Rediger bruger</h3>
+            <div id="adminUserModalKode" class="muted" style="margin-bottom:0.8em;"></div>
+            <form id="adminUserForm">
+                <label for="adminUserNavn"><b>Navn</b></label>
+                <input type="text" id="adminUserNavn" required style="width:100%;margin-bottom:0.8em;">
+
+                <label for="adminUserAfdeling"><b>Lokalafdeling</b></label>
+                <select id="adminUserAfdeling" style="width:100%;margin-bottom:0.8em;"></select>
+
+                <label for="adminUserKommune"><b>Kommune</b></label>
+                <select id="adminUserKommune" style="width:100%;margin-bottom:0.8em;"></select>
+
+                <div style="margin-top:1em;display:flex;gap:0.6em;flex-wrap:wrap;">
+                    <button type="submit" id="adminUserSave">Gem</button>
+                    <button type="button" id="adminUserCancel">Annuller</button>
+                </div>
+            </form>
+            <div id="adminUserStatus" class="muted" style="margin-top:0.8em;"></div>
+        </div>
+    </div>
+    <script src="admin.js?v=1.10.20"></script>
 </body>
 </html>

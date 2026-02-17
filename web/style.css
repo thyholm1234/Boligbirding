@@ -1,4 +1,4 @@
-/* Version: 1.10.19 - 2026-02-17 01.36.27 */
+/* Version: 1.10.20 - 2026-02-17 01.48.10 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -258,7 +258,7 @@ td { color: var(--text-main); font-size: 0.98em; }
 #result { margin-bottom: 2em; }
 
 /* --- Modal Styling --- */
-#kodeModal, #reglerModal {
+#kodeModal, #reglerModal, #adminUserModal {
   display: none;
   position: fixed !important;
   left: 0; top: 0;
@@ -270,7 +270,7 @@ td { color: var(--text-main); font-size: 0.98em; }
   overflow-y: auto;
 }
 
-#kodeModal > div, #reglerModal > div {
+#kodeModal > div, #reglerModal > div, #adminUserModal > div {
   background: var(--card-bg);
   max-width: 95vw;
   margin: 80px auto;
@@ -282,7 +282,7 @@ td { color: var(--text-main); font-size: 0.98em; }
   font-family: 'Roboto', Arial, sans-serif;
 }
 
-#kodeModal h3, #reglerModal h2 { color: var(--primary-dark); margin-top: 0; font-family: 'Montserrat', Arial, sans-serif; }
+#kodeModal h3, #reglerModal h2, #adminUserModal h3 { color: var(--primary-dark); margin-top: 0; font-family: 'Montserrat', Arial, sans-serif; }
 
 #kodeForm label { display: block; margin-bottom: 8px; font-size: 1.05em; cursor: pointer; }
 #kodeForm input[type="checkbox"] { accent-color: var(--primary); margin-right: 8px; transform: scale(1.2); }
@@ -913,6 +913,7 @@ a.card.obserkode-card {
 .matrix-table-wrap,
 #kodeModal > div,
 #reglerModal > div,
+#adminUserModal > div,
 .mobile-nav-content {
   scrollbar-width: thin;
   scrollbar-color: var(--accent) var(--table-header);
@@ -922,6 +923,7 @@ a.card.obserkode-card {
 .matrix-table-wrap::-webkit-scrollbar,
 #kodeModal > div::-webkit-scrollbar,
 #reglerModal > div::-webkit-scrollbar,
+#adminUserModal > div::-webkit-scrollbar,
 .mobile-nav-content::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -931,6 +933,7 @@ a.card.obserkode-card {
 .matrix-table-wrap::-webkit-scrollbar-thumb,
 #kodeModal > div::-webkit-scrollbar-thumb,
 #reglerModal > div::-webkit-scrollbar-thumb,
+#adminUserModal > div::-webkit-scrollbar-thumb,
 .mobile-nav-content::-webkit-scrollbar-thumb {
   background: var(--accent);
   border-radius: 6px;
@@ -939,6 +942,7 @@ a.card.obserkode-card {
 .matrix-table-wrap::-webkit-scrollbar-thumb:hover,
 #kodeModal > div::-webkit-scrollbar-thumb:hover,
 #reglerModal > div::-webkit-scrollbar-thumb:hover,
+#adminUserModal > div::-webkit-scrollbar-thumb:hover,
 .mobile-nav-content::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
