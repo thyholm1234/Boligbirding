@@ -1,4 +1,4 @@
-// Version: 1.10.20 - 2026-02-17 01.48.10
+// Version: 1.10.21 - 2026-02-17 01.58.11
 // © Christian Vemmelund Helligsø
 
 
@@ -363,7 +363,13 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (sortMode === "newest") sortLabel = "Nyeste";
   if (sortMode === "oldest") sortLabel = "Ældste";
 
-  let html = `<button id="sortBtn" style="margin-bottom:1em;">Sortering: ${sortLabel}</button>`;
+  const statistikLink = `statistik.html?obserkode=${encodeURIComponent(obserkode)}`;
+  let html = `
+    <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin-bottom:1em;">
+      <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
+      <button id="statistikBtn" type="button">Statistik</button>
+    </div>
+  `;
   if (!firsts.length) {
     html += "<p>Ingen observationer fundet.</p><button id='tilbageBtn'>Tilbage</button>";
     container.innerHTML = html;
@@ -396,6 +402,13 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     firstsSortMode = sortMode;
     visUserFirsts(obserkode, navn, sortMode, parentParams);
   };
+
+  const statistikBtn = document.getElementById('statistikBtn');
+  if (statistikBtn) {
+    statistikBtn.onclick = () => {
+      window.location.href = statistikLink;
+    };
+  }
 }
 
 // Sortér og vis cards
