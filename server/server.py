@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import time
 import asyncio
@@ -17,6 +18,7 @@ from collections import defaultdict
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Query, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 from html import escape
 from passlib.context import CryptContext
 
@@ -28,6 +30,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import Column, String, Date, Integer, select, func
 
+from starlette.middleware.sessions import SessionMiddleware
 
 
 # ---------------------------------------------------------
@@ -2247,7 +2250,7 @@ async def observationer_table(request: Request):
 #  API: Sync
 # ---------------------------------------------------------
 @app.post("/api/sync_obserkode")
-async def sync_obserkode_api(kode: str, aar: Optional[int] = None):
+async def sync_obserkode_api(kode: str, aar: Optional[int] = None, background_tasks: BackgroundTasks = None):
     # sikr at bruger findes (navn bruges i scoreboard)
     async with SessionLocal() as session:
         user = (await session.execute(select(User).where(User.obserkode == kode))).scalar()
