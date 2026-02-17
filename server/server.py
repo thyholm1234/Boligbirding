@@ -3055,6 +3055,22 @@ async def admin_slet_gruppe(request: Request, data: dict = Body(...), admin: boo
     save_grupper(grupper)
     return {"ok": True, "msg": f"Gruppe '{navn}' slettet"}
 
+
+@app.post("/api/admin/full_sync_user")
+async def admin_full_sync_user(kode: str, admin: bool = Depends(require_admin)):
+    try:
+        obserkode = normalize_obserkode(kode)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldig obserkode")
+
+    async with SessionLocal() as session:
+        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="Obserkode ikke fundet")
+
+    asyncio.create_task(sync_user_all_time(obserkode))
+    return {"ok": True, "msg": f"Full sync startet for {obserkode}"}
+
 # ---------------------------------------------------------
 #  Startup
 # ---------------------------------------------------------

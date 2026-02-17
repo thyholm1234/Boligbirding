@@ -1,4 +1,4 @@
-// Version: 1.10.18 - 2026-02-17 01.28.06
+// Version: 1.10.19 - 2026-02-17 01.36.27
 // © Christian Vemmelund Helligsø
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
@@ -15,6 +15,7 @@ async function hentObserkoder() {
                 </div>
                 <div class="right admin-btn-wrap">
                     <button data-kode="${k.kode}" class="sync">Sync</button>
+                    <button data-kode="${k.kode}" class="full-sync">Full sync</button>
                     <button data-kode="${k.kode}" class="slet">Slet</button>
                 </div>
             </div>
@@ -45,6 +46,25 @@ async function hentObserkoder() {
             } catch (e) {
                 btn.textContent = "Fejl!";
                 setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+            }
+        };
+    });
+    // Full sync-knapper
+    listDiv.querySelectorAll('button.full-sync').forEach(btn => {
+        btn.onclick = async () => {
+            const kode = btn.dataset.kode;
+            if (!confirm(`Vil du starte full sync for '${kode}'?`)) return;
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = "Starter full sync...";
+            try {
+                const res = await fetch(`/api/admin/full_sync_user?kode=${encodeURIComponent(kode)}`, { method: "POST" });
+                const data = await res.json();
+                btn.textContent = data.msg || "✓ Startet";
+                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2200);
+            } catch (e) {
+                btn.textContent = "Fejl!";
+                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2200);
             }
         };
     });
