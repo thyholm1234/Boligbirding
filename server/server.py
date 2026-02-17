@@ -521,19 +521,50 @@ async def matrikel_arter(
                 arter.add(navn)
     return sorted(arter)
 
-@app.get("/api/artdata")
-async def artdata(
-    artnavn: str = Query(..., description="Navn på fugleart (præcis, som i listerne)"),
+
+@app.get("/api/arter")
+async def arter(
     scope: str = Query("global", description="'global' eller 'matrikel'"),
     aar: int = Query(None, description="År (valgfri, default: global year)")
 ):
     """
-    Returnerer akkumuleret data + statistik for en art,
-    samt observationer pr. turid pr. dag og sidste fund pr. matrikel.
+    Returnerer en sorteret liste med alle arter for valgt scope.
     """
-    import unicodedata
     if aar is None:
         aar = await get_global_year()
+    scope = (scope or "global").strip().lower()
+    if scope == "alle":
+        scope = "global"
+    if scope not in ("global", "matrikel"):
+        raise HTTPException(status_code=400, detail="Ukendt scope")
+
+    _, _, OBSER_DIR = get_data_dirs(aar)
+    arter = set()
+    user_dirs = [os.path.join(OBSER_DIR, d) for d in os.listdir(OBSER_DIR) if os.path.isdir(os.path.join(OBSER_DIR, d))]
+    filename = "matrikelarter.json" if scope == "matrikel" else "global.json"
+    for user_dir in user_dirs:
+        path = os.path.join(user_dir, filename)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        for row in rows:
+            navn = (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()
+            if navn:
+                arter.add(navn)
+    return sorted(arter)
+
+async def _artdata_payload(artnavn: str, scope: str, aar: Optional[int]):
+    import unicodedata
+
+    if aar is None:
+        aar = await get_global_year()
+    scope = (scope or "global").strip().lower()
+    if scope == "alle":
+        scope = "global"
+    if scope not in ("global", "matrikel"):
+        raise HTTPException(status_code=400, detail="Ukendt scope")
+
     _, _, OBSER_DIR = get_data_dirs(aar)
     user_dirs = [os.path.join(OBSER_DIR, d) for d in os.listdir(OBSER_DIR) if os.path.isdir(os.path.join(OBSER_DIR, d))]
     ankomstgraf = []
@@ -541,7 +572,7 @@ async def artdata(
 
     artnavn_norm = unicodedata.normalize("NFC", artnavn.strip())
 
-    # 1. Akkumuleret statistik (ankomstgraf) og sidste fund pr. matrikel
+    # 1. Akkumuleret statistik (ankomstgraf) og sidste fund pr. bruger
     for user_dir in user_dirs:
         if scope == "matrikel":
             path = os.path.join(user_dir, "matrikelarter.json")
@@ -551,7 +582,8 @@ async def artdata(
             continue
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        # Ankomst pr. matrikel (første fund)
+
+        # Ankomst pr. bruger (første fund)
         for row in rows:
             navn = (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()
             navn_norm = unicodedata.normalize("NFC", navn)
@@ -562,24 +594,27 @@ async def artdata(
                 })
                 break  # kun første gang brugeren får arten
 
-        # Sidste fund pr. matrikel (kun matrikel)
-        if scope == "matrikel":
-            datoer_fund = [
-                row["dato"] for row in rows
-                if unicodedata.normalize("NFC", (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()) == artnavn_norm and row.get("dato")
-            ]
-            if datoer_fund:
-                sidste = max(datoer_fund, key=lambda d: [int(x) for x in d.split('-')[::-1]])
-                sidste_fund.append({
-                    "matrikel": os.path.basename(user_dir),
-                    "sidste_dato": sidste
-                })
+        # Sidste fund pr. bruger
+        datoer_fund = [
+            row["dato"] for row in rows
+            if unicodedata.normalize("NFC", (row.get("artnavn") or "").split("(")[0].split(",")[0].strip()) == artnavn_norm and row.get("dato")
+        ]
+        if datoer_fund:
+            sidste = max(datoer_fund, key=lambda d: [int(x) for x in d.split('-')[::-1]])
+            sidste_fund.append({
+                "matrikel": os.path.basename(user_dir),
+                "sidste_dato": sidste
+            })
 
-    # 2. Observationer pr. turid pr. dag (kun for scope == "matrikel")
+    # 2. Observationer pr. turid pr. dag
     obs_per_turid = []
+    filter_tag = None
     if scope == "matrikel":
+        filter_tag = resolve_filter_tag(await get_global_filter(), aar)
+
+    if scope == "global" or filter_tag:
         async with SessionLocal() as session:
-            rows = (await session.execute(
+            base_query = (
                 select(
                     Observation.dato,
                     Observation.turid,
@@ -590,9 +625,13 @@ async def artdata(
                     Observation.dato >= datetime.date(aar, 1, 1),
                     Observation.dato <= datetime.date(aar, 12, 31)
                 )
-                .group_by(Observation.dato, Observation.turid)
-            )).all()
-            # Saml alle observationer pr. dato
+            )
+
+            if scope == "matrikel" and filter_tag:
+                base_query = base_query.where(Observation.turnoter.ilike(f"%{filter_tag}%"))
+
+            rows = (await session.execute(base_query.group_by(Observation.dato, Observation.turid))).all()
+
             obs_by_date = {}
             for row in rows:
                 d = row.dato.strftime("%d-%m-%Y") if row.dato else ""
@@ -600,7 +639,6 @@ async def artdata(
                     obs_by_date[d] = {"antal": 0, "turids": set()}
                 obs_by_date[d]["antal"] += row.antal or 0
                 obs_by_date[d]["turids"].add(row.turid)
-            # Lav ratio pr. dato
             obs_per_turid = [
                 {
                     "dato": d,
@@ -614,6 +652,29 @@ async def artdata(
         "obs_per_turid": obs_per_turid,
         "sidste_fund": sidste_fund
     }
+
+
+@app.get("/api/artdata")
+async def artdata(
+    artnavn: str = Query(..., description="Navn på fugleart (præcis, som i listerne)"),
+    scope: str = Query("global", description="'global' eller 'matrikel'"),
+    aar: int = Query(None, description="År (valgfri, default: global year)")
+):
+    """
+    Returnerer akkumuleret data + statistik for en art,
+    samt observationer pr. turid pr. dag og sidste fund pr. bruger.
+    """
+    return await _artdata_payload(artnavn, scope, aar)
+
+
+@app.post("/api/artdata")
+async def artdata_post(payload: Dict[str, Any] = Body(...)):
+    artnavn = payload.get("artnavn")
+    if not artnavn:
+        raise HTTPException(status_code=400, detail="artnavn mangler")
+    scope = payload.get("scope", "global")
+    aar = payload.get("aar")
+    return await _artdata_payload(artnavn, scope, aar)
 
 # ---------------------------------------------------------
 #  Scoreboards (fra listerne)

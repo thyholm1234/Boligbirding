@@ -1,4 +1,4 @@
-<!-- Version: 1.10.13 - 2026-02-17 01.15.05 -->
+<!-- Version: 1.10.14 - 2026-02-17 01.20.07 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,8 +6,8 @@
   <meta charset="utf-8" />
   <title>Ankomstgraf for fugle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="style.css?v=1.10.13">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.10.13"></script>
+  <link rel="stylesheet" href="style.css?v=1.10.14">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.10.14"></script>
   <script type="module">
     import { renderNavbar, initNavbar, initMobileNavbar } from './navbar.js';
     renderNavbar();
@@ -30,30 +30,75 @@
       <label for="artDropdown"><b>Vælg fugleart:</b></label>
       <select id="artDropdown" style="min-width:220px;padding:0.4em 0.7em;font-size:1em;"></select>
     </div>
+    <div style="margin-bottom:1.5em;text-align:center;">
+      <button id="scopeToggle" style="padding:0.45em 0.9em;font-size:0.95em;">Vis: Matrikel</button>
+    </div>
     <canvas id="ankomstChart" width="600" height="250"></canvas>
-    <h3 style="margin-top:2em;text-align:center;">Sidste fund pr. matrikel</h3>
+    <h3 id="sidsteFundTitle" style="margin-top:2em;text-align:center;">Sidste fund pr. matrikel</h3>
     <canvas id="sidsteFundChart" width="600" height="250"></canvas>
-    <h3 style="margin-top:2em;text-align:center;">Observationer pr. turid pr. dag</h3>
+    <h3 id="turidTitle" style="margin-top:2em;text-align:center;">Observationer pr. turid pr. dag</h3>
     <canvas id="turidChart" width="600" height="250"></canvas>
     <div id="statistik" style="margin-top:1.5em;text-align:center;"></div>
   </main>
   <script>
     let chart = null, turidChart = null, sidsteFundChart = null;
+    let currentScope = "matrikel";
+    let preselectedArt = null;
+
+    function normalizeScope(value) {
+      const v = (value || "").toLowerCase();
+      if (v === "alle") return "global";
+      if (v === "global" || v === "matrikel") return v;
+      return "matrikel";
+    }
+
+    function updateScopeLabels() {
+      const isMatrikel = currentScope === "matrikel";
+      const label = isMatrikel ? "Matrikel" : "Alle (inkl. matrikel)";
+      document.getElementById("scopeToggle").textContent = `Vis: ${label}`;
+      document.getElementById("sidsteFundTitle").textContent = isMatrikel
+        ? "Sidste fund pr. matrikel"
+        : "Sidste fund pr. bruger";
+      document.getElementById("turidTitle").textContent = isMatrikel
+        ? "Observationer pr. turid pr. dag"
+        : "Observationer pr. turid pr. dag";
+    }
+
+    function updateUrlParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set("scope", currentScope);
+      if (preselectedArt) {
+        urlParams.set("art", preselectedArt);
+      }
+      window.history.replaceState({}, "", "?" + urlParams.toString());
+    }
 
     async function hentArter() {
-      const res = await fetch('/api/matrikel_arter');
+      const res = await fetch(`/api/arter?scope=${encodeURIComponent(currentScope)}`);
       const arter = await res.json();
       const dropdown = document.getElementById('artDropdown');
       dropdown.innerHTML = arter.map(a => `<option value="${a}">${a}</option>`).join('');
       if (arter.length) {
-        dropdown.value = arter[0];
-        hentArtData(arter[0]);
+        if (preselectedArt && arter.includes(preselectedArt)) {
+          dropdown.value = preselectedArt;
+        } else {
+          dropdown.value = arter[0];
+          preselectedArt = arter[0];
+        }
+        updateUrlParams();
+        hentArtData(dropdown.value);
       }
     }
 
     async function hentArtData(artnavn) {
-      const res = await fetch(`/api/artdata?artnavn=${encodeURIComponent(artnavn)}&scope=matrikel`);
+      const res = await fetch('/api/artdata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artnavn, scope: currentScope })
+      });
       const data = await res.json();
+      const isMatrikel = currentScope === "matrikel";
+      const entityLabel = isMatrikel ? "matrikler" : "brugere";
 
       // Find alle datoer i datasættet (fra første til sidste dag)
       function getAllDates(start, end) {
@@ -138,7 +183,7 @@
           scales: {
             x: { title: { display: true, text: 'Dato' } },
             y: {
-              title: { display: true, text: 'Antal matrikler' },
+              title: { display: true, text: `Antal ${entityLabel}` },
               beginAtZero: true,
               ticks: {
                 stepSize: 1,
@@ -212,7 +257,7 @@
           scales: {
             x: { title: { display: true, text: 'Dato' } },
             y: {
-              title: { display: true, text: 'Antal matrikler' },
+              title: { display: true, text: `Antal ${entityLabel}` },
               beginAtZero: true,
               ticks: {
                 stepSize: 1,
@@ -329,7 +374,7 @@
         <table style="border:none;font-size:1.08em;">
           <tr><td>Første fund:</td><td style="padding-left:1.5em;"><b>${første}</b></td></tr>
           <tr><td>Sidste fund:</td><td style="padding-left:1.5em;"><b>${sidste}</b></td></tr>
-          <tr><td>Total antal matrikler:</td><td style="padding-left:1.5em;"><b>${total}</b></td></tr>
+          <tr><td>Total antal ${entityLabel}:</td><td style="padding-left:1.5em;"><b>${total}</b></td></tr>
           <tr><td colspan="2" style="padding-top:1em;padding-bottom:0.5em;font-weight:bold;color:#2b7a78;">Ankomst</td></tr>
           <tr><td>Median ankomst:</td><td style="padding-left:1.5em;"><b>${median}</b></td></tr>
           <tr><td>20% ankomst:</td><td style="padding-left:1.5em;"><b>${pct20}</b></td></tr>
@@ -344,9 +389,22 @@
     }
 
     document.getElementById('artDropdown').addEventListener('change', e => {
+      preselectedArt = e.target.value;
+      updateUrlParams();
       hentArtData(e.target.value);
     });
 
+    document.getElementById('scopeToggle').addEventListener('click', () => {
+      currentScope = currentScope === "matrikel" ? "global" : "matrikel";
+      updateScopeLabels();
+      updateUrlParams();
+      hentArter();
+    });
+
+    const initialParams = new URLSearchParams(window.location.search);
+    currentScope = normalizeScope(initialParams.get("scope"));
+    preselectedArt = initialParams.get("art");
+    updateScopeLabels();
     hentArter();
   </script>
 </body>
