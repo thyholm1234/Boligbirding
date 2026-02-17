@@ -1444,6 +1444,167 @@ async def daily_update_all_jsons():
     print("[DAILY SYNC] Samlede scoreboards (alle år) genereret.")
 
 
+async def sync_user_all_time(obserkode: str):
+    """
+    Fuld sync for en enkelt bruger (1900-NU) + rebuild af relevante år og all-time.
+    """
+    import io
+    import datetime
+    import pandas as pd
+    import requests
+
+    obserkode = normalize_obserkode(obserkode)
+    current_year = datetime.datetime.now().year
+
+    url = (
+        "https://dofbasen.dk/excel/search_result1.php"
+        "?design=excel&soeg=soeg&periode=maanedaar"
+        f"&aar_first=1900&aar_second={current_year}"
+        "&obstype=observationer&species=alle"
+        f"&obserdata={obserkode}&sortering=dato"
+    )
+
+    df = None
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        df = pd.read_csv(io.StringIO(resp.content.decode("latin1")), sep=";", dtype=str)
+        print(f"[SYNC-ALL] Hentet {len(df)} rækker fra DOFbasen for {obserkode} (1900-NU)")
+    except Exception as e:
+        print(f"[SYNC-ALL] HTTP-fejl ({e}) – prøver lokal CSV fallback...")
+
+    if df is None or df.empty:
+        candidates = [
+            os.path.join(ROOT_DIR, "search_result (3).csv"),
+            os.path.join(SERVER_DIR, "search_result (3).csv"),
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                try:
+                    df = pd.read_csv(p, sep=";", dtype=str, encoding="latin1")
+                    print(f"[SYNC-ALL] Lokal CSV: {len(df)} rækker fra {p}")
+                    break
+                except Exception as e:
+                    print(f"[SYNC-ALL] Kunne ikke parse {p}: {e}")
+
+    async with SessionLocal() as session:
+        await session.execute(
+            Observation.__table__.delete().where(
+                Observation.obserkode == obserkode
+            )
+        )
+        await session.commit()
+
+        inserted = 0
+        batch = []
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                raw_dato = (row.get("Dato", "") or "").strip()
+                if not raw_dato:
+                    continue
+                if len(raw_dato) > 10:
+                    raw_dato = raw_dato[:10]
+                dato = None
+                for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+                    try:
+                        dato = datetime.datetime.strptime(raw_dato, fmt).date()
+                        break
+                    except Exception:
+                        pass
+                if not dato:
+                    continue
+
+                antal = int(row.get("Antal", "") or 0)
+                if antal == 0:
+                    continue
+
+                obs = Observation(
+                    obserkode=safe_str(row.get("Obserkode", "")) or obserkode,
+                    artnavn=safe_str(row.get("Artnavn", "") or ""),
+                    dato=dato,
+                    turid=safe_str(row.get("Turid")),
+                    obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
+                    turtidfra=safe_str(row.get("Turtidfra")),
+                    turtidtil=safe_str(row.get("Turtidtil")),
+                    turnoter=safe_str(row.get("Turnoter", "") or ""),
+                    afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
+                    loknavn=safe_str(row.get("Loknavn", "") or ""),
+                    loknr=_parse_int(row.get("Loknr")),
+                    antal=antal
+                )
+                batch.append(obs)
+                inserted += 1
+                if len(batch) >= 25000:
+                    session.add_all(batch)
+                    await session.commit()
+                    batch = []
+            if batch:
+                session.add_all(batch)
+                await session.commit()
+        print(f"[SYNC-ALL] Indsat {inserted} observationer for {obserkode} (1900-NU)")
+
+    async with SessionLocal() as session:
+        years = (await session.execute(
+            select(func.extract("year", Observation.dato))
+            .where(Observation.obserkode == obserkode)
+            .distinct()
+        )).scalars().all()
+        years = [int(y) for y in years if y is not None]
+
+    for aar in sorted(years):
+        await generate_user_lists(obserkode, aar)
+        await generate_scoreboards_from_lists(aar)
+        print(f"[SYNC-ALL] Lister/scoreboards for {obserkode} opdateret ({aar})")
+
+    await generate_user_global_lists(obserkode)
+    await generate_global_scoreboards_all_time()
+    print(f"[SYNC-ALL] All-time lister/scoreboards opdateret for {obserkode}")
+
+
+async def schedule_weekly_all_time_sync():
+    while True:
+        now = datetime.datetime.now()
+        target = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        days_ahead = (7 - now.weekday()) % 7
+        target = target + datetime.timedelta(days=days_ahead)
+        if target <= now:
+            target = target + datetime.timedelta(days=7)
+        sleep_seconds = max(0, int((target - now).total_seconds()))
+        print(f"[SCHEDULE] Next weekly all-time sync at {target.isoformat()} (in {sleep_seconds}s)")
+        await asyncio.sleep(sleep_seconds)
+        try:
+            print("[SCHEDULE] Running weekly all-time sync...")
+            await daily_update_all_jsons()
+            print("[SCHEDULE] Weekly all-time sync done.")
+        except Exception as exc:
+            print(f"[SCHEDULE] Weekly all-time sync failed: {exc}")
+
+
+async def schedule_daily_year_sync():
+    while True:
+        now = datetime.datetime.now()
+        target = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        if target <= now:
+            target = target + datetime.timedelta(days=1)
+        sleep_seconds = max(0, int((target - now).total_seconds()))
+        print(f"[SCHEDULE] Next daily year sync at {target.isoformat()} (in {sleep_seconds}s)")
+        await asyncio.sleep(sleep_seconds)
+        try:
+            aar = await get_global_year()
+            print(f"[SCHEDULE] Running daily year sync for {aar}...")
+            async with SessionLocal() as session:
+                koder = [
+                    normalize_obserkode(k.kode)
+                    for k in (await session.execute(select(Obserkode))).scalars().all()
+                    if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
+                ]
+            for kode in koder:
+                await fetch_and_store(kode, aar)
+            print(f"[SCHEDULE] Daily year sync done for {aar}.")
+        except Exception as exc:
+            print(f"[SCHEDULE] Daily year sync failed: {exc}")
+
+
 # ---------------------------------------------------------
 #  API: Admin
 # ---------------------------------------------------------
@@ -2466,16 +2627,21 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
     # Gem/Opdater bruger
     async with SessionLocal() as session:
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar()
+        new_user_created = False
         if user:
             if navn and user.navn != navn:
                 user.navn = navn
         else:
             session.add(User(obserkode=obserkode, navn=navn or obserkode))
+            new_user_created = True
         # Sørg for at der også findes en Obserkode-række
         ok = (await session.execute(select(Obserkode).where(Obserkode.kode == obserkode))).scalar()
         if not ok:
             session.add(Obserkode(kode=obserkode))
         await session.commit()
+
+    if new_user_created:
+        asyncio.create_task(sync_user_all_time(obserkode))
 
     if request:
         session = request.session
@@ -2837,6 +3003,8 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
     print("[START] DB klar. Static peger på:", WEB_DIR)
     asyncio.create_task(schedule_daily_kommune_sync())
+    asyncio.create_task(schedule_weekly_all_time_sync())
+    asyncio.create_task(schedule_daily_year_sync())
 
 
 @app.post("/api/full_sync_all")
