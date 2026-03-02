@@ -1,4 +1,4 @@
-// Version: 1.12.4 - 2026-03-03 00.46.26
+// Version: 1.12.5 - 2026-03-03 00.48.51
 // © Christian Vemmelund Helligsø
 
 
@@ -13,6 +13,7 @@ let lastScoreboardParams = null;
 let firstsSortMode = "alphabetical"; // "alphabetical" | "newest" | "oldest"
 let cachedGlobalYear = null;
 let selfObserkode = null;
+let kommuneNameMap = null;
 
 // Snapshot af originale data pr. scope/gruppe (til robust filtrering)
 let masterData = null;            // { rows, koder, matrix, totals, arter }
@@ -261,7 +262,7 @@ const SCOREBOARD_SCOPE_MATRIX = {
   lokal_matrikel: { listType: 'Matrikel', title: 'Lokalafdeling – Matrikel-rangliste' },
   kommune_alle: { listType: 'Alle kryds', title: 'Kommune – Rangliste', userPrefixYear: 'Kommunearter for', userPrefixGlobal: 'Kommunearter (alle år) for' },
   kommune_matrikel: { listType: 'Matrikel', title: 'Kommune – Matrikel-rangliste', userPrefixYear: 'Kommune matrikelarter for', userPrefixGlobal: 'Kommune matrikelarter (alle år) for' },
-  user_global: { listType: 'Alle kryds', title: 'Brugerliste' },
+  user_global: { listType: 'Alle kryds', title: 'Brugerliste', userPrefixYear: 'Årsarter for', userPrefixGlobal: 'Arter (alle år) for' },
   user_matrikel: { listType: 'Matrikel', title: 'Brugerliste – Matrikel' },
   user_lokalafdeling: { listType: 'Alle kryds', title: 'Brugerliste – Lokalafdeling' },
   user_kommune_alle: { listType: 'Alle kryds', title: 'Brugerliste – Kommune' },
@@ -281,10 +282,28 @@ function setScoreboardSubtitle(text) {
     subtitle = document.createElement('div');
     subtitle.id = subtitleId;
     subtitle.style.fontSize = '1.05em';
+    subtitle.style.textAlign = 'center';
+    subtitle.style.color = 'var(--text-muted)';
     subtitle.style.marginBottom = '1em';
     pageTitle.insertAdjacentElement('afterend', subtitle);
   }
   subtitle.textContent = text;
+}
+
+async function ensureKommuneNameById(kommuneId) {
+  const id = String(kommuneId || '').trim();
+  if (!id) return null;
+  if (!kommuneNameMap) {
+    try {
+      const res = await fetch('/api/afdelinger');
+      if (!res.ok) return null;
+      const payload = await res.json();
+      kommuneNameMap = new Map((payload?.kommuner || []).map(row => [String(row.id), row.navn]));
+    } catch (_) {
+      return null;
+    }
+  }
+  return kommuneNameMap.get(id) || null;
 }
 
 function buildScoreboardHeading(params) {
@@ -616,12 +635,10 @@ function buildUserScopeSubtitle({ apiScope, scope, gruppe, afdeling, kommune, ko
   const parts = [];
   const isAllTime = String(aar) === 'global';
 
-  if (apiScope === 'user_kommune_alle' || apiScope === 'user_kommune_matrikel' || String(scope).startsWith('kommune')) {
-    if (kommuneNavn) {
-      parts.push(`Kommune: ${kommuneNavn}`);
-    } else if (kommune) {
-      parts.push(`Kommune-ID: ${kommune}`);
-    }
+  if (kommuneNavn) {
+    parts.push(`Kommune: ${kommuneNavn}`);
+  } else if (kommune) {
+    parts.push(`Kommune-ID: ${kommune}`);
   }
 
   if (apiScope === 'user_lokalafdeling' && afdeling) {
@@ -748,6 +765,10 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   // Render
   const container = document.getElementById("main");
   const pageTitle = document.getElementById("page-title");
+  let resolvedKommuneNavn = kommuneNavn;
+  if (!resolvedKommuneNavn && kommune) {
+    resolvedKommuneNavn = await ensureKommuneNameById(kommune);
+  }
 
   const visNavn = normalizeDisplayName(navn, obserkode);
   const userHeading = buildUserHeading({
@@ -757,7 +778,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     gruppe,
     afdeling,
     kommune,
-    kommuneNavn,
+    kommuneNavn: resolvedKommuneNavn,
     matrikelIndex,
   });
   pageTitle.textContent = userHeading.title;
