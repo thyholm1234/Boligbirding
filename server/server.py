@@ -255,15 +255,30 @@ def resolve_matrikel_tags(filt: str, aar: int) -> Dict[str, str]:
         "matrikel2": f"{base_tag}-2"
     }
 
-def _observation_has_matrikel_tag(row: Observation, raw_filter: str, matrikel_number: int) -> bool:
-    if not raw_filter:
+def _extract_hashtag_tokens(text_value: Optional[str]) -> set:
+    value = str(text_value or "").upper()
+    # Matcher fx #BB26, #BB26-1, #HOME-2 (ingen delstrengs-match)
+    return set(re.findall(r"#[A-Z0-9]+(?:-[A-Z0-9]+)*", value))
+
+def _note_has_any_tag(text_value: Optional[str], tags: List[str]) -> bool:
+    clean_tags = [str(tag or "").upper().strip() for tag in (tags or []) if str(tag or "").strip()]
+    if not clean_tags:
         return False
-    year_value = row.dato.year if getattr(row, "dato", None) else datetime.datetime.now().year
+    tokens = _extract_hashtag_tokens(text_value)
+    return any(tag in tokens for tag in clean_tags)
+
+def _matrikel_tags_for_year(raw_filter: str, year_value: int, matrikel_number: int) -> List[str]:
     base_tag = resolve_filter_tag(raw_filter, year_value)
     if not base_tag:
-        return False
-    tag_value = base_tag if matrikel_number == 1 else f"{base_tag}-2"
-    return tag_value in (row.turnoter or "")
+        return []
+    if matrikel_number == 1:
+        return [base_tag, f"{base_tag}-1"]
+    return [f"{base_tag}-2"]
+
+def _observation_has_matrikel_tag(row: Observation, raw_filter: str, matrikel_number: int) -> bool:
+    year_value = row.dato.year if getattr(row, "dato", None) else datetime.datetime.now().year
+    tags = _matrikel_tags_for_year(raw_filter, year_value, matrikel_number)
+    return _note_has_any_tag(row.turnoter, tags)
 
 def _parse_iso_date(value: Any) -> Optional[datetime.date]:
     if value is None:
@@ -375,13 +390,13 @@ def _select_active_period(
 
 def _matrikel_obs_for_range(
     obs_rows: List[Observation],
-    tag: str,
+    tags: List[str],
     periods: List[Dict[str, Optional[str]]],
     start_date: datetime.date,
     end_date: datetime.date,
     reference_date: Optional[datetime.date] = None,
 ) -> Dict[str, List[Observation]]:
-    tagged = [row for row in obs_rows if tag and tag in (row.turnoter or "")]
+    tagged = [row for row in obs_rows if _note_has_any_tag(row.turnoter, tags)]
     return _apply_period_selection(tagged, periods, start_date, end_date, reference_date=reference_date)
 
 def _apply_period_selection(
@@ -574,6 +589,8 @@ async def generate_user_lists(obserkode: str, aar: int):
         filt = await get_global_filter()
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
     tags = resolve_matrikel_tags(filt, aar)
+    matrikel1_tags = [tags["matrikel1"], f"{tags['matrikel1']}-1"] if tags["matrikel1"] else []
+    matrikel2_tags = [tags["matrikel2"]] if tags["matrikel2"] else []
     user_periods = _load_user_matrikel_periods(user)
     year_start = datetime.date(aar, 1, 1)
     year_end = datetime.date(aar, 12, 31)
@@ -589,7 +606,7 @@ async def generate_user_lists(obserkode: str, aar: int):
     # Matrikel 1 (aktiv periode)
     m1_obs = _matrikel_obs_for_range(
         obs_rows=obs,
-        tag=tags["matrikel1"],
+        tags=matrikel1_tags,
         periods=user_periods.get("matrikel1") or [],
         start_date=year_start,
         end_date=year_end,
@@ -601,12 +618,12 @@ async def generate_user_lists(obserkode: str, aar: int):
     matrikel_historik = _firsts_from_obs(m1_obs["historical"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter_historik.json"), "w", encoding="utf-8") as f:
         json.dump(matrikel_historik, f, ensure_ascii=False, indent=2)
-    print(f"[LISTS] {obserkode}/{aar}: matrikelarter.json ({len(matrikel_list)} arter, filter='{tags['matrikel1']}')")
+    print(f"[LISTS] {obserkode}/{aar}: matrikelarter.json ({len(matrikel_list)} arter, filter='{','.join(matrikel1_tags)}')")
 
     # Matrikel 2 (aktiv periode, privat)
     m2_obs = _matrikel_obs_for_range(
         obs_rows=obs,
-        tag=tags["matrikel2"],
+        tags=matrikel2_tags,
         periods=user_periods.get("matrikel2") or [],
         start_date=year_start,
         end_date=year_end,
@@ -3539,6 +3556,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
 
     global_filter_value = await get_global_filter()
     matrikel1_tag = resolve_matrikel_tags(global_filter_value, trend_year).get("matrikel1")
+    matrikel1_tags = [matrikel1_tag, f"{matrikel1_tag}-1"] if matrikel1_tag else []
 
     async with SessionLocal() as session:
         users = (await session.execute(select(User).where(User.obserkode.in_(koder)))).scalars().all()
@@ -3559,7 +3577,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             ]
             relevant_periods.sort(key=lambda period: period.get("start_date") or "")
 
-            if matrikel1_tag and relevant_periods:
+            if matrikel1_tags and relevant_periods:
                 async with SessionLocal() as dbsession:
                     obs_query = select(Observation).where(Observation.obserkode == u.obserkode)
                     if str(aar) != "global":
@@ -3588,7 +3606,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
                             continue
                         if obs_row.dato < period_start or obs_row.dato > period_end:
                             continue
-                        if matrikel1_tag not in (obs_row.turnoter or ""):
+                        if not _note_has_any_tag(obs_row.turnoter, matrikel1_tags):
                             continue
                         art_name = _normalize_base_art_name(obs_row.artnavn)
                         if not art_name or "sp." in art_name or "/" in art_name or " x " in art_name:
