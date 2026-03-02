@@ -2194,6 +2194,30 @@ async def statistik_data(obserkode: str):
     global_list = _sort_list_by_date(global_list)
     matrikel_list = _sort_list_by_date(matrikel_list)
 
+    total_rank_global = None
+    total_rank_matrikel = None
+    global_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_alle", "scoreboard.json")
+    matrikel_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_matrikel", "scoreboard.json")
+
+    try:
+        global_sb_rows = _load_json(global_sb_path) or []
+    except Exception:
+        global_sb_rows = []
+    try:
+        matrikel_sb_rows = _load_json(matrikel_sb_path) or []
+    except Exception:
+        matrikel_sb_rows = []
+
+    for row in global_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_global = row.get("placering")
+            break
+
+    for row in matrikel_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_matrikel = row.get("placering")
+            break
+
     # Aar-data og placeringer
     data_root = os.path.join(SERVER_DIR, "data")
     year_dirs = [int(n) for n in os.listdir(data_root) if n.isdigit()]
