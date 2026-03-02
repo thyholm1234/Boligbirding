@@ -99,6 +99,158 @@ function renderYearList(targetId, years, user, scope, totalCount = 0, totalRank 
   `;
 }
 
+function renderMatrikelYearList(targetId, data, user, compareData = null, compareUser = null) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+
+  const primaryIndexes = Array.isArray(data?.matrikel_available_indexes)
+    ? data.matrikel_available_indexes
+      .map(v => Number(v))
+      .filter(v => Number.isInteger(v) && v >= 1)
+      .sort((a, b) => a - b)
+    : [];
+  const compareIndexes = Array.isArray(compareData?.matrikel_available_indexes)
+    ? compareData.matrikel_available_indexes
+      .map(v => Number(v))
+      .filter(v => Number.isInteger(v) && v >= 1)
+      .sort((a, b) => a - b)
+    : [];
+
+  const indexSet = new Set([...(primaryIndexes || []), ...(compareIndexes || [])]);
+  if (!indexSet.size) indexSet.add(1);
+  const indexes = Array.from(indexSet).sort((a, b) => a - b);
+  const singleMatrikel = indexes.length === 1;
+
+  const totals = data?.matrikel_totals || {};
+  const compareTotals = compareData?.matrikel_totals || {};
+
+  const rowsRaw = Array.isArray(data?.matrikel_year_rows) ? data.matrikel_year_rows : [];
+  const rowsFallback = Array.isArray(data?.matrikel_years)
+    ? data.matrikel_years.map(y => ({
+      year: y.year,
+      matrikler: { "1": { count: Number(y.count || 0), rank: y.rank ?? null } }
+    }))
+    : [];
+  const rowsSource = rowsRaw.length ? rowsRaw : rowsFallback;
+
+  const rows = rowsSource
+    .map(row => ({ ...row, year: Number(row?.year) }))
+    .filter(row => Number.isFinite(row.year))
+    .sort((a, b) => b.year - a.year)
+    .filter(row => indexes.some(idx => Number(row?.matrikler?.[String(idx)]?.count || 0) > 0));
+
+  const hasTotal = indexes.some(idx => Number(totals?.[String(idx)]?.count || 0) > 0);
+  if (!rows.length && !hasTotal) {
+    target.innerHTML = '<div class="muted">Ingen årsdata fundet.</div>';
+    return;
+  }
+
+  const headerCols = singleMatrikel
+    ? '<th>X</th>'
+    : indexes.map(idx => `<th>Matrikel ${idx}</th>`).join('');
+
+  const buildPrimaryCountCells = (matriklerMap) => {
+    if (singleMatrikel) {
+      const idx = indexes[0];
+      const value = Number(matriklerMap?.[String(idx)]?.count || 0);
+      return `<td>${formatNumber(value)}</td>`;
+    }
+    return indexes.map(idx => `<td>${formatNumber(Number(matriklerMap?.[String(idx)]?.count || 0))}</td>`).join('');
+  };
+
+  const totalParams = new URLSearchParams({
+    scope: 'user_matrikel',
+    obserkode: user.obserkode || '',
+    navn: user.navn || user.obserkode || '',
+    aar: 'global',
+    matrikel: String(indexes[0] || 1)
+  });
+  const totalLink = `scoreboard.html?${totalParams.toString()}`;
+
+  const totalPrimaryMap = {};
+  indexes.forEach(idx => {
+    totalPrimaryMap[String(idx)] = { count: Number(totals?.[String(idx)]?.count || 0) };
+  });
+  const totalRank = totals?.['1']?.rank ? `#${totals['1'].rank}` : '-';
+
+  const totalCompareCell = compareUser
+    ? (() => {
+      const compareCount = Number(compareTotals?.['1']?.count || 0);
+      const compareRank = compareTotals?.['1']?.rank ? `#${compareTotals['1'].rank}` : '-';
+      return `<td>${compareCount > 0 ? `${formatNumber(compareCount)} (${compareRank})` : '-'}</td>`;
+    })()
+    : '';
+
+  const totalRow = hasTotal
+    ? `
+      <tr>
+        <td><b>Total</b></td>
+        <td><a href="${totalLink}">Se listen</a></td>
+        ${buildPrimaryCountCells(totalPrimaryMap)}
+        <td>${totalRank}</td>
+        ${totalCompareCell}
+      </tr>
+    `
+    : '';
+
+  const compareRowsRaw = Array.isArray(compareData?.matrikel_year_rows) ? compareData.matrikel_year_rows : [];
+  const compareRowsFallback = Array.isArray(compareData?.matrikel_years)
+    ? compareData.matrikel_years.map(y => ({
+      year: y.year,
+      matrikler: { "1": { count: Number(y.count || 0), rank: y.rank ?? null } }
+    }))
+    : [];
+  const compareRows = (compareRowsRaw.length ? compareRowsRaw : compareRowsFallback);
+  const compareMap = new Map(compareRows.map(r => [String(r?.year), r]));
+
+  const yearRows = rows.map(row => {
+    const params = new URLSearchParams({
+      scope: 'user_matrikel',
+      obserkode: user.obserkode || '',
+      navn: user.navn || user.obserkode || '',
+      aar: String(row.year),
+      matrikel: String(indexes[0] || 1)
+    });
+    const link = `scoreboard.html?${params.toString()}`;
+    const rank = row?.matrikler?.['1']?.rank ? `#${row.matrikler['1'].rank}` : '-';
+    const compareRow = compareMap.get(String(row.year));
+    const compareCell = compareUser
+      ? (() => {
+        const c = Number(compareRow?.matrikler?.['1']?.count || 0);
+        const r = compareRow?.matrikler?.['1']?.rank ? `#${compareRow.matrikler['1'].rank}` : '-';
+        return `<td>${c > 0 ? `${formatNumber(c)} (${r})` : '-'}</td>`;
+      })()
+      : '';
+
+    return `
+      <tr>
+        <td>${row.year}</td>
+        <td><a href="${link}">Se listen</a></td>
+        ${buildPrimaryCountCells(row.matrikler || {})}
+        <td>${rank}</td>
+        ${compareCell}
+      </tr>
+    `;
+  }).join('');
+
+  const compareHeader = compareUser ? `<th>${compareUser.obserkode || 'Sammenligning'}</th>` : '';
+
+  target.innerHTML = `
+    <table class="profile-table">
+      <thead>
+        <tr>
+          <th>År</th>
+          <th>Liste</th>
+          ${headerCols}
+          <th>Placering</th>
+          ${compareHeader}
+        </tr>
+      </thead>
+      <tbody>${totalRow}${yearRows}</tbody>
+    </table>
+  `;
+}
+
 function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || typeof Chart === 'undefined') return;
@@ -349,15 +501,10 @@ function renderStatistik() {
   );
   renderYearList(
     'matrikel-year-list',
-    data.matrikel_years || [],
+    data,
     user,
-    'user_matrikel',
-    Number(data.lists?.vp?.count || 0),
-    data.lists?.vp?.rank ?? null,
-    compareStatData?.matrikel_years || [],
-    compareUser,
-    compareStatData ? Number(compareStatData?.lists?.vp?.count || 0) : null,
-    compareStatData?.lists?.vp?.rank ?? null
+    compareStatData,
+    compareUser
   );
 
   const globalSeries = mergeSeries(data.charts?.global_by_year || [], compareStatData?.charts?.global_by_year || []);
