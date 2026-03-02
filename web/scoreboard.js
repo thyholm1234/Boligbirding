@@ -1,4 +1,4 @@
-// Version: 1.12.6 - 2026-03-03 00.56.16
+// Version: 1.12.7 - 2026-03-03 00.57.33
 // © Christian Vemmelund Helligsø
 
 
@@ -638,9 +638,9 @@ function buildUserScopeSubtitle({ apiScope, scope, gruppe, afdeling, kommune, ko
   const isAllTime = String(aar) === 'global';
 
   if (kommuneNavn) {
-    parts.push(`Kommune: ${kommuneNavn}${kommune ? ` (${kommune})` : ''}`);
+    parts.push(`${kommuneNavn} Kommune`);
   } else if (kommune) {
-    parts.push(`Kommune-ID: ${kommune}`);
+    parts.push(`Kommune ${kommune}`);
   }
 
   if (apiScope === 'user_lokalafdeling' && afdeling) {
