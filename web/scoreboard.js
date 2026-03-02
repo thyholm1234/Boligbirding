@@ -1,4 +1,4 @@
-// Version: 1.11.2 - 2026-03-02 16.42.36
+// Version: 1.11.3 - 2026-03-02 16.49.37
 // © Christian Vemmelund Helligsø
 
 
@@ -640,6 +640,17 @@ function visScoreboardTrend(data) {
   const trendDiv = document.getElementById('scoreboard-trend');
   if (!trendDiv) return;
 
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const isVisibleDate = (dmy) => {
+    const parts = String(dmy || '').split('-');
+    if (parts.length !== 3) return false;
+    const [dd, mm, yyyy] = parts;
+    if (!dd || !mm || !yyyy) return false;
+    const key = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    return key <= todayKey;
+  };
+
   const matrix = Array.isArray(data.matrix) ? data.matrix : [];
   const koderMatrix = Array.isArray(data.koder) ? data.koder : [];
   const arter = Array.isArray(data.arter) ? data.arter : [];
@@ -668,11 +679,13 @@ function visScoreboardTrend(data) {
       }
     }
 
-    const sortedDates = Array.from(allDates).sort((left, right) => {
+    const sortedDates = Array.from(allDates)
+      .filter(isVisibleDate)
+      .sort((left, right) => {
       const [leftDay, leftMonth, leftYear] = left.split('-');
       const [rightDay, rightMonth, rightYear] = right.split('-');
       return new Date(`${leftYear}-${leftMonth}-${leftDay}`) - new Date(`${rightYear}-${rightMonth}-${rightDay}`);
-    });
+      });
 
     if (!sortedDates.length || !koder.length) {
       trendDiv.innerHTML = "";
@@ -777,11 +790,13 @@ function visScoreboardTrend(data) {
   }
 
   // Sorter dd-mm-yyyy
-  const sortedDates = Array.from(dateSet).sort((a, b) => {
+  const sortedDates = Array.from(dateSet)
+    .filter(isVisibleDate)
+    .sort((a, b) => {
     const [da, ma, ya] = a.split('-');
     const [db, mb, yb] = b.split('-');
     return new Date(`${ya}-${ma}-${da}`) - new Date(`${yb}-${mb}-${db}`);
-  });
+    });
 
   const datasets = sortedKoder.map((kode, idx) => {
     const origIdx = koder.indexOf(kode);

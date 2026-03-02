@@ -3534,6 +3534,8 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
         range_start = datetime.date(year_value, 1, 1)
         range_end = datetime.date(year_value, 12, 31)
         trend_year = year_value
+    today = datetime.date.today()
+    visible_end = min(range_end, today)
 
     global_filter_value = await get_global_filter()
     matrikel1_tag = resolve_matrikel_tags(global_filter_value, trend_year).get("matrikel1")
@@ -3553,7 +3555,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             user_periods = (_load_user_matrikel_periods(u) or {}).get("matrikel1") or []
             relevant_periods = [
                 period for period in user_periods
-                if _period_overlaps_range(period, range_start, range_end)
+                if _period_overlaps_range(period, range_start, visible_end)
             ]
             relevant_periods.sort(key=lambda period: period.get("start_date") or "")
 
@@ -3563,7 +3565,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
                     if str(aar) != "global":
                         obs_query = obs_query.where(
                             Observation.dato >= range_start,
-                            Observation.dato <= range_end,
+                            Observation.dato <= visible_end,
                         )
                     obs_rows = (await dbsession.execute(obs_query)).scalars().all()
 
@@ -3572,12 +3574,17 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
                     period_start = _parse_iso_date(period.get("start_date"))
                     if not period_start:
                         continue
+                    if period_start > visible_end:
+                        continue
                     period_end = _parse_iso_date(period.get("end_date")) or datetime.date.max
+                    period_end = min(period_end, visible_end)
                     points.append({"dato": period_start.strftime("%d-%m-%Y"), "count": 0})
 
                     firsts_by_art: Dict[str, datetime.date] = {}
                     for obs_row in obs_rows:
                         if not obs_row.dato:
+                            continue
+                        if obs_row.dato > visible_end:
                             continue
                         if obs_row.dato < period_start or obs_row.dato > period_end:
                             continue

@@ -186,12 +186,90 @@ function createDataset(label, data, color) {
   };
 }
 
+function normalizeArtName(value) {
+  return String(value || '').split('(')[0].split(',')[0].trim();
+}
+
+function uniqueArtsFromItems(items = []) {
+  const set = new Set();
+  (items || []).forEach(item => {
+    const name = normalizeArtName(item?.artnavn);
+    if (name) set.add(name);
+  });
+  return set;
+}
+
+function renderComparisonBlockers(primaryData, compareData) {
+  const wrap = document.getElementById('comparison-blockers');
+  if (!wrap) return;
+
+  const primaryUser = primaryData?.user || {};
+  const compareUser = compareData?.user || {};
+
+  if (!compareData) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const categories = [
+    {
+      key: 'danmark',
+      title: 'Global (DK-arter)'
+    },
+    {
+      key: 'vp',
+      title: 'Matrikel'
+    }
+  ];
+
+  const categoryHtml = categories.map(category => {
+    const primarySet = uniqueArtsFromItems(primaryData?.lists?.[category.key]?.items || []);
+    const compareSet = uniqueArtsFromItems(compareData?.lists?.[category.key]?.items || []);
+
+    const primaryMissing = Array.from(compareSet).filter(name => !primarySet.has(name)).sort((a, b) => a.localeCompare(b, 'da'));
+    const compareMissing = Array.from(primarySet).filter(name => !compareSet.has(name)).sort((a, b) => a.localeCompare(b, 'da'));
+
+    const primaryMissingHtml = primaryMissing.length
+      ? `<div style="margin-top:0.4em;max-height:180px;overflow:auto;">${primaryMissing.join('<br>')}</div>`
+      : '<div class="muted" style="margin-top:0.4em;">Ingen</div>';
+    const compareMissingHtml = compareMissing.length
+      ? `<div style="margin-top:0.4em;max-height:180px;overflow:auto;">${compareMissing.join('<br>')}</div>`
+      : '<div class="muted" style="margin-top:0.4em;">Ingen</div>';
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:0.75em;margin-top:0.8em;">
+        <div style="font-weight:700;margin-bottom:0.5em;">${category.title}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8em;">
+          <div>
+            <div><b>${primaryUser.obserkode || 'Primær'} mangler</b> (${primaryMissing.length})</div>
+            ${primaryMissingHtml}
+          </div>
+          <div>
+            <div><b>${compareUser.obserkode || 'Sammenligning'} mangler</b> (${compareMissing.length})</div>
+            ${compareMissingHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <h3 style="margin-bottom:0.2em;">Blockers i sammenligning</h3>
+    <div class="muted" style="margin-bottom:0.5em;">Arter den ene har, som den anden endnu mangler.</div>
+    ${categoryHtml}
+  `;
+}
+
 function renderStatistik() {
   if (!primaryStatData) return;
 
   const data = primaryStatData;
   const user = data.user || {};
   const compareUser = compareStatData?.user || null;
+
+  renderComparisonBlockers(data, compareStatData);
 
   const header = document.getElementById('profile-header');
   if (header) {

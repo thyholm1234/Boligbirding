@@ -1,4 +1,4 @@
-// Version: 1.11.2 - 2026-03-02 16.42.36
+// Version: 1.11.3 - 2026-03-02 16.49.37
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -38,7 +38,35 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(period => ({
         ...period,
         end_date: period.end_date || null
-      }));
+      }))
+      .sort((left, right) => {
+        const leftStart = left.start_date || "9999-12-31";
+        const rightStart = right.start_date || "9999-12-31";
+        if (leftStart !== rightStart) return leftStart.localeCompare(rightStart);
+
+        const leftEnd = left.end_date || "9999-12-31";
+        const rightEnd = right.end_date || "9999-12-31";
+        return leftEnd.localeCompare(rightEnd);
+      });
+  }
+
+  function addOneDay(dateStr) {
+    if (!dateStr) return new Date().toISOString().slice(0, 10);
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+    date.setDate(date.getDate() + 1);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function nextSuggestedStartDate(periods) {
+    const normalized = normalizePeriods(periods);
+    let latestEnd = "";
+    normalized.forEach(period => {
+      if (period.end_date && period.end_date > latestEnd) {
+        latestEnd = period.end_date;
+      }
+    });
+    return latestEnd ? addOneDay(latestEnd) : new Date().toISOString().slice(0, 10);
   }
 
   function readMatrikelRows(matrikelKey) {
@@ -94,9 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
     wrap.querySelectorAll('.matrikel-add').forEach(button => {
       button.addEventListener('click', () => {
         const key = button.getAttribute('data-key');
-        const today = new Date().toISOString().slice(0, 10);
         const existing = normalizePeriods(readMatrikelRows(key));
-        existing.push({ name: '', start_date: today, end_date: null });
+        const suggestedStart = nextSuggestedStartDate(existing);
+        existing.push({ name: '', start_date: suggestedStart, end_date: null });
         matrikelState[key] = existing;
         renderMatrikelEditor();
       });
@@ -118,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['matrikel1_perioder', 'matrikel2_perioder'].forEach(key => {
           matrikelState[key] = normalizePeriods(readMatrikelRows(key));
         });
+        renderMatrikelEditor();
         scheduleSave();
       });
     });
