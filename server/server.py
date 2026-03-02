@@ -115,6 +115,7 @@ class User(Base):
     kommune       = Column(String, nullable=True)
     matrikel1_perioder = Column(Text, nullable=True)
     matrikel2_perioder = Column(Text, nullable=True)
+    matrikel_perioder_json = Column(Text, nullable=True)
 
 class AdminPassword(Base):
     __tablename__ = "adminpassword"
@@ -273,7 +274,7 @@ def _matrikel_tags_for_year(raw_filter: str, year_value: int, matrikel_number: i
         return []
     if matrikel_number == 1:
         return [base_tag, f"{base_tag}-1"]
-    return [f"{base_tag}-2"]
+    return [f"{base_tag}-{int(matrikel_number)}"]
 
 def _observation_has_matrikel_tag(row: Observation, raw_filter: str, matrikel_number: int) -> bool:
     year_value = row.dato.year if getattr(row, "dato", None) else datetime.datetime.now().year
@@ -319,9 +320,48 @@ def _normalize_matrikel_periods(periods: Any) -> List[Dict[str, Optional[str]]]:
     normalized.sort(key=lambda item: item["start_date"])
     return normalized
 
+def _matrikel_key(index: int) -> str:
+    return f"matrikel{int(index)}"
+
+def _matrikel_index_from_key(key: Any) -> Optional[int]:
+    value = str(key or "").strip().lower()
+    if not value:
+        return None
+    if value.isdigit():
+        parsed = int(value)
+        return parsed if parsed >= 1 else None
+    match = re.fullmatch(r"matrikel\s*(\d+)", value)
+    if not match:
+        return None
+    parsed = int(match.group(1))
+    return parsed if parsed >= 1 else None
+
+def _normalize_matrikel_period_map(payload: Any) -> Dict[str, List[Dict[str, Optional[str]]]]:
+    if not isinstance(payload, dict):
+        return {}
+    result: Dict[str, List[Dict[str, Optional[str]]]] = {}
+    for raw_key, raw_periods in payload.items():
+        index = _matrikel_index_from_key(raw_key)
+        if index is None:
+            continue
+        result[_matrikel_key(index)] = _normalize_matrikel_periods(raw_periods)
+    return result
+
+def _merge_period_lists(base_list: List[Dict[str, Optional[str]]], extra_list: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
+    merged = [dict(item) for item in (base_list or [])]
+    for item in (extra_list or []):
+        if not any(
+            existing.get("name") == item.get("name")
+            and existing.get("start_date") == item.get("start_date")
+            and existing.get("end_date") == item.get("end_date")
+            for existing in merged
+        ):
+            merged.append(dict(item))
+    return _normalize_matrikel_periods(merged)
+
 def _load_user_matrikel_periods(user: Optional[User]) -> Dict[str, List[Dict[str, Optional[str]]]]:
     if not user:
-        return {"matrikel1": [], "matrikel2": []}
+        return {}
 
     def _decode(raw_value: Optional[str]) -> List[Dict[str, Optional[str]]]:
         if not raw_value:
@@ -332,10 +372,53 @@ def _load_user_matrikel_periods(user: Optional[User]) -> Dict[str, List[Dict[str
             return []
         return _normalize_matrikel_periods(parsed)
 
-    return {
-        "matrikel1": _decode(getattr(user, "matrikel1_perioder", None)),
-        "matrikel2": _decode(getattr(user, "matrikel2_perioder", None)),
-    }
+    loaded: Dict[str, List[Dict[str, Optional[str]]]] = {}
+
+    dynamic_raw = getattr(user, "matrikel_perioder_json", None)
+    if dynamic_raw:
+        try:
+            parsed_dynamic = json.loads(dynamic_raw)
+            loaded.update(_normalize_matrikel_period_map(parsed_dynamic))
+        except Exception:
+            pass
+
+    legacy_m1 = _decode(getattr(user, "matrikel1_perioder", None))
+    legacy_m2 = _decode(getattr(user, "matrikel2_perioder", None))
+    loaded[_matrikel_key(1)] = _merge_period_lists(loaded.get(_matrikel_key(1), []), legacy_m1)
+    loaded[_matrikel_key(2)] = _merge_period_lists(loaded.get(_matrikel_key(2), []), legacy_m2)
+
+    # Fjern tomme nøgler
+    return {k: v for k, v in loaded.items() if isinstance(v, list)}
+
+def _collect_matrikel_indexes_from_observations(obs_rows: List[Observation], raw_filter: str) -> List[int]:
+    indexes = set()
+    for row in (obs_rows or []):
+        if not getattr(row, "dato", None):
+            continue
+        tokens = _extract_hashtag_tokens(row.turnoter)
+        base_tag = resolve_filter_tag(raw_filter, row.dato.year) if raw_filter else ""
+        if not base_tag:
+            for token in tokens:
+                match = re.fullmatch(r"#BB\d{2}(?:-(\d+))?", token)
+                if not match:
+                    continue
+                suffix = match.group(1)
+                if not suffix or suffix == "1":
+                    indexes.add(1)
+                elif suffix.isdigit() and int(suffix) >= 2:
+                    indexes.add(int(suffix))
+            continue
+        if base_tag in tokens or f"{base_tag}-1" in tokens:
+            indexes.add(1)
+        for token in tokens:
+            if not token.startswith(f"{base_tag}-"):
+                continue
+            suffix = token[len(base_tag) + 1:]
+            if suffix.isdigit():
+                parsed = int(suffix)
+                if parsed >= 2:
+                    indexes.add(parsed)
+    return sorted(indexes)
 
 def _period_matches_date(period: Dict[str, Optional[str]], obs_date: Optional[datetime.date]) -> bool:
     if not obs_date:
@@ -2138,11 +2221,18 @@ async def get_userprefs(request: Request):
             "kommune": None,
             "obserkode": None,
             "navn": None,
+            "matrikel_perioder": {},
+            "available_matrikler": [],
             "matrikel1_perioder": [],
             "matrikel2_perioder": []
         }
+
+    raw_filter = await get_global_filter()
     async with SessionLocal() as dbsession:
         user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        obs_rows = (await dbsession.execute(
+            select(Observation.dato, Observation.turnoter).where(Observation.obserkode == obserkode)
+        )).all()
         if user:
             kommune_value = getattr(user, "kommune", None)
             if kommune_value and not str(kommune_value).isdigit():
@@ -2151,19 +2241,30 @@ async def get_userprefs(request: Request):
                         kommune_value = row.get("id")
                         break
             periods = _load_user_matrikel_periods(user)
+            available_indexes = _collect_matrikel_indexes_from_observations(obs_rows, raw_filter)
+            available_keys = {_matrikel_key(index) for index in available_indexes}
+            filtered_periods = {
+                key: value
+                for key, value in periods.items()
+                if key in available_keys
+            }
             return {
                 "lokalafdeling": user.lokalafdeling,
                 "kommune": kommune_value,
                 "obserkode": user.obserkode,
                 "navn": user.navn,
-                "matrikel1_perioder": periods.get("matrikel1") or [],
-                "matrikel2_perioder": periods.get("matrikel2") or [],
+                "matrikel_perioder": filtered_periods,
+                "available_matrikler": available_indexes,
+                "matrikel1_perioder": filtered_periods.get("matrikel1") or [],
+                "matrikel2_perioder": filtered_periods.get("matrikel2") or [],
             }
     return {
         "lokalafdeling": None,
         "kommune": None,
         "obserkode": None,
         "navn": None,
+        "matrikel_perioder": {},
+        "available_matrikler": [],
         "matrikel1_perioder": [],
         "matrikel2_perioder": []
     }
@@ -3250,6 +3351,8 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
 async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
     lokalafdeling = data.get("lokalafdeling")
     kommune = data.get("kommune")
+    has_dynamic = "matrikel_perioder" in data
+    dynamic_periods = _normalize_matrikel_period_map(data.get("matrikel_perioder") or {}) if has_dynamic else None
     has_m1 = "matrikel1_perioder" in data
     has_m2 = "matrikel2_perioder" in data
     matrikel1_perioder = _normalize_matrikel_periods(data.get("matrikel1_perioder") or []) if has_m1 else None
@@ -3266,10 +3369,20 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
         user.lokalafdeling = lokalafdeling
         user.kommune = kommune
+
+        current_map = _load_user_matrikel_periods(user)
+        if has_dynamic:
+            for key, periods in (dynamic_periods or {}).items():
+                current_map[key] = periods
         if has_m1:
             user.matrikel1_perioder = json.dumps(matrikel1_perioder or [], ensure_ascii=False)
+            current_map[_matrikel_key(1)] = matrikel1_perioder or []
         if has_m2:
             user.matrikel2_perioder = json.dumps(matrikel2_perioder or [], ensure_ascii=False)
+            current_map[_matrikel_key(2)] = matrikel2_perioder or []
+
+        if has_dynamic or has_m1 or has_m2:
+            user.matrikel_perioder_json = json.dumps(current_map, ensure_ascii=False)
         await dbsession.commit()
     web_session["lokalafdeling"] = lokalafdeling
     web_session["kommune"] = kommune
@@ -3881,6 +3994,7 @@ async def ensure_user_optional_columns():
     statements = [
         "ALTER TABLE users ADD COLUMN matrikel1_perioder TEXT",
         "ALTER TABLE users ADD COLUMN matrikel2_perioder TEXT",
+        "ALTER TABLE users ADD COLUMN matrikel_perioder_json TEXT",
     ]
     async with engine.begin() as conn:
         for sql in statements:

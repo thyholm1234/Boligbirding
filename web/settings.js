@@ -1,4 +1,4 @@
-// Version: 1.11.4 - 2026-03-02 17.09.35
+// Version: 1.11.5 - 2026-03-02 17.20.01
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -14,8 +14,8 @@ fetch('/api/get_grupper')
 
 document.addEventListener('DOMContentLoaded', () => {
   const matrikelState = {
-    matrikel1_perioder: [],
-    matrikel2_perioder: []
+    periodMap: {},
+    availableKeys: []
   };
   let saveTimer = null;
 
@@ -48,6 +48,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const rightEnd = right.end_date || "9999-12-31";
         return leftEnd.localeCompare(rightEnd);
       });
+  }
+
+  function matrikelIndexFromKey(key) {
+    const match = String(key || '').toLowerCase().match(/^matrikel\s*(\d+)$/);
+    if (!match) return null;
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : null;
+  }
+
+  function matrikelKey(index) {
+    return `matrikel${index}`;
+  }
+
+  function normalizePeriodMap(periodMap) {
+    const result = {};
+    Object.entries(periodMap || {}).forEach(([rawKey, rawPeriods]) => {
+      const index = matrikelIndexFromKey(rawKey);
+      if (!index) return;
+      result[matrikelKey(index)] = normalizePeriods(rawPeriods || []);
+    });
+    return result;
   }
 
   function addOneDay(dateStr) {
@@ -91,16 +112,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const wrap = document.getElementById('matrikelSettings');
     if (!wrap) return;
 
-    const renderSection = (key, title, helperText) => {
-      const periods = matrikelState[key] || [];
-      const rowsHtml = periods.map((period, index) => `
-        <div class="matrikel-row" data-index="${index}" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.45em;margin-bottom:0.5em;align-items:center;">
-          <input class="matrikel-name" type="text" placeholder="Navn/adresse" value="${escapeHtml(period.name || '')}">
-          <input class="matrikel-start" type="date" value="${escapeHtml(period.start_date || '')}">
-          <input class="matrikel-end" type="date" value="${escapeHtml(period.end_date || '')}">
-          <button type="button" class="matrikel-remove" data-key="${key}" data-index="${index}" title="Fjern">✕</button>
-        </div>
-      `).join('');
+    const availableKeys = [...(matrikelState.availableKeys || [])]
+      .filter(key => matrikelIndexFromKey(key))
+      .sort((left, right) => (matrikelIndexFromKey(left) || 0) - (matrikelIndexFromKey(right) || 0));
+
+    if (!availableKeys.length) {
+      wrap.innerHTML = `
+        <h3 style="margin:0.2em 0 0.5em 0;">Matrikler</h3>
+        <div class="muted">Ingen matrikel-tags fundet i dine observationsdata endnu.</div>
+      `;
+      return;
+    }
+
+    const renderSection = (key) => {
+      const index = matrikelIndexFromKey(key);
+      const periods = matrikelState.periodMap[key] || [];
+      const title = index === 1 ? 'Matrikel 1 (scoreboards)' : `Matrikel ${index} (privat)`;
+      const helperText = index === 1
+        ? 'Bruges i grupper/ranglister. Ny periode nulstiller aktiv progress.'
+        : 'Vises kun for dig.';
+      const rowsHtml = periods.length
+        ? periods.map((period, index) => `
+          <div class="matrikel-row" data-index="${index}" style="display:flex;flex-direction:column;gap:0.45em;margin-bottom:0.65em;padding:0.65em;border:1px solid #ececec;border-radius:8px;box-sizing:border-box;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.6em;">
+              <div style="font-weight:600;font-size:0.95em;">Periode ${index + 1}</div>
+              <button type="button" class="matrikel-remove" data-key="${key}" data-index="${index}" title="Fjern" style="padding:0.25em 0.55em;line-height:1;">✕</button>
+            </div>
+            <label style="font-size:0.85em;font-weight:600;">Navn / adresse</label>
+            <input class="matrikel-name" type="text" placeholder="Navn/adresse" value="${escapeHtml(period.name || '')}" style="width:100%;box-sizing:border-box;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.45em;">
+              <div style="min-width:0;">
+                <label style="font-size:0.85em;font-weight:600;display:block;">Startdato</label>
+                <input class="matrikel-start" type="date" value="${escapeHtml(period.start_date || '')}" style="width:100%;box-sizing:border-box;">
+              </div>
+              <div style="min-width:0;">
+                <label style="font-size:0.85em;font-weight:600;display:block;">Slutdato</label>
+                <input class="matrikel-end" type="date" value="${escapeHtml(period.end_date || '')}" style="width:100%;box-sizing:border-box;">
+              </div>
+            </div>
+          </div>
+        `).join('')
+        : `<div class="muted" style="margin-bottom:0.65em;">Ingen perioder endnu.</div>`;
 
       return `
         <div style="margin-top:1.15em;padding:0.85em;border:1px solid #e0e0e0;border-radius:10px;">
@@ -114,9 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     wrap.innerHTML = `
       <h3 style="margin:0.2em 0 0.5em 0;">Matrikler</h3>
-      <div style="font-size:0.93em;margin-bottom:0.5em;">Matrikel 1 bruger grundtagget (fx #BB26). Matrikel 2 bruger tag + <b>-2</b> (fx #BB26-2).</div>
-      ${renderSection('matrikel1_perioder', 'Matrikel 1 (scoreboards)', 'Bruges i grupper/ranglister. Ny periode nulstiller aktiv progress.')}
-      ${renderSection('matrikel2_perioder', 'Matrikel 2 (privat)', 'Vises kun for dig på forsiden.')}
+      <div style="font-size:0.93em;margin-bottom:0.5em;">Kun matrikler, der findes i dine observationsdata, vises her.</div>
+      ${availableKeys.map(key => renderSection(key)).join('')}
     `;
 
     wrap.querySelectorAll('.matrikel-add').forEach(button => {
@@ -125,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const existing = normalizePeriods(readMatrikelRows(key));
         const suggestedStart = nextSuggestedStartDate(existing);
         existing.push({ name: '', start_date: suggestedStart, end_date: null });
-        matrikelState[key] = existing;
+        matrikelState.periodMap[key] = existing;
         renderMatrikelEditor();
       });
     });
@@ -135,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = button.getAttribute('data-key');
         const index = Number(button.getAttribute('data-index'));
         const existing = normalizePeriods(readMatrikelRows(key));
-        matrikelState[key] = existing.filter((_, rowIndex) => rowIndex !== index);
+        matrikelState.periodMap[key] = existing.filter((_, rowIndex) => rowIndex !== index);
         renderMatrikelEditor();
         scheduleSave(150);
       });
@@ -143,8 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     wrap.querySelectorAll('.matrikel-name, .matrikel-start, .matrikel-end').forEach(input => {
       input.addEventListener('change', () => {
-        ['matrikel1_perioder', 'matrikel2_perioder'].forEach(key => {
-          matrikelState[key] = normalizePeriods(readMatrikelRows(key));
+        availableKeys.forEach(key => {
+          matrikelState.periodMap[key] = normalizePeriods(readMatrikelRows(key));
         });
         renderMatrikelEditor();
         scheduleSave();
@@ -155,8 +206,15 @@ document.addEventListener('DOMContentLoaded', () => {
   async function saveAllPrefs() {
     const lokalafdelingInput = document.getElementById('lokalafdeling');
     const kommuneInput = document.getElementById('kommune');
-    ['matrikel1_perioder', 'matrikel2_perioder'].forEach(key => {
-      matrikelState[key] = normalizePeriods(readMatrikelRows(key));
+    const availableKeys = [...(matrikelState.availableKeys || [])]
+      .filter(key => matrikelIndexFromKey(key));
+    availableKeys.forEach(key => {
+      matrikelState.periodMap[key] = normalizePeriods(readMatrikelRows(key));
+    });
+
+    const payloadPeriodMap = {};
+    availableKeys.forEach(key => {
+      payloadPeriodMap[key] = normalizePeriods(matrikelState.periodMap[key] || []);
     });
 
     const status = document.getElementById('matrikelSaveStatus');
@@ -169,8 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           lokalafdeling: lokalafdelingInput ? lokalafdelingInput.value : '',
           kommune: kommuneInput ? kommuneInput.value : '',
-          matrikel1_perioder: matrikelState.matrikel1_perioder,
-          matrikel2_perioder: matrikelState.matrikel2_perioder
+          matrikel_perioder: payloadPeriodMap
         })
       });
       if (!response.ok) throw new Error('Kunne ikke gemme indstillinger');
@@ -238,8 +295,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.kommune && document.getElementById('kommune')) {
         document.getElementById('kommune').value = data.kommune;
       }
-      matrikelState.matrikel1_perioder = normalizePeriods(data.matrikel1_perioder || []);
-      matrikelState.matrikel2_perioder = normalizePeriods(data.matrikel2_perioder || []);
+      const fallbackIndexes = Object.keys(data.matrikel_perioder || {})
+        .map(key => matrikelIndexFromKey(key))
+        .filter(index => Number.isFinite(index));
+      const available = Array.isArray(data.available_matrikler) ? data.available_matrikler : fallbackIndexes;
+      matrikelState.availableKeys = available
+        .map(index => matrikelKey(index))
+        .filter(key => matrikelIndexFromKey(key));
+      matrikelState.periodMap = normalizePeriodMap(data.matrikel_perioder || {
+        matrikel1: data.matrikel1_perioder || [],
+        matrikel2: data.matrikel2_perioder || []
+      });
       renderMatrikelEditor();
     });
 
@@ -429,8 +495,17 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.kommune && document.getElementById('kommune')) {
             document.getElementById('kommune').value = data.kommune;
           }
-          matrikelState.matrikel1_perioder = normalizePeriods(data.matrikel1_perioder || []);
-          matrikelState.matrikel2_perioder = normalizePeriods(data.matrikel2_perioder || []);
+          const fallbackIndexes = Object.keys(data.matrikel_perioder || {})
+            .map(key => matrikelIndexFromKey(key))
+            .filter(index => Number.isFinite(index));
+          const available = Array.isArray(data.available_matrikler) ? data.available_matrikler : fallbackIndexes;
+          matrikelState.availableKeys = available
+            .map(index => matrikelKey(index))
+            .filter(key => matrikelIndexFromKey(key));
+          matrikelState.periodMap = normalizePeriodMap(data.matrikel_perioder || {
+            matrikel1: data.matrikel1_perioder || [],
+            matrikel2: data.matrikel2_perioder || []
+          });
           renderMatrikelEditor();
         });
 
