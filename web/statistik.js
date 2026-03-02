@@ -20,18 +20,41 @@ function formatNumber(value) {
   return num.toLocaleString('da-DK');
 }
 
-function renderYearList(targetId, years, user, scope, compareYears = [], compareUser = null) {
+function renderYearList(targetId, years, user, scope, totalCount = 0, compareYears = [], compareUser = null, compareTotalCount = null) {
   const target = document.getElementById(targetId);
   if (!target) return;
   const filtered = (years || []).filter(y => {
     const count = Number.parseInt(y.count, 10);
     return Number.isFinite(count) && count > 0;
-  });
+  }).sort((a, b) => Number(b.year) - Number(a.year));
   const compareMap = new Map((compareYears || []).map(y => [String(y.year), y]));
-  if (!filtered.length) {
+  const hasTotal = Number(totalCount) > 0;
+  if (!filtered.length && !hasTotal) {
     target.innerHTML = '<div class="muted">Ingen årsdata fundet.</div>';
     return;
   }
+  const totalParams = new URLSearchParams({
+    scope,
+    obserkode: user.obserkode || '',
+    navn: user.navn || user.obserkode || '',
+    aar: 'global'
+  });
+  const totalLink = `scoreboard.html?${totalParams.toString()}`;
+  const totalCompareCell = compareUser
+    ? `<td>${compareTotalCount !== null && compareTotalCount !== undefined ? formatNumber(compareTotalCount) : '-'}</td>`
+    : '';
+  const totalRow = hasTotal
+    ? `
+      <tr>
+        <td><b>Total</b></td>
+        <td><a href="${totalLink}">Se listen</a></td>
+        <td><b>${formatNumber(totalCount)}</b></td>
+        <td>-</td>
+        ${totalCompareCell}
+      </tr>
+    `
+    : '';
+
   const rows = filtered.map(y => {
     const params = new URLSearchParams({
       scope: scope,
@@ -70,7 +93,7 @@ function renderYearList(targetId, years, user, scope, compareYears = [], compare
           ${compareHeader}
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${totalRow}${rows}</tbody>
     </table>
   `;
 }
@@ -120,16 +143,6 @@ function createDataset(label, data, color) {
   };
 }
 
-function buildTotalListLink(user, scope, title) {
-  const params = new URLSearchParams({
-    scope,
-    aar: 'global',
-    obserkode: user.obserkode || '',
-    navn: user.navn || user.obserkode || ''
-  });
-  return `<a href="scoreboard.html?${params.toString()}">${title}</a>`;
-}
-
 function renderStatistik() {
   if (!primaryStatData) return;
 
@@ -140,8 +153,6 @@ function renderStatistik() {
   const header = document.getElementById('profile-header');
   if (header) {
     const kommune = user.kommune_navn || user.kommune || '-';
-    const totalGlobalLink = buildTotalListLink(user, 'user_global', 'Totalliste DK-arter');
-    const totalMatrikelLink = buildTotalListLink(user, 'user_matrikel', 'Totalliste matrikelarter');
     const compareText = compareUser
       ? `<div><b>Sammenligner med:</b> ${compareUser.navn || '-'} (${compareUser.obserkode || '-'})</div>`
       : '';
@@ -153,15 +164,29 @@ function renderStatistik() {
         <div><b>Kommune:</b> ${kommune}</div>
         ${compareText}
       </div>
-      <div class="profile-meta" style="margin-top:0.75em;display:flex;gap:0.9em;flex-wrap:wrap;">
-        <div>${totalGlobalLink}</div>
-        <div>${totalMatrikelLink}</div>
-      </div>
     `;
   }
 
-  renderYearList('year-list', data.years || [], user, 'user_global', compareStatData?.years || [], compareUser);
-  renderYearList('matrikel-year-list', data.matrikel_years || [], user, 'user_matrikel', compareStatData?.matrikel_years || [], compareUser);
+  renderYearList(
+    'year-list',
+    data.years || [],
+    user,
+    'user_global',
+    Number(data.lists?.danmark?.count || 0),
+    compareStatData?.years || [],
+    compareUser,
+    compareStatData ? Number(compareStatData?.lists?.danmark?.count || 0) : null
+  );
+  renderYearList(
+    'matrikel-year-list',
+    data.matrikel_years || [],
+    user,
+    'user_matrikel',
+    Number(data.lists?.vp?.count || 0),
+    compareStatData?.matrikel_years || [],
+    compareUser,
+    compareStatData ? Number(compareStatData?.lists?.vp?.count || 0) : null
+  );
 
   const globalSeries = mergeSeries(data.charts?.global_by_year || [], compareStatData?.charts?.global_by_year || []);
   const matrikelSeries = mergeSeries(data.charts?.matrikel_by_year || [], compareStatData?.charts?.matrikel_by_year || []);
