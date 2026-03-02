@@ -914,9 +914,10 @@ async def generate_user_lists(obserkode: str, aar: int):
     kommune_alle = []
     kommune_matrikel = []
     if kommune_id:
-        site_numbers = (await session.execute(
-            select(Lokation.site_number).where(Lokation.kommune_id == kommune_id)
-        )).scalars().all()
+        async with SessionLocal() as session:
+            site_numbers = (await session.execute(
+                select(Lokation.site_number).where(Lokation.kommune_id == kommune_id)
+            )).scalars().all()
         if not site_numbers and kommune_navn:
             site_numbers = _load_kommune_sites_from_file(kommune_navn)
         site_set = set(_parse_int(x) for x in site_numbers if _parse_int(x) is not None)
@@ -1425,11 +1426,12 @@ async def generate_scoreboards_from_lists(aar: int):
 async def generate_kommune_scoreboards(aar: int, users: List[User]):
     import shutil
     excluded_keys = _get_excluded_species_keys()
+    raw_filter = await get_global_filter()
+    year_start = datetime.date(aar, 1, 1)
+    year_end = datetime.date(aar, 12, 31)
 
-    def _user_in_kommune(user: User, kommune_id: int, kommune_name: str) -> bool:
+    def _user_in_kommune(user: User, kommune_id: int) -> bool:
         opted_ids = _user_opted_kommuner(user)
-        if not opted_ids:
-            return False
         return str(kommune_id) in opted_ids
 
     def _is_valid_art(name: str) -> bool:
@@ -1471,10 +1473,24 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
     _safe_clear_dir(outdir_kommune_alle)
     _safe_clear_dir(outdir_kommune_matr)
 
+    user_codes = {u.obserkode for u in users if u.obserkode}
+
     async with SessionLocal() as session:
         lok_rows = (await session.execute(
             select(Lokation.kommune_id, Lokation.site_number)
         )).all()
+        obs_rows = (await session.execute(
+            select(Observation).where(
+                Observation.dato >= year_start,
+                Observation.dato <= year_end,
+            )
+        )).scalars().all()
+
+        obs_by_user = defaultdict(list)
+        for obs in obs_rows:
+            kode = obs.obserkode or ""
+            if kode in user_codes:
+                obs_by_user[kode].append(obs)
 
         kommune_sites = defaultdict(set)
         for kommune_id, site_number in lok_rows:
@@ -1491,45 +1507,37 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
             if not site_numbers:
                 site_numbers = set(_load_kommune_sites_from_file(kommune_name))
 
-            kommune_users = [u for u in users if _user_in_kommune(u, kommune_id, kommune_name)]
-
             rows_alle = []
             rows_matr = []
-            for u in kommune_users:
-                user_dir = get_user_dir(aar, u.obserkode)
-                kommune_payload = _load_json(os.path.join(user_dir, "kommune.json")) or {}
-                a_all, art_all, dato_all = _score_from_firsts({
-                    (row.get("artnavn") or ""): {
-                        "dato": _parse_ddmmyyyy(row.get("dato")).date() if row.get("dato") else datetime.date.min,
-                        "artnavn": row.get("artnavn") or ""
-                    }
-                    for row in (kommune_payload.get("alle") or [])
-                    if isinstance(row, dict)
-                })
-                a_m, art_m, dato_m = _score_from_firsts({
-                    (row.get("artnavn") or ""): {
-                        "dato": _parse_ddmmyyyy(row.get("dato")).date() if row.get("dato") else datetime.date.min,
-                        "artnavn": row.get("artnavn") or ""
-                    }
-                    for row in (kommune_payload.get("matrikel") or [])
-                    if isinstance(row, dict)
-                })
+            for u in users:
+                user_obs = obs_by_user.get(u.obserkode, [])
+                kommune_obs = [o for o in user_obs if _parse_int(o.loknr) in site_numbers]
 
-                rows_alle.append({
-                    "navn": safe_output(u.navn or u.obserkode),
-                    "obserkode": u.obserkode,
-                    "antal_arter": a_all,
-                    "sidste_art": safe_output(art_all),
-                    "sidste_dato": safe_output(dato_all),
-                })
+                firsts_all = _firsts_from_obs_rows(kommune_obs)
+                a_all, art_all, dato_all = _score_from_firsts(firsts_all)
+                if a_all > 0:
+                    rows_alle.append({
+                        "navn": safe_output(u.navn or u.obserkode),
+                        "obserkode": u.obserkode,
+                        "antal_arter": a_all,
+                        "sidste_art": safe_output(art_all),
+                        "sidste_dato": safe_output(dato_all),
+                    })
 
-                rows_matr.append({
-                    "navn": safe_output(u.navn or u.obserkode),
-                    "obserkode": u.obserkode,
-                    "antal_arter": a_m,
-                    "sidste_art": safe_output(art_m),
-                    "sidste_dato": safe_output(dato_m),
-                })
+                if _user_in_kommune(u, kommune_id):
+                    tagged_matrikel_obs = [
+                        row for row in kommune_obs
+                        if _observation_has_matrikel_tag(row, raw_filter, 1)
+                    ]
+                    firsts_m = _firsts_from_obs_rows(tagged_matrikel_obs)
+                    a_m, art_m, dato_m = _score_from_firsts(firsts_m)
+                    rows_matr.append({
+                        "navn": safe_output(u.navn or u.obserkode),
+                        "obserkode": u.obserkode,
+                        "antal_arter": a_m,
+                        "sidste_art": safe_output(art_m),
+                        "sidste_dato": safe_output(dato_m),
+                    })
 
             filename = f"{_kommune_slug(kommune_name)}.json"
             with open(os.path.join(outdir_kommune_alle, filename), "w", encoding="utf-8") as f:
@@ -1673,36 +1681,79 @@ async def generate_global_scoreboards_all_time():
         json.dump(_finalize(_ensure_scoreboard_fields(ga_rows)), f, ensure_ascii=False, indent=2)
 
     # Kommune (all-time)
+    raw_filter = await get_global_filter()
+    obs_by_user = defaultdict(list)
+    async with SessionLocal() as session:
+        all_obs_rows = (await session.execute(select(Observation))).scalars().all()
+    user_codes = {u.obserkode for u in users if u.obserkode}
+    for row in all_obs_rows:
+        kode = row.obserkode or ""
+        if kode in user_codes:
+            obs_by_user[kode].append(row)
+
+    kommune_site_map = {}
+    async with SessionLocal() as session:
+        lok_rows = (await session.execute(select(Lokation.kommune_id, Lokation.site_number))).all()
+    for kommune_id_value, site_number in lok_rows:
+        if kommune_id_value is None or site_number is None:
+            continue
+        kommune_site_map.setdefault(int(kommune_id_value), set()).add(int(site_number))
+
+    def _firsts_from_obs_rows_global(obs_rows):
+        firsts = {}
+        for row in obs_rows:
+            navn = (row.artnavn or "").split("(")[0].split(",")[0].strip()
+            if not _is_valid_art(navn) or not row.dato:
+                continue
+            if navn not in firsts or row.dato < firsts[navn]["dato"]:
+                firsts[navn] = {"dato": row.dato, "artnavn": navn}
+        return firsts
+
+    def _score_from_firsts_global(firsts):
+        if not firsts:
+            return 0, "", ""
+        latest = max(firsts.values(), key=lambda r: r["dato"])
+        return len(firsts), latest.get("artnavn", ""), latest["dato"].strftime("%d-%m-%Y")
+
     kommuner = _read_kommuner()
     for kommune in kommuner:
         kommune_id = _parse_int(kommune.get("id"))
         if kommune_id is None:
             continue
         kommune_name = kommune.get("navn") or str(kommune_id)
+        site_set = kommune_site_map.get(kommune_id) or set(_load_kommune_sites_from_file(kommune_name))
         rows_alle = []
         rows_matr = []
         for u in users:
-            opted_kommuner = _user_opted_kommuner(u)
-            if str(kommune_id) not in opted_kommuner:
-                continue
+            user_obs = obs_by_user.get(u.obserkode, [])
+            kommune_obs = [row for row in user_obs if _parse_int(row.loknr) in site_set]
 
-            k_data = _load_json(os.path.join(obser_dir, u.obserkode, "kommune.json")) or {}
-            a1, art1, dato1 = _score_from_list(k_data.get("alle") or [])
-            a2, art2, dato2 = _score_from_list(k_data.get("matrikel") or [])
-            rows_alle.append({
-                "navn": u.navn or u.obserkode,
-                "obserkode": u.obserkode,
-                "antal_arter": a1,
-                "sidste_art": art1,
-                "sidste_dato": dato1,
-            })
-            rows_matr.append({
-                "navn": u.navn or u.obserkode,
-                "obserkode": u.obserkode,
-                "antal_arter": a2,
-                "sidste_art": art2,
-                "sidste_dato": dato2,
-            })
+            firsts_all = _firsts_from_obs_rows_global(kommune_obs)
+            a1, art1, dato1 = _score_from_firsts_global(firsts_all)
+            if a1 > 0:
+                rows_alle.append({
+                    "navn": u.navn or u.obserkode,
+                    "obserkode": u.obserkode,
+                    "antal_arter": a1,
+                    "sidste_art": art1,
+                    "sidste_dato": dato1,
+                })
+
+            opted_kommuner = _user_opted_kommuner(u)
+            if str(kommune_id) in opted_kommuner:
+                tagged_matrikel_obs = [
+                    row for row in kommune_obs
+                    if _observation_has_matrikel_tag(row, raw_filter, 1)
+                ]
+                firsts_m = _firsts_from_obs_rows_global(tagged_matrikel_obs)
+                a2, art2, dato2 = _score_from_firsts_global(firsts_m)
+                rows_matr.append({
+                    "navn": u.navn or u.obserkode,
+                    "obserkode": u.obserkode,
+                    "antal_arter": a2,
+                    "sidste_art": art2,
+                    "sidste_dato": dato2,
+                })
 
         filename = f"{_kommune_slug(kommune_name)}.json"
         with open(os.path.join(outdir_kommune_alle, filename), "w", encoding="utf-8") as f:

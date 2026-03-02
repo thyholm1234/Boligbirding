@@ -1,4 +1,4 @@
-// Version: 1.11.25 - 2026-03-03 00.14.52
+// Version: 1.11.27 - 2026-03-03 00.27.19
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -514,7 +514,7 @@ export function addKommuneLinks(kommuner) {
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
 
   const htmlAlleAllTime = items.length
-    ? items.map(it => linkHTML(`?scope=kommune_alle&kommune=${encodeURIComponent(it.id)}&kommune_navn=${encodeURIComponent(it.navn)}&aar=global`, it.navn)).join('')
+    ? `<span class="muted" style="display:block;padding:8px 16px;">Ikke relevant for total krydslister</span>`
     : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
 
   const htmlMatrikel = items.length
