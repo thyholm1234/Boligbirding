@@ -122,10 +122,16 @@ function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
 }
 
 function mergeSeries(primary = [], compare = []) {
-  const years = new Set();
-  (primary || []).forEach(d => years.add(Number(d.year)));
-  (compare || []).forEach(d => years.add(Number(d.year)));
-  const labels = Array.from(years).filter(Number.isFinite).sort((a, b) => a - b);
+  const yearValues = [];
+  (primary || []).forEach(d => yearValues.push(Number(d.year)));
+  (compare || []).forEach(d => yearValues.push(Number(d.year)));
+  const finiteYears = yearValues.filter(Number.isFinite);
+  if (!finiteYears.length) return { labels: [], primaryValues: [], compareValues: [] };
+  const minYear = Math.min(...finiteYears);
+  const maxYear = Math.max(...finiteYears);
+  const labels = [];
+  for (let y = minYear; y <= maxYear; y++) labels.push(y);
+
   const primaryMap = new Map((primary || []).map(d => [Number(d.year), Number(d.count) || 0]));
   const compareMap = new Map((compare || []).map(d => [Number(d.year), Number(d.count) || 0]));
   const primaryValues = labels.map(y => primaryMap.get(y) || 0);
@@ -153,10 +159,15 @@ function buildDevelopmentSeriesFromFirsts(items = []) {
 }
 
 function mergeCumulativeSeries(primary = [], compare = []) {
-  const years = new Set();
-  (primary || []).forEach(d => years.add(Number(d.year)));
-  (compare || []).forEach(d => years.add(Number(d.year)));
-  const labels = Array.from(years).filter(Number.isFinite).sort((a, b) => a - b);
+  const yearValues = [];
+  (primary || []).forEach(d => yearValues.push(Number(d.year)));
+  (compare || []).forEach(d => yearValues.push(Number(d.year)));
+  const finiteYears = yearValues.filter(Number.isFinite);
+  if (!finiteYears.length) return { labels: [], primaryValues: [], compareValues: [] };
+  const minYear = Math.min(...finiteYears);
+  const maxYear = Math.max(...finiteYears);
+  const labels = [];
+  for (let y = minYear; y <= maxYear; y++) labels.push(y);
 
   const primaryMap = new Map((primary || []).map(d => [Number(d.year), Number(d.count) || 0]));
   const compareMap = new Map((compare || []).map(d => [Number(d.year), Number(d.count) || 0]));

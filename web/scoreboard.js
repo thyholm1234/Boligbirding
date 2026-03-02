@@ -1,4 +1,4 @@
-// Version: 1.11.11 - 2026-03-02 20.22.20
+// Version: 1.11.12 - 2026-03-02 20.27.34
 // © Christian Vemmelund Helligsø
 
 
@@ -27,6 +27,42 @@ function parseDmyToTime(value) {
   const date = new Date(year, month - 1, day);
   const time = date.getTime();
   return Number.isNaN(time) ? 0 : time;
+}
+
+function parseDmyToDate(value) {
+  const parts = String(value || '').split('-');
+  if (parts.length !== 3) return null;
+  const day = Number.parseInt(parts[0], 10);
+  const month = Number.parseInt(parts[1], 10);
+  const year = Number.parseInt(parts[2], 10);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function dateToDmy(dateObj) {
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const yyyy = String(dateObj.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+function dateToIso(dateObj) {
+  const yyyy = String(dateObj.getFullYear());
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function buildDailyDmyRange(startDate, endDate) {
+  const labels = [];
+  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  while (cursor <= endDate) {
+    labels.push(dateToDmy(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return labels;
 }
 
 async function ensureGlobalYear() {
@@ -180,6 +216,7 @@ async function visSide() {
       matrix: Array.isArray(data.matrix) ? data.matrix.map(r => [...r]) : [],
       totals: Array.isArray(data.totals) ? [...data.totals] : [],
       arter: Array.isArray(data.arter) ? [...data.arter] : [],
+      scope_year: params.aar || cachedGlobalYear || new Date().getFullYear(),
       trend_points: data && typeof data.trend_points === 'object' && data.trend_points !== null
         ? JSON.parse(JSON.stringify(data.trend_points))
         : {}
@@ -321,12 +358,20 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
   if (typeof Chart === "undefined") return;
 
   const today = new Date();
+  const selectedIsGlobal = String(selectedYearValue) === 'global';
   const selectedYear = Number.parseInt(String(selectedYearValue), 10);
   const chartYear = Number.isNaN(selectedYear) ? today.getFullYear() : selectedYear;
 
-  const startDate = new Date(chartYear, 0, 1);
+  let startDate = new Date(chartYear, 0, 1);
+  if (selectedIsGlobal) {
+    const pointDates = points
+      .map(point => parseDmyToDate(point?.dato))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    if (pointDates.length) startDate = pointDates[0];
+  }
   const yearEndDate = new Date(chartYear, 11, 31);
-  const endDate = chartYear < today.getFullYear() ? yearEndDate : today;
+  const endDate = selectedIsGlobal ? today : (chartYear < today.getFullYear() ? yearEndDate : today);
 
   if (startDate > endDate) {
     target.innerHTML = "";
@@ -860,14 +905,27 @@ function visScoreboardTrend(data) {
   if (!trendDiv) return;
 
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const isVisibleDate = (dmy) => {
-    const parts = String(dmy || '').split('-');
-    if (parts.length !== 3) return false;
-    const [dd, mm, yyyy] = parts;
-    if (!dd || !mm || !yyyy) return false;
-    const key = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-    return key <= todayKey;
+  const selectedAarRaw = String(data?.scope_year || '');
+
+  const getDailyAxisLabels = (rawDmyDates) => {
+    const validDates = (rawDmyDates || [])
+      .map(parseDmyToDate)
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    if (!validDates.length) return [];
+
+    let startDate = validDates[0];
+    let endDate = today;
+
+    const selectedYear = Number.parseInt(selectedAarRaw, 10);
+    if (selectedAarRaw && selectedAarRaw !== 'global' && Number.isFinite(selectedYear)) {
+      startDate = new Date(selectedYear, 0, 1);
+      const selectedYearEnd = new Date(selectedYear, 11, 31);
+      endDate = selectedYear < today.getFullYear() ? selectedYearEnd : today;
+    }
+
+    if (startDate > endDate) return [];
+    return buildDailyDmyRange(startDate, endDate);
   };
 
   const matrix = Array.isArray(data.matrix) ? data.matrix : [];
@@ -898,18 +956,14 @@ function visScoreboardTrend(data) {
       }
     }
 
-    const sortedDates = Array.from(allDates)
-      .filter(isVisibleDate)
-      .sort((left, right) => {
-      const [leftDay, leftMonth, leftYear] = left.split('-');
-      const [rightDay, rightMonth, rightYear] = right.split('-');
-      return new Date(`${leftYear}-${leftMonth}-${leftDay}`) - new Date(`${rightYear}-${rightMonth}-${rightDay}`);
-      });
+    const sortedDates = getDailyAxisLabels(Array.from(allDates));
 
     if (!sortedDates.length || !koder.length) {
       trendDiv.innerHTML = "";
       return;
     }
+
+    const sortedDateSet = new Set(sortedDates);
 
     const datasets = koder.map((kode, index) => {
       const rawPoints = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
@@ -917,27 +971,23 @@ function visScoreboardTrend(data) {
       // Ingen perioder for denne bruger -> brug gammel matrix-baseret progression
       if (!rawPoints.length) {
         const origIdx = koderMatrix.indexOf(kode);
-        const seenDates = [];
+        const seenDates = new Map();
         for (let i = 0; i < matrix.length; i++) {
           const dato = (origIdx >= 0 && matrix[i]) ? matrix[i][origIdx] : null;
-          if (dato) seenDates.push({ art: arter[i], dato });
+          if (dato && sortedDateSet.has(dato)) {
+            seenDates.set(dato, (seenDates.get(dato) || 0) + 1);
+          }
         }
 
-        const dateCounts = {};
-        sortedDates.forEach(d => dateCounts[d] = 0);
-        seenDates.forEach(({ dato }) => {
-          sortedDates.forEach(d => {
-            const [dd, mm, yyyy] = d.split('-');
-            const [od, om, oyyyy] = dato.split('-');
-            const dDate = new Date(`${yyyy}-${mm}-${dd}`);
-            const oDate = new Date(`${oyyyy}-${om}-${od}`);
-            if (dDate >= oDate) dateCounts[d]++;
-          });
+        let running = 0;
+        const values = sortedDates.map(d => {
+          running += seenDates.get(d) || 0;
+          return running;
         });
 
         return {
           label: kode,
-          data: sortedDates.map(d => dateCounts[d]),
+          data: values,
           borderColor: `hsl(${index * 60},70%,50%)`,
           fill: false,
           tension: 0
@@ -953,6 +1003,7 @@ function visScoreboardTrend(data) {
       const countsByDate = {};
       points.forEach(point => {
         if (!point?.dato) return;
+        if (!sortedDateSet.has(point.dato)) return;
         countsByDate[point.dato] = Number(point.count || 0);
       });
 
@@ -1009,36 +1060,28 @@ function visScoreboardTrend(data) {
   }
 
   // Sorter dd-mm-yyyy
-  const sortedDates = Array.from(dateSet)
-    .filter(isVisibleDate)
-    .sort((a, b) => {
-    const [da, ma, ya] = a.split('-');
-    const [db, mb, yb] = b.split('-');
-    return new Date(`${ya}-${ma}-${da}`) - new Date(`${yb}-${mb}-${db}`);
-    });
+  const sortedDates = getDailyAxisLabels(Array.from(dateSet));
+  if (!sortedDates.length) {
+    trendDiv.innerHTML = "";
+    return;
+  }
 
+  const sortedDateSet = new Set(sortedDates);
   const datasets = sortedKoder.map((kode, idx) => {
     const origIdx = koder.indexOf(kode);
-    const seenDates = [];
+    const seenDates = new Map();
     for (let i = 0; i < matrix.length; i++) {
       const dato = (origIdx >= 0 && matrix[i]) ? matrix[i][origIdx] : null;
-      if (dato) seenDates.push({ art: arter[i], dato });
+      if (dato && sortedDateSet.has(dato)) {
+        seenDates.set(dato, (seenDates.get(dato) || 0) + 1);
+      }
     }
 
-    const dateCounts = {};
-    sortedDates.forEach(d => dateCounts[d] = 0);
-    seenDates.forEach(({ dato }) => {
-      // Alle datoer >= observationer får +1
-      sortedDates.forEach(d => {
-        const [dd, mm, yyyy] = d.split('-');
-        const [od, om, oyyyy] = dato.split('-');
-        const dDate = new Date(`${yyyy}-${mm}-${dd}`);
-        const oDate = new Date(`${oyyyy}-${om}-${od}`);
-        if (dDate >= oDate) dateCounts[d]++;
-      });
+    let running = 0;
+    const dataPoints = sortedDates.map(d => {
+      running += seenDates.get(d) || 0;
+      return running;
     });
-
-    const dataPoints = sortedDates.map(d => dateCounts[d]);
     return {
       label: kode,
       data: dataPoints,
@@ -1112,6 +1155,7 @@ function buildFilteredData(selectedKoder) {
     koder,
     matrix,
     totals,
+    scope_year: masterData.scope_year,
     trend_points: trendPoints
   };
 }
