@@ -1,4 +1,4 @@
-// Version: 1.11.10 - 2026-03-02 20.20.16
+// Version: 1.11.11 - 2026-03-02 20.22.20
 // © Christian Vemmelund Helligsø
 
 
@@ -296,14 +296,19 @@ function buildUserYearOptions(selectedValue) {
   return options.join("\n");
 }
 
-function buildUserMatrikelOptions(selectedIndex) {
+function buildUserMatrikelOptions(selectedIndex, availableIndexes) {
   const selected = Number(selectedIndex) || 1;
-  const maxIndex = Math.max(4, selected);
-  const options = [];
-  for (let index = 1; index <= maxIndex; index++) {
-    options.push(`<option value="${index}" ${index === selected ? "selected" : ""}>Matrikel ${index}</option>`);
-  }
-  return options.join("\n");
+  const normalized = Array.isArray(availableIndexes)
+    ? availableIndexes
+      .map(v => Number(v))
+      .filter(v => Number.isInteger(v) && v >= 1)
+      .sort((a, b) => a - b)
+    : [];
+  const unique = [...new Set(normalized)];
+  const source = unique.length ? unique : [1];
+  return source
+    .map(index => `<option value="${index}" ${index === selected ? "selected" : ""}>Matrikel ${index}</option>`)
+    .join("\n");
 }
 
 function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValue) {
@@ -463,6 +468,12 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   });
   const data = await res.json();
   const firsts = Array.isArray(data.firsts) ? data.firsts : [];
+  const availableMatrikler = Array.isArray(data.available_matrikler)
+    ? data.available_matrikler
+      .map(v => Number(v))
+      .filter(v => Number.isInteger(v) && v >= 1)
+      .sort((a, b) => a - b)
+    : [];
   const periodOptions = showPersonalMatrikelControls && Array.isArray(data.period_options) ? data.period_options : [];
   const selectedPeriodName = showPersonalMatrikelControls ? (data.selected_period_name || "") : "";
   const activePeriodName = showPersonalMatrikelControls ? (data.active_period_name || "") : "";
@@ -505,7 +516,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const matrikelControlHtml = showPersonalMatrikelControls ? `
     <label for="userMatrikelSelect">Matrikel:</label>
     <select id="userMatrikelSelect" style="padding:0.4em 0.6em;">
-      ${buildUserMatrikelOptions(matrikelIndex)}
+      ${buildUserMatrikelOptions(matrikelIndex, availableMatrikler)}
     </select>
   ` : "";
 

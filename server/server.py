@@ -679,6 +679,11 @@ async def _user_matrikel_view_payload(
 
     async with SessionLocal() as session:
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        all_obs_query = select(Observation).where(
+            Observation.obserkode == obserkode,
+            Observation.dato <= today,
+        )
+        all_obs_rows = (await session.execute(all_obs_query)).scalars().all()
         obs_query = select(Observation).where(Observation.obserkode == obserkode)
         if not is_global:
             obs_query = obs_query.where(
@@ -686,6 +691,10 @@ async def _user_matrikel_view_payload(
                 Observation.dato <= visible_end,
             )
         obs_rows = (await session.execute(obs_query)).scalars().all()
+
+    available_matrikler = _collect_matrikel_indexes_from_observations(all_obs_rows, raw_filter)
+    if not available_matrikler:
+        available_matrikler = [1]
 
     tagged_rows = [
         row for row in obs_rows
@@ -727,6 +736,7 @@ async def _user_matrikel_view_payload(
     return {
         "firsts": firsts,
         "matrikel_index": matrikel_index,
+        "available_matrikler": available_matrikler,
         "period_options": period_options,
         "selected_period_name": (selected_period or {}).get("name") if selected_period else None,
         "active_period_name": (active_period or {}).get("name") if active_period else None,
