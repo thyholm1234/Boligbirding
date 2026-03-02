@@ -1,4 +1,4 @@
-// Version: 1.11.7 - 2026-03-02 20.13.33
+// Version: 1.11.8 - 2026-03-02 20.14.38
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -80,7 +80,7 @@ export async function hentStats() {
               <div>Alle: <b>${g.alle?.antal_arter ?? '-'}</b> arter</div>
               <div>Placering <b>#${g.alle?.placering ?? '-'}</b></div>
             </a>
-            <a class="card obserkode-card" href="/scoreboard.html?scope=user_matrikel&obserkode=${encodeURIComponent(selfObserkode)}&navn=${encodeURIComponent(selfNavn)}&aar=${encodeURIComponent(selectedYear)}&matrikel=1" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+            <a class="card obserkode-card" href="/scoreboard.html?scope=gruppe_matrikel&gruppe=${encodeURIComponent(g.navn)}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
               <div>Matrikel: <b>${g.matrikel?.antal_arter ?? '-'}</b> arter</div>
               <div>Placering <b>#${g.matrikel?.placering ?? '-'}</b></div>
             </a>
@@ -104,7 +104,7 @@ export async function hentStats() {
           <div>Alle: <b>${data.national_alle?.antal_arter ?? '-'}</b> arter</div>
           <div>Placering <b>#${data.national_alle?.placering ?? '-'}</b></div>
         </a>
-        <a class="card obserkode-card" href="/scoreboard.html?scope=user_matrikel&obserkode=${encodeURIComponent(selfObserkode)}&navn=${encodeURIComponent(selfNavn)}&aar=${encodeURIComponent(selectedYear)}&matrikel=1" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+        <a class="card obserkode-card" href="/scoreboard.html?scope=global_matrikel" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
           <div>Matrikel: <b>${data.national_matrikel?.antal_arter ?? '-'}</b> arter</div>
           <div>Placering <b>#${data.national_matrikel?.placering ?? '-'}</b></div>
         </a>
@@ -143,7 +143,7 @@ export async function hentStats() {
         <div>Alle: <b>${data.lokalafdeling_alle?.antal_arter ?? '-'}</b> arter</div>
         <div>Placering <b>#${data.lokalafdeling_alle?.placering ?? '-'}</b></div>
       </a>
-      <a class="card obserkode-card" href="/scoreboard.html?scope=user_matrikel&obserkode=${encodeURIComponent(selfObserkode)}&navn=${encodeURIComponent(selfNavn)}&aar=${encodeURIComponent(selectedYear)}&matrikel=1" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+      <a class="card obserkode-card" href="/scoreboard.html?scope=lokal_matrikel&afdeling=${encodeURIComponent(lokalafdelingNavn)}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
         <div>Matrikel: <b>${data.lokalafdeling_matrikel?.antal_arter ?? '-'}</b> arter</div>
         <div>Placering <b>#${data.lokalafdeling_matrikel?.placering ?? '-'}</b></div>
       </a>
@@ -194,7 +194,7 @@ export async function hentStats() {
           <div>Alle: <b>${data.kommune_alle?.antal_arter ?? '-'}</b> arter</div>
           <div>Placering <b>#${data.kommune_alle?.placering ?? '-'}</b></div>
         </a>
-        <a class="card obserkode-card" href="/scoreboard.html?scope=user_matrikel&obserkode=${encodeURIComponent(selfObserkode)}&navn=${encodeURIComponent(selfNavn)}&aar=${encodeURIComponent(selectedYear)}&matrikel=1" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
+        <a class="card obserkode-card" href="/scoreboard.html?scope=kommune_matrikel&kommune=${encodeURIComponent(kommuneId)}&kommune_navn=${encodeURIComponent(kommuneNavn || "Kommune")}" style="min-width:120px;text-decoration:none;box-shadow:none;margin:0;">
           <div>Matrikel: <b>${data.kommune_matrikel?.antal_arter ?? '-'}</b> arter</div>
           <div>Placering <b>#${data.kommune_matrikel?.placering ?? '-'}</b></div>
         </a>

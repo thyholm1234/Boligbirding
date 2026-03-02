@@ -1,4 +1,4 @@
-// Version: 1.11.7 - 2026-03-02 20.13.33
+// Version: 1.11.8 - 2026-03-02 20.14.38
 // © Christian Vemmelund Helligsø
 
 
@@ -357,6 +357,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const matrikel = parentParams.matrikel || parentParams.matrikel_index || 1;
   const period = parentParams.period;
   const aar = parentParams.aar || new Date().getFullYear();
+  const matrikelIndex = Number(matrikel) || 1;
+  const isExtraMatrikelView = scope.endsWith("matrikel") && matrikelIndex > 1;
 
   let apiScope = "user_global";
   const body = { scope: apiScope, obserkode };
@@ -364,8 +366,10 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (scope.endsWith("matrikel")) {
     apiScope = "user_matrikel";
     body.scope = apiScope;
-    body.matrikel = matrikel;
-    if (period) body.period = period;
+    if (isExtraMatrikelView) {
+      body.matrikel = matrikelIndex;
+      if (period) body.period = period;
+    }
   } else if (scope.startsWith("lokal")) {
     apiScope = "user_lokalafdeling";
     body.scope = apiScope;
@@ -388,8 +392,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (afdeling) urlParams.set('afdeling', afdeling);
   if (kommune) urlParams.set('kommune', kommune);
   if (aar) urlParams.set('aar', aar);
-  if (scope.endsWith("matrikel")) {
-    urlParams.set('matrikel', matrikel);
+  if (scope.endsWith("matrikel") && isExtraMatrikelView) {
+    urlParams.set('matrikel', String(matrikelIndex));
     if (period) urlParams.set('period', period);
   }
   window.history.pushState({}, '', '?' + urlParams.toString());
@@ -402,9 +406,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   });
   const data = await res.json();
   const firsts = Array.isArray(data.firsts) ? data.firsts : [];
-  const periodOptions = Array.isArray(data.period_options) ? data.period_options : [];
-  const selectedPeriodName = data.selected_period_name || "";
-  const activePeriodName = data.active_period_name || "";
+  const periodOptions = isExtraMatrikelView && Array.isArray(data.period_options) ? data.period_options : [];
+  const selectedPeriodName = isExtraMatrikelView ? (data.selected_period_name || "") : "";
+  const activePeriodName = isExtraMatrikelView ? (data.active_period_name || "") : "";
 
   // Render
   const container = document.getElementById("main");
@@ -441,14 +445,14 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
 
   const statistikLink = `statistik.html?obserkode=${encodeURIComponent(obserkode)}`;
 
-  const yearControlHtml = `
+  const yearControlHtml = isExtraMatrikelView ? `
     <label for="userYearSelect">År:</label>
     <select id="userYearSelect" style="padding:0.4em 0.6em;">
       ${buildUserYearOptions(aar)}
     </select>
-  `;
+  ` : "";
 
-  const periodControlHtml = apiScope === "user_matrikel" && periodOptions.length
+  const periodControlHtml = isExtraMatrikelView && periodOptions.length
     ? `
       <label for="userPeriodSelect">Periode:</label>
       <select id="userPeriodSelect" style="padding:0.4em 0.6em;max-width:260px;">
@@ -462,12 +466,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     : "";
 
   let html = `
-    <div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">
-      ${yearControlHtml}
-      ${periodControlHtml}
-    </div>
-    ${apiScope === "user_matrikel" && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
-    <div id="userTrendWrap"></div>
+    ${isExtraMatrikelView ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${yearControlHtml}${periodControlHtml}</div>` : ""}
+    ${isExtraMatrikelView && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
+    ${isExtraMatrikelView ? `<div id="userTrendWrap"></div>` : ""}
     <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin:0.8em 0 1em;">
       <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
       <button id="statistikBtn" type="button">Observatør statistik</button>
@@ -482,24 +483,26 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     renderFirsts(firsts, sortMode, apiScope);
   }
 
-  renderUserTrendChart("userTrendWrap", data.trend_points, visNavn);
+  if (isExtraMatrikelView) {
+    renderUserTrendChart("userTrendWrap", data.trend_points, visNavn);
+  }
 
-  const userYearSelect = document.getElementById('userYearSelect');
+  const userYearSelect = isExtraMatrikelView ? document.getElementById('userYearSelect') : null;
   if (userYearSelect) {
     userYearSelect.onchange = () => {
       const nextParams = { ...parentParams, aar: userYearSelect.value };
-      if (apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+      if (isExtraMatrikelView && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
         nextParams.scope = 'user_matrikel';
       }
       visUserFirsts(obserkode, navn, sortMode, nextParams);
     };
   }
 
-  const userPeriodSelect = document.getElementById('userPeriodSelect');
+  const userPeriodSelect = isExtraMatrikelView ? document.getElementById('userPeriodSelect') : null;
   if (userPeriodSelect) {
     userPeriodSelect.onchange = () => {
       const nextParams = { ...parentParams, period: userPeriodSelect.value };
-      if (apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+      if (isExtraMatrikelView && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
         nextParams.scope = 'user_matrikel';
       }
       visUserFirsts(obserkode, navn, sortMode, nextParams);
