@@ -1,4 +1,4 @@
-// Version: 1.11.22 - 2026-03-03 00.11.51
+// Version: 1.12.0 - 2026-03-03 00.37.54
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -15,6 +15,7 @@ let primaryStatData = null;
 let compareStatData = null;
 let userScoreboardData = null;
 let kommuneOverviewSelection = null;
+const kommuneYearRowCache = new Map();
 
 function normalizeCode(value) {
   return String(value || '').trim().toUpperCase();
@@ -480,7 +481,37 @@ function renderComparisonBlockers(primaryData, compareData) {
   `;
 }
 
-function renderKommuneOverview() {
+async function fetchKommuneYearRow(kommuneId, yearValue) {
+  const cacheKey = `${String(kommuneId)}|${String(yearValue)}`;
+  if (kommuneYearRowCache.has(cacheKey)) return kommuneYearRowCache.get(cacheKey);
+
+  try {
+    const res = await fetch('/api/scoreboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: 'kommune_alle',
+        kommune: String(kommuneId),
+        aar: yearValue
+      })
+    });
+    if (!res.ok) {
+      kommuneYearRowCache.set(cacheKey, null);
+      return null;
+    }
+    const payload = await res.json();
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const selfCode = normalizeCode(userScoreboardData?.self_obserkode || primaryStatData?.user?.obserkode);
+    const row = rows.find(item => normalizeCode(item?.obserkode) === selfCode) || null;
+    kommuneYearRowCache.set(cacheKey, row);
+    return row;
+  } catch (_) {
+    kommuneYearRowCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+async function renderKommuneOverview() {
   const card = document.getElementById('kommune-overview-card');
   const select = document.getElementById('kommune-overview-select');
   const content = document.getElementById('kommune-overview-content');
@@ -514,14 +545,29 @@ function renderKommuneOverview() {
   select.value = String(kommuneOverviewSelection);
   select.onchange = () => {
     kommuneOverviewSelection = String(select.value || '');
-    renderKommuneOverview();
+    void renderKommuneOverview();
   };
 
   const selected = validRows.find(r => String(r.kommune_id) === String(kommuneOverviewSelection)) || validRows[0];
-  const alle = selected?.alle || null;
-  const matrikel = selected?.matrikel || null;
+  const years = Array.isArray(primaryStatData?.years)
+    ? primaryStatData.years
+      .map(item => Number(item?.year))
+      .filter(Number.isFinite)
+      .sort((a, b) => b - a)
+    : [];
 
-  const rowHtml = (label, row, scope) => {
+  content.innerHTML = '<div class="muted">Henter kommune-data...</div>';
+
+  const yearRows = await Promise.all(
+    years.map(async year => ({
+      year,
+      row: await fetchKommuneYearRow(selected.kommune_id, year)
+    }))
+  );
+
+  const totalRow = selected?.alle || null;
+
+  const rowHtml = (label, row, scope, yearValue = null) => {
     const count = Number(row?.antal_arter || 0);
     const rank = row?.placering ? `#${row.placering}` : '-';
     const sidst = row?.sidste_art ? `${row.sidste_art}${row?.sidste_dato ? ` (${row.sidste_dato})` : ''}` : '-';
@@ -530,6 +576,9 @@ function renderKommuneOverview() {
       kommune: String(selected.kommune_id),
       kommune_navn: String(selected.kommune_navn)
     });
+    if (yearValue !== null && yearValue !== undefined) {
+      params.set('aar', String(yearValue));
+    }
     const link = `scoreboard.html?${params.toString()}`;
     return `
       <tr>
@@ -542,11 +591,15 @@ function renderKommuneOverview() {
     `;
   };
 
+  const yearRowsHtml = yearRows
+    .map(item => rowHtml(String(item.year), item.row, 'kommune_alle', item.year))
+    .join('');
+
   content.innerHTML = `
     <table class="profile-table">
       <thead>
         <tr>
-          <th>Type</th>
+          <th>År</th>
           <th>Arter</th>
           <th>Placering</th>
           <th>Sidste art</th>
@@ -554,8 +607,8 @@ function renderKommuneOverview() {
         </tr>
       </thead>
       <tbody>
-        ${rowHtml('Alle', alle, 'kommune_alle')}
-        ${rowHtml('Matrikel', matrikel, 'kommune_matrikel')}
+        ${rowHtml('Total', totalRow, 'kommune_alle', 'global')}
+        ${yearRowsHtml}
       </tbody>
     </table>
   `;
@@ -665,7 +718,7 @@ function renderStatistik() {
     'Observationer'
   );
 
-  renderKommuneOverview();
+  void renderKommuneOverview();
 }
 
 function getQueryParam(name) {
@@ -795,7 +848,7 @@ initSearch();
 initComparison();
 
 loadUserScoreboardData().then(() => {
-  renderKommuneOverview();
+  void renderKommuneOverview();
 });
 
 // Load statistics

@@ -3,22 +3,20 @@ import sys
 import re
 from datetime import datetime
 
-FILES = [
-    "web/app.js",
-    "web/index.html",
-    "web/style.css",
-    "web/admin.html",
-    "web/admin.js",
-    "web/sw.js",  # <-- tilføj denne linje
-    "web/art.html",
-    "web/login.html",
-    "web/lokal.html",
-    "web/navbar.js",
-    "web/scoreboard.html",
-    "web/scoreboard.js",
-    "web/settings.html",
-    "web/settings.js"
-]
+TARGET_EXTENSIONS = {".html", ".css", ".js"}
+SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules"}
+
+
+def find_target_files(base_dir):
+    files = []
+    for root, dirs, filenames in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for filename in filenames:
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in TARGET_EXTENSIONS:
+                continue
+            files.append(os.path.join(root, filename))
+    return sorted(files)
 
 def get_current_version(sw_path, html_path=None):
     # Prøv først sw.js
@@ -141,6 +139,12 @@ if __name__ == '__main__':
     base_dir = os.path.dirname(__file__)
     sw_path = os.path.join(base_dir, "web", "sw.js")
     html_path = os.path.join(base_dir, "web", "index.html")
+    target_files = find_target_files(base_dir)
+
+    if not target_files:
+        print("Ingen .html/.css/.js filer fundet")
+        sys.exit(0)
+
     # Find aktuel version
     current_version = get_current_version(sw_path, html_path)
     # Argument: version eller flag
@@ -150,6 +154,7 @@ if __name__ == '__main__':
     else:
         new_version = arg
     print(f"Bumper version: {current_version} -> {new_version}")
-    for file in FILES:
-        update_file(os.path.join(base_dir, file), new_version)
+    print(f"Opdaterer {len(target_files)} filer...")
+    for file_path in target_files:
+        update_file(file_path, new_version)
     print('Færdig!')
