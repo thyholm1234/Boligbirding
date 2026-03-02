@@ -1,4 +1,4 @@
-// Version: 1.11.0 - 2026-03-02 16.34.43
+// Version: 1.11.1 - 2026-03-02 16.38.57
 // © Christian Vemmelund Helligsø
 
 
@@ -640,6 +640,10 @@ function visScoreboardTrend(data) {
   const trendDiv = document.getElementById('scoreboard-trend');
   if (!trendDiv) return;
 
+  const matrix = Array.isArray(data.matrix) ? data.matrix : [];
+  const koderMatrix = Array.isArray(data.koder) ? data.koder : [];
+  const arter = Array.isArray(data.arter) ? data.arter : [];
+
   const trendPoints = data && typeof data.trend_points === 'object' && data.trend_points !== null
     ? data.trend_points
     : null;
@@ -656,6 +660,14 @@ function visScoreboardTrend(data) {
       });
     });
 
+    // Sørg for at brugere uden perioder (ingen trend_points) stadig får gammel adfærd
+    for (let i = 0; i < matrix.length; i++) {
+      for (let j = 0; j < koderMatrix.length; j++) {
+        const d = matrix[i][j];
+        if (d) allDates.add(d);
+      }
+    }
+
     const sortedDates = Array.from(allDates).sort((left, right) => {
       const [leftDay, leftMonth, leftYear] = left.split('-');
       const [rightDay, rightMonth, rightYear] = right.split('-');
@@ -669,6 +681,37 @@ function visScoreboardTrend(data) {
 
     const datasets = koder.map((kode, index) => {
       const rawPoints = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
+
+      // Ingen perioder for denne bruger -> brug gammel matrix-baseret progression
+      if (!rawPoints.length) {
+        const origIdx = koderMatrix.indexOf(kode);
+        const seenDates = [];
+        for (let i = 0; i < matrix.length; i++) {
+          const dato = (origIdx >= 0 && matrix[i]) ? matrix[i][origIdx] : null;
+          if (dato) seenDates.push({ art: arter[i], dato });
+        }
+
+        const dateCounts = {};
+        sortedDates.forEach(d => dateCounts[d] = 0);
+        seenDates.forEach(({ dato }) => {
+          sortedDates.forEach(d => {
+            const [dd, mm, yyyy] = d.split('-');
+            const [od, om, oyyyy] = dato.split('-');
+            const dDate = new Date(`${yyyy}-${mm}-${dd}`);
+            const oDate = new Date(`${oyyyy}-${om}-${od}`);
+            if (dDate >= oDate) dateCounts[d]++;
+          });
+        });
+
+        return {
+          label: kode,
+          data: sortedDates.map(d => dateCounts[d]),
+          borderColor: `hsl(${index * 60},70%,50%)`,
+          fill: false,
+          tension: 0
+        };
+      }
+
       const points = [...rawPoints].sort((left, right) => {
         const [leftDay, leftMonth, leftYear] = String(left?.dato || '').split('-');
         const [rightDay, rightMonth, rightYear] = String(right?.dato || '').split('-');
@@ -715,9 +758,7 @@ function visScoreboardTrend(data) {
     return;
   }
 
-  const matrix = Array.isArray(data.matrix) ? data.matrix : [];
-  const koder = Array.isArray(data.koder) ? data.koder : [];
-  const arter = Array.isArray(data.arter) ? data.arter : [];
+  const koder = koderMatrix;
 
   if (!matrix.length || !koder.length || !arter.length) {
     trendDiv.innerHTML = "";
