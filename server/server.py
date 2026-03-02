@@ -3992,14 +3992,20 @@ async def admin_update_user(payload: Dict[str, Any] = Body(...), admin: bool = D
 # ---------------------------------------------------------
 async def ensure_user_optional_columns():
     statements = [
-        "ALTER TABLE users ADD COLUMN matrikel1_perioder TEXT",
-        "ALTER TABLE users ADD COLUMN matrikel2_perioder TEXT",
-        "ALTER TABLE users ADD COLUMN matrikel_perioder_json TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel1_perioder TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel2_perioder TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel_perioder_json TEXT",
     ]
-    async with engine.begin() as conn:
-        for sql in statements:
-            try:
+    for sql in statements:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text(sql))
+        except Exception:
+            # Fallback til DB'er uden IF NOT EXISTS support
+            try:
+                plain_sql = sql.replace(" IF NOT EXISTS", "")
+                async with engine.begin() as conn:
+                    await conn.execute(text(plain_sql))
             except Exception:
                 pass
 
