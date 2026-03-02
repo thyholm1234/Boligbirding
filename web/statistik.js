@@ -20,7 +20,7 @@ function formatNumber(value) {
   return num.toLocaleString('da-DK');
 }
 
-function renderYearList(targetId, years, user, scope, totalCount = 0, compareYears = [], compareUser = null, compareTotalCount = null) {
+function renderYearList(targetId, years, user, scope, totalCount = 0, totalRank = null, compareYears = [], compareUser = null, compareTotalCount = null, compareTotalRank = null) {
   const target = document.getElementById(targetId);
   if (!target) return;
   const filtered = (years || []).filter(y => {
@@ -41,15 +41,16 @@ function renderYearList(targetId, years, user, scope, totalCount = 0, compareYea
   });
   const totalLink = `scoreboard.html?${totalParams.toString()}`;
   const totalCompareCell = compareUser
-    ? `<td>${compareTotalCount !== null && compareTotalCount !== undefined ? formatNumber(compareTotalCount) : '-'}</td>`
+    ? `<td>${compareTotalCount !== null && compareTotalCount !== undefined ? `${formatNumber(compareTotalCount)} (${compareTotalRank ? `#${compareTotalRank}` : '-'})` : '-'}</td>`
     : '';
+  const totalRankText = totalRank ? `#${totalRank}` : '-';
   const totalRow = hasTotal
     ? `
       <tr>
         <td><b>Total</b></td>
         <td><a href="${totalLink}">Se listen</a></td>
         <td><b>${formatNumber(totalCount)}</b></td>
-        <td>-</td>
+        <td>${totalRankText}</td>
         ${totalCompareCell}
       </tr>
     `
@@ -173,9 +174,11 @@ function renderStatistik() {
     user,
     'user_global',
     Number(data.lists?.danmark?.count || 0),
+    data.lists?.danmark?.rank ?? null,
     compareStatData?.years || [],
     compareUser,
-    compareStatData ? Number(compareStatData?.lists?.danmark?.count || 0) : null
+    compareStatData ? Number(compareStatData?.lists?.danmark?.count || 0) : null,
+    compareStatData?.lists?.danmark?.rank ?? null
   );
   renderYearList(
     'matrikel-year-list',
@@ -183,9 +186,11 @@ function renderStatistik() {
     user,
     'user_matrikel',
     Number(data.lists?.vp?.count || 0),
+    data.lists?.vp?.rank ?? null,
     compareStatData?.matrikel_years || [],
     compareUser,
-    compareStatData ? Number(compareStatData?.lists?.vp?.count || 0) : null
+    compareStatData ? Number(compareStatData?.lists?.vp?.count || 0) : null,
+    compareStatData?.lists?.vp?.rank ?? null
   );
 
   const globalSeries = mergeSeries(data.charts?.global_by_year || [], compareStatData?.charts?.global_by_year || []);

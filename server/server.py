@@ -250,6 +250,13 @@ def safe_str(val):
         return ""
     return str(val)
 
+def merged_note_text(turnoter: Any, fuglenoter: Any) -> str:
+    turnoter_str = safe_str(turnoter).strip()
+    fuglenoter_str = safe_str(fuglenoter).strip()
+    if turnoter_str and fuglenoter_str:
+        return f"{turnoter_str} {fuglenoter_str}".strip()
+    return turnoter_str or fuglenoter_str
+
 def _parse_int(val: Optional[str]) -> Optional[int]:
     try:
         if val is None:
@@ -1302,7 +1309,7 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
                 obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
                 turtidfra=safe_str(row.get("Turtidfra")),
                 turtidtil=safe_str(row.get("Turtidtil")),
-                turnoter=safe_str(row.get("Turnoter", "") or ""),
+                    turnoter=merged_note_text(row.get("Turnoter", ""), row.get("Fuglnoter", "")),
                 afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
                 loknavn=safe_str(row.get("Loknavn", "") or ""),
                 loknr=_parse_int(row.get("Loknr")),
@@ -1491,7 +1498,7 @@ async def daily_update_all_jsons():
                         obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
                         turtidfra=safe_str(row.get("Turtidfra")),
                         turtidtil=safe_str(row.get("Turtidtil")),
-                        turnoter=safe_str(row.get("Turnoter", "") or ""),
+                        turnoter=merged_note_text(row.get("Turnoter", ""), row.get("Fuglnoter", "")),
                         afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
                         loknavn=safe_str(row.get("Loknavn", "") or ""),
                         loknr=_parse_int(row.get("Loknr")),
@@ -1620,7 +1627,7 @@ async def sync_user_all_time(obserkode: str):
                     obsid=safe_str(row.get("Obsid")) if "Obsid" in row else None,
                     turtidfra=safe_str(row.get("Turtidfra")),
                     turtidtil=safe_str(row.get("Turtidtil")),
-                    turnoter=safe_str(row.get("Turnoter", "") or ""),
+                    turnoter=merged_note_text(row.get("Turnoter", ""), row.get("Fuglnoter", "")),
                     afdeling=safe_str(row.get("DOF_afdeling", "") or ""),
                     loknavn=safe_str(row.get("Loknavn", "") or ""),
                     loknr=_parse_int(row.get("Loknr")),
@@ -1935,6 +1942,24 @@ async def profile_data(request: Request):
     global_list = _sort_list_by_date(global_list)
     matrikel_list = _sort_list_by_date(matrikel_list)
 
+    total_rank_global = None
+    total_rank_matrikel = None
+    global_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_alle", "scoreboard.json")
+    matrikel_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_matrikel", "scoreboard.json")
+
+    global_sb_rows = _load_json(global_sb_path) or []
+    matrikel_sb_rows = _load_json(matrikel_sb_path) or []
+
+    for row in global_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_global = row.get("placering")
+            break
+
+    for row in matrikel_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_matrikel = row.get("placering")
+            break
+
     # Blockers: arter kun set af denne bruger (global all-time)
     art_counts: Dict[str, int] = {}
     async with SessionLocal() as dbsession:
@@ -2194,10 +2219,12 @@ async def statistik_data(obserkode: str):
         "lists": {
             "danmark": {
                 "count": len(global_list),
+                "rank": total_rank_global,
                 "items": global_list
             },
             "vp": {
                 "count": len(matrikel_list),
+                "rank": total_rank_matrikel,
                 "items": matrikel_list
             }
         },
