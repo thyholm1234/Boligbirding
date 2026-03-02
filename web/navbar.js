@@ -1,4 +1,4 @@
-// Version: 1.11.21 - 2026-03-03 00.03.28
+// Version: 1.11.25 - 2026-03-03 00.14.52
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -52,6 +52,9 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-alle-alltime"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Kommuner</div>
+            <div class="js-kommune-alle-alltime"></div>
           </div>
         </div>
 
@@ -67,6 +70,9 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-alle"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Kommuner</div>
+            <div class="js-kommune-alle"></div>
           </div>
         </div>
 
@@ -82,6 +88,9 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-matrikel-alltime"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Kommuner</div>
+            <div class="js-kommune-matrikel-alltime"></div>
           </div>
         </div>
 
@@ -97,6 +106,9 @@ export function renderNavbar() {
 
             <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Lokalafdelinger</div>
             <div class="js-afdeling-matrikel"></div>
+
+            <div class="muted" style="padding:10px 16px 4px;font-weight:700;border-top:1px solid #eee;margin-top:6px;">Kommuner</div>
+            <div class="js-kommune-matrikel"></div>
           </div>
         </div>
 
@@ -141,6 +153,8 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_alle&aar=global', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-alle-alltime"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Kommuner</div>
+              <div class="js-kommune-alle-alltime"></div>
             </div>
           </div>
 
@@ -154,6 +168,8 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_alle', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-alle"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Kommuner</div>
+              <div class="js-kommune-alle"></div>
             </div>
           </div>
 
@@ -167,6 +183,8 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_matrikel&aar=global', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-matrikel-alltime"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Kommuner</div>
+              <div class="js-kommune-matrikel-alltime"></div>
             </div>
           </div>
 
@@ -180,6 +198,8 @@ export function renderNavbar() {
               ${linkHTML('?scope=global_matrikel', 'Danmark')}
               <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Lokalafdelinger</div>
               <div class="js-afdeling-matrikel"></div>
+              <div class="muted" style="padding:10px 0 4px 0;font-weight:700;">Kommuner</div>
+              <div class="js-kommune-matrikel"></div>
             </div>
           </div>
         
@@ -207,6 +227,30 @@ export function renderNavbar() {
 
   // Fyld lokalafdelinger med det samme (statisk liste)
   addAfdelingerLinks(AFDELINGER);
+  initKommuneLinks();
+}
+
+async function initKommuneLinks() {
+  try {
+    const [prefsRes, afdelingerRes] = await Promise.all([
+      fetch('/api/get_userprefs'),
+      fetch('/api/afdelinger')
+    ]);
+    if (!prefsRes.ok || !afdelingerRes.ok) {
+      addKommuneLinks([]);
+      return;
+    }
+    const prefs = await prefsRes.json();
+    const afdelinger = await afdelingerRes.json();
+    const kommunerMap = new Map((afdelinger.kommuner || []).map(k => [String(k.id), k.navn]));
+    const selectedIds = Array.isArray(prefs.kommuner) ? prefs.kommuner.map(v => String(v)) : [];
+    const items = selectedIds
+      .filter(id => kommunerMap.has(id))
+      .map(id => ({ id, navn: kommunerMap.get(id) }));
+    addKommuneLinks(items);
+  } catch (_) {
+    addKommuneLinks([]);
+  }
 }
 
 // -----------------------------------------------------
@@ -458,4 +502,31 @@ export function addAfdelingerLinks(afdelinger) {
   document.querySelectorAll('.js-afdeling-matrikel').forEach(c => c.innerHTML = htmlMatrikel);
   document.querySelectorAll('.js-afdeling-alle-alltime').forEach(c => c.innerHTML = htmlAlleAllTime);
   document.querySelectorAll('.js-afdeling-matrikel-alltime').forEach(c => c.innerHTML = htmlMatrikelAllTime);
+}
+
+export function addKommuneLinks(kommuner) {
+  const items = (Array.isArray(kommuner) ? kommuner : [])
+    .map(k => ({ id: String(k?.id || ''), navn: String(k?.navn || '').trim() }))
+    .filter(k => k.id && k.navn);
+
+  const htmlAlle = items.length
+    ? items.map(it => linkHTML(`?scope=kommune_alle&kommune=${encodeURIComponent(it.id)}&kommune_navn=${encodeURIComponent(it.navn)}`, it.navn)).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
+
+  const htmlAlleAllTime = items.length
+    ? items.map(it => linkHTML(`?scope=kommune_alle&kommune=${encodeURIComponent(it.id)}&kommune_navn=${encodeURIComponent(it.navn)}&aar=global`, it.navn)).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
+
+  const htmlMatrikel = items.length
+    ? items.map(it => linkHTML(`?scope=kommune_matrikel&kommune=${encodeURIComponent(it.id)}&kommune_navn=${encodeURIComponent(it.navn)}`, it.navn)).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
+
+  const htmlMatrikelAllTime = items.length
+    ? items.map(it => linkHTML(`?scope=kommune_matrikel&kommune=${encodeURIComponent(it.id)}&kommune_navn=${encodeURIComponent(it.navn)}&aar=global`, it.navn)).join('')
+    : `<span class="muted" style="display:block;padding:8px 16px;">Ingen kommuner valgt</span>`;
+
+  document.querySelectorAll('.js-kommune-alle').forEach(c => c.innerHTML = htmlAlle);
+  document.querySelectorAll('.js-kommune-alle-alltime').forEach(c => c.innerHTML = htmlAlleAllTime);
+  document.querySelectorAll('.js-kommune-matrikel').forEach(c => c.innerHTML = htmlMatrikel);
+  document.querySelectorAll('.js-kommune-matrikel-alltime').forEach(c => c.innerHTML = htmlMatrikelAllTime);
 }

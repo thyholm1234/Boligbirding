@@ -1,4 +1,4 @@
-// Version: 1.11.21 - 2026-03-03 00.03.28
+// Version: 1.11.25 - 2026-03-03 00.14.52
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -127,6 +127,135 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusEl.textContent === `Du kan højst vælge ${maxCount}.`) statusEl.textContent = '';
       }, 2200);
     }
+  }
+
+  function getSelectedValues(selectEl) {
+    if (!selectEl) return [];
+    return Array.from(selectEl.selectedOptions || []).map(option => String(option.value)).filter(Boolean);
+  }
+
+  function setSelectedValues(selectEl, values) {
+    if (!selectEl) return;
+    const selectedSet = new Set((Array.isArray(values) ? values : []).map(value => String(value)));
+    Array.from(selectEl.options || []).forEach(option => {
+      option.selected = selectedSet.has(String(option.value));
+    });
+  }
+
+  function updateOptInSummary(selectEl, targetId, emptyText) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const labels = getSelectedValues(selectEl)
+      .map(value => Array.from(selectEl?.options || []).find(option => String(option.value) === String(value))?.textContent || '')
+      .filter(Boolean);
+    target.textContent = labels.length ? labels.join(', ') : emptyText;
+  }
+
+  function ensurePrimaryKommuneSelected() {
+    const kommuneInput = document.getElementById('kommune');
+    const kommunerOptInInput = document.getElementById('kommunerOptIn');
+    if (!kommuneInput || !kommunerOptInInput) return;
+    const primary = String(kommuneInput.value || '').trim();
+    if (!primary) return;
+    const selected = new Set(getSelectedValues(kommunerOptInInput));
+    if (!selected.has(primary)) {
+      selected.add(primary);
+      setSelectedValues(kommunerOptInInput, Array.from(selected).slice(0, 5));
+    }
+  }
+
+  function ensureOptInModal() {
+    if (document.getElementById('optInModal')) return;
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="optInModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1200;align-items:center;justify-content:center;padding:1em;">
+        <div style="background:var(--card-bg);color:var(--text-main);width:min(520px,100%);max-height:85vh;border-radius:12px;box-shadow:var(--card-shadow);padding:1em;display:flex;flex-direction:column;">
+          <h3 id="optInModalTitle" style="margin-top:0;"></h3>
+          <div id="optInModalHelper" class="muted" style="margin-bottom:0.6em;"></div>
+          <div id="optInModalList" style="display:flex;flex-direction:column;gap:0.45em;overflow:auto;max-height:52vh;padding-right:0.2em;"></div>
+          <div id="optInModalStatus" class="muted" style="margin-top:0.7em;min-height:1.2em;"></div>
+          <div style="display:flex;gap:0.6em;justify-content:flex-end;margin-top:0.9em;padding-top:0.6em;border-top:1px solid var(--border);">
+            <button type="button" id="optInModalCancel">Annuller</button>
+            <button type="button" id="optInModalSave">Gem valg</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  function openOptInModal(config) {
+    ensureOptInModal();
+    const modal = document.getElementById('optInModal');
+    const title = document.getElementById('optInModalTitle');
+    const helper = document.getElementById('optInModalHelper');
+    const list = document.getElementById('optInModalList');
+    const status = document.getElementById('optInModalStatus');
+    const cancelBtn = document.getElementById('optInModalCancel');
+    const saveBtn = document.getElementById('optInModalSave');
+    const sourceSelect = document.getElementById(config.selectId);
+    if (!modal || !title || !helper || !list || !status || !cancelBtn || !saveBtn || !sourceSelect) return;
+
+    title.textContent = config.title;
+    helper.textContent = `Vælg op til ${config.maxCount}.`;
+
+    const initialSelected = new Set(getSelectedValues(sourceSelect));
+    const primaryValue = String(config.primaryValue || '').trim();
+    if (config.lockPrimary && primaryValue) initialSelected.add(primaryValue);
+
+    const options = Array.from(sourceSelect.options || []).filter(option => option.value);
+    list.innerHTML = options.map(option => {
+      const value = String(option.value);
+      const isLockedPrimary = Boolean(config.lockPrimary && primaryValue && value === primaryValue);
+      const checked = initialSelected.has(value) ? 'checked' : '';
+      const disabled = isLockedPrimary ? 'disabled' : '';
+      const primaryTag = isLockedPrimary ? ' <span class="muted">(primær)</span>' : '';
+      return `
+        <label style="display:flex;gap:0.55em;align-items:flex-start;padding:0.35em 0;">
+          <input type="checkbox" data-value="${value}" ${checked} ${disabled}>
+          <span>${option.textContent || value}${primaryTag}</span>
+        </label>
+      `;
+    }).join('');
+
+    const enforceLimit = () => {
+      const checkedBoxes = Array.from(list.querySelectorAll('input[type="checkbox"]:checked'));
+      if (checkedBoxes.length <= config.maxCount) {
+        status.textContent = '';
+        return true;
+      }
+      status.textContent = `Du kan højst vælge ${config.maxCount}.`;
+      return false;
+    };
+
+    list.querySelectorAll('input[type="checkbox"]').forEach(box => {
+      box.addEventListener('change', () => {
+        if (!enforceLimit()) box.checked = false;
+      });
+    });
+
+    const close = () => {
+      modal.style.display = 'none';
+      list.innerHTML = '';
+      status.textContent = '';
+      cancelBtn.onclick = null;
+      saveBtn.onclick = null;
+      modal.onclick = null;
+    };
+
+    cancelBtn.onclick = () => close();
+    modal.onclick = (event) => {
+      if (event.target === modal) close();
+    };
+    saveBtn.onclick = () => {
+      const selectedValues = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(box => String(box.getAttribute('data-value')));
+      if (config.lockPrimary && primaryValue && !selectedValues.includes(primaryValue)) selectedValues.unshift(primaryValue);
+      const normalized = selectedValues.slice(0, config.maxCount);
+      setSelectedValues(sourceSelect, normalized);
+      updateOptInSummary(sourceSelect, config.summaryId, config.emptyText);
+      sourceSelect.dispatchEvent(new Event('change'));
+      close();
+    };
+
+    modal.style.display = 'flex';
   }
 
   function renderMatrikelEditor() {
@@ -507,14 +636,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <option value="">Vælg...</option>
             ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
-          <label for="lokalafdelingerOptIn">Opt-in lokalafdelinger (max 3):</label>
-          <select id="lokalafdelingerOptIn" name="lokalafdelingerOptIn" multiple size="6" style="width:100%;margin-bottom:0.35em;">
+          <label style="font-weight:600;">Opt-in lokalafdelinger (max 3):</label>
+          <button type="button" id="openLokalOptInModal" style="width:100%;margin:0.35em 0 0.35em 0;">Vælg lokalafdelinger</button>
+          <div id="lokalafdelingerOptInSummary" class="muted" style="margin-bottom:0.45em;font-size:0.9em;">Ingen valgt</div>
+          <select id="lokalafdelingerOptIn" name="lokalafdelingerOptIn" multiple size="6" style="display:none;">
             ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
           </select>
           <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke lokalafdelinger du vil optræde på scoreboards i.</div>
 
-          <label for="kommunerOptIn">Opt-in kommuner (max 5):</label>
-          <select id="kommunerOptIn" name="kommunerOptIn" multiple size="8" style="width:100%;margin-bottom:0.35em;">
+          <label style="font-weight:600;">Opt-in kommuner (max 5):</label>
+          <button type="button" id="openKommuneOptInModal" style="width:100%;margin:0.35em 0 0.35em 0;">Vælg kommuner</button>
+          <div id="kommunerOptInSummary" class="muted" style="margin-bottom:0.45em;font-size:0.9em;">Ingen valgt</div>
+          <select id="kommunerOptIn" name="kommunerOptIn" multiple size="8" style="display:none;">
             ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
           <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke kommuner du vil optræde på scoreboards i.</div>
@@ -537,6 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Array.from(lokalOpt.options).forEach(option => {
               option.selected = selectedLokal.includes(option.value);
             });
+            updateOptInSummary(lokalOpt, 'lokalafdelingerOptInSummary', 'Ingen valgt');
           }
           const kommuneOpt = document.getElementById('kommunerOptIn');
           if (kommuneOpt) {
@@ -544,6 +678,8 @@ document.addEventListener('DOMContentLoaded', () => {
             Array.from(kommuneOpt.options).forEach(option => {
               option.selected = selectedKommuner.includes(String(option.value));
             });
+            ensurePrimaryKommuneSelected();
+            updateOptInSummary(kommuneOpt, 'kommunerOptInSummary', 'Ingen valgt');
           }
           const fallbackIndexes = Object.keys(data.matrikel_perioder || {})
             .map(key => matrikelIndexFromKey(key))
@@ -564,21 +700,61 @@ document.addEventListener('DOMContentLoaded', () => {
       const kommuneInput = document.getElementById('kommune');
       const lokalafdelingerOptInInput = document.getElementById('lokalafdelingerOptIn');
       const kommunerOptInInput = document.getElementById('kommunerOptIn');
+      const openLokalOptInModalBtn = document.getElementById('openLokalOptInModal');
+      const openKommuneOptInModalBtn = document.getElementById('openKommuneOptInModal');
       const afdelingFormEl = document.getElementById('afdelingForm');
       function gemAfdelingKommune() {
         saveAllPrefs();
       }
       if (lokalafdelingInput) lokalafdelingInput.addEventListener('change', gemAfdelingKommune);
-      if (kommuneInput) kommuneInput.addEventListener('change', gemAfdelingKommune);
+      if (kommuneInput) {
+        kommuneInput.addEventListener('change', () => {
+          ensurePrimaryKommuneSelected();
+          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt');
+          gemAfdelingKommune();
+        });
+      }
+
+      if (openLokalOptInModalBtn) {
+        openLokalOptInModalBtn.addEventListener('click', () => {
+          openOptInModal({
+            selectId: 'lokalafdelingerOptIn',
+            title: 'Opt-in lokalafdelinger',
+            summaryId: 'lokalafdelingerOptInSummary',
+            maxCount: 3,
+            emptyText: 'Ingen valgt',
+            lockPrimary: false,
+            primaryValue: null
+          });
+        });
+      }
+
+      if (openKommuneOptInModalBtn) {
+        openKommuneOptInModalBtn.addEventListener('click', () => {
+          openOptInModal({
+            selectId: 'kommunerOptIn',
+            title: 'Opt-in kommuner',
+            summaryId: 'kommunerOptInSummary',
+            maxCount: 5,
+            emptyText: 'Ingen valgt',
+            lockPrimary: true,
+            primaryValue: kommuneInput ? kommuneInput.value : ''
+          });
+        });
+      }
+
       if (lokalafdelingerOptInInput) {
         lokalafdelingerOptInInput.addEventListener('change', () => {
           enforceMultiSelectLimit(lokalafdelingerOptInInput, 3, document.getElementById('matrikelSaveStatus'));
+          updateOptInSummary(lokalafdelingerOptInInput, 'lokalafdelingerOptInSummary', 'Ingen valgt');
           gemAfdelingKommune();
         });
       }
       if (kommunerOptInInput) {
         kommunerOptInInput.addEventListener('change', () => {
           enforceMultiSelectLimit(kommunerOptInInput, 5, document.getElementById('matrikelSaveStatus'));
+          ensurePrimaryKommuneSelected();
+          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt');
           gemAfdelingKommune();
         });
       }

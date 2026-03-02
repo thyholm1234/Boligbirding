@@ -649,6 +649,10 @@ def _normalize_kommuner(values: Any) -> List[str]:
             break
     return normalized
 
+def _normalize_single_kommune(value: Any) -> Optional[str]:
+    normalized = _normalize_kommuner([value])
+    return normalized[0] if normalized else None
+
 def _user_opted_lokalafdelinger(user: Optional[User]) -> List[str]:
     if not user:
         return []
@@ -2397,12 +2401,7 @@ async def get_userprefs(request: Request):
             select(Observation.dato, Observation.turnoter).where(Observation.obserkode == obserkode)
         )).all()
         if user:
-            kommune_value = getattr(user, "kommune", None)
-            if kommune_value and not str(kommune_value).isdigit():
-                for row in _read_kommuner():
-                    if row.get("navn") == kommune_value:
-                        kommune_value = row.get("id")
-                        break
+            kommune_value = _normalize_single_kommune(getattr(user, "kommune", None))
             periods = _load_user_matrikel_periods(user)
             available_indexes = _collect_matrikel_indexes_from_observations(obs_rows, raw_filter)
             available_keys = {_matrikel_key(index) for index in available_indexes}
@@ -2411,11 +2410,15 @@ async def get_userprefs(request: Request):
                 for key, value in periods.items()
                 if key in available_keys
             }
+            opted_kommuner = _user_opted_kommuner(user)
+            if kommune_value and kommune_value not in opted_kommuner:
+                opted_kommuner = [kommune_value, *[value for value in opted_kommuner if value != kommune_value]]
+            opted_kommuner = opted_kommuner[:5]
             return {
                 "lokalafdeling": user.lokalafdeling,
                 "kommune": kommune_value,
                 "lokalafdelinger": _user_opted_lokalafdelinger(user),
-                "kommuner": _user_opted_kommuner(user),
+                "kommuner": opted_kommuner,
                 "obserkode": user.obserkode,
                 "navn": user.navn,
                 "matrikel_perioder": filtered_periods,
@@ -3415,21 +3418,15 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         result["lokalafdeling_matrikel"] = None
 
     # Kommune (hent fra session eller database)
-    kommune_id = session.get("kommune")
+    kommune_id = _normalize_single_kommune(session.get("kommune"))
     print("[DEBUG] Session kommune:", kommune_id)
     if not kommune_id:
         async with SessionLocal() as dbsession:
             user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
             if user and getattr(user, "kommune", None):
-                kommune_id = user.kommune
+                kommune_id = _normalize_single_kommune(user.kommune)
                 session["kommune"] = kommune_id
                 print("[DEBUG] Kommune hentet fra database:", kommune_id)
-    if kommune_id and not str(kommune_id).isdigit():
-        for row in _read_kommuner():
-            if row.get("navn") == kommune_id:
-                kommune_id = row.get("id")
-                session["kommune"] = kommune_id
-                break
 
     if kommune_id:
         kommune_name = _kommune_name_by_id(str(kommune_id)) or "Kommune"
@@ -3459,6 +3456,44 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         print("[DEBUG] Ingen kommune sat i session eller database.")
         result["kommune_alle"] = None
         result["kommune_matrikel"] = None
+
+    # Kommune-overblik for alle tilmeldte kommuner (primær først)
+    try:
+        async with SessionLocal() as dbsession:
+            user_for_overview = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        opted_kommuner = _user_opted_kommuner(user_for_overview)
+        if kommune_id and kommune_id not in opted_kommuner:
+            opted_kommuner = [kommune_id, *[value for value in opted_kommuner if value != kommune_id]]
+        opted_kommuner = opted_kommuner[:5]
+
+        kommuner_overblik = []
+        for opted_id in opted_kommuner:
+            kommune_name = _kommune_name_by_id(str(opted_id)) or str(opted_id)
+            filename = f"{_kommune_slug(kommune_name)}.json"
+
+            alle_row = None
+            matrikel_row = None
+            try:
+                with open(os.path.join(SCOREBOARD_DIR, "kommune_alle", filename), encoding="utf-8") as f:
+                    alle_row = get_row(json.load(f))
+            except Exception:
+                alle_row = None
+            try:
+                with open(os.path.join(SCOREBOARD_DIR, "kommune_matrikel", filename), encoding="utf-8") as f:
+                    matrikel_row = get_row(json.load(f))
+            except Exception:
+                matrikel_row = None
+
+            kommuner_overblik.append({
+                "kommune_id": str(opted_id),
+                "kommune_navn": kommune_name,
+                "alle": alle_row,
+                "matrikel": matrikel_row,
+            })
+        result["kommuner_overblik"] = kommuner_overblik
+    except Exception as error:
+        print("[DEBUG] kommuner_overblik fejl:", error)
+        result["kommuner_overblik"] = []
 
     # Grupper (beregn direkte)
     async def beregn_gruppe_scoreboard(gruppe, scope, aar):
@@ -3628,8 +3663,9 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
 
 @app.post("/api/set_afdeling")
 async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
-    lokalafdeling = data.get("lokalafdeling")
-    kommune = data.get("kommune")
+    lokalafdeling = (data.get("lokalafdeling") or None)
+    kommune_raw = data.get("kommune")
+    kommune = _normalize_single_kommune(kommune_raw)
     has_lokalafdelinger = "lokalafdelinger" in data
     has_kommuner = "kommuner" in data
     lokalafdelinger = _normalize_lokalafdelinger(data.get("lokalafdelinger") or []) if has_lokalafdelinger else None
@@ -3650,8 +3686,8 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
         user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
-        user.lokalafdeling = lokalafdeling
-        user.kommune = kommune
+        user.lokalafdeling = (lokalafdeling or None)
+        user.kommune = (kommune or None)
 
         if has_lokalafdelinger:
             user.lokalafdelinger_json = json.dumps(lokalafdelinger or [], ensure_ascii=False)
@@ -3659,7 +3695,11 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
             user.lokalafdelinger_json = json.dumps(_normalize_lokalafdelinger([lokalafdeling]), ensure_ascii=False)
 
         if has_kommuner:
-            user.kommuner_json = json.dumps(kommuner or [], ensure_ascii=False)
+            normalized_kommuner = list(kommuner or [])
+            if kommune and kommune not in normalized_kommuner:
+                normalized_kommuner = [kommune, *normalized_kommuner]
+            normalized_kommuner = normalized_kommuner[:5]
+            user.kommuner_json = json.dumps(normalized_kommuner, ensure_ascii=False)
         elif not _user_opted_kommuner(user) and kommune:
             user.kommuner_json = json.dumps(_normalize_kommuner([kommune]), ensure_ascii=False)
 

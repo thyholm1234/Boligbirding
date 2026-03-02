@@ -1,4 +1,4 @@
-<!-- Version: 1.8.17 - 2026-02-16 21.04.34 -->
+<!-- Version: 1.11.22 - 2026-03-03 00.11.51 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,8 +6,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Statistik</title>
-  <link rel="stylesheet" href="style.css?v=1.11.17">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.11.17"></script>
+  <link rel="stylesheet" href="style.css?v=1.11.22">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.11.22"></script>
 </head>
 <body>
   <div id="statistics-content">
@@ -69,9 +69,17 @@
         <canvas id="chart-obs" height="200"></canvas>
       </div>
     </div>
+    <div class="card profile-card" id="kommune-overview-card" style="display:none;">
+      <h3>Kommune oversigt</h3>
+      <div style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap;margin-bottom:0.75em;">
+        <label for="kommune-overview-select"><b>Kommune:</b></label>
+        <select id="kommune-overview-select" style="min-width:220px;"></select>
+      </div>
+      <div id="kommune-overview-content"></div>
+    </div>
   </div>
   </div>
 
-  <script type="module" src="./statistik.js?v=1.11.17"></script>
+  <script type="module" src="./statistik.js?v=1.11.22"></script>
 </body>
 </html>

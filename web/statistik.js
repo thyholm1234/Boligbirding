@@ -1,4 +1,4 @@
-// Version: 1.8.17 - 2026-02-16 21.04.34
+// Version: 1.11.22 - 2026-03-03 00.11.51
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -13,6 +13,12 @@ fetch('/api/get_grupper')
 const chartInstances = {};
 let primaryStatData = null;
 let compareStatData = null;
+let userScoreboardData = null;
+let kommuneOverviewSelection = null;
+
+function normalizeCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
 
 function formatNumber(value) {
   const num = Number(value);
@@ -474,6 +480,89 @@ function renderComparisonBlockers(primaryData, compareData) {
   `;
 }
 
+function renderKommuneOverview() {
+  const card = document.getElementById('kommune-overview-card');
+  const select = document.getElementById('kommune-overview-select');
+  const content = document.getElementById('kommune-overview-content');
+  if (!card || !select || !content || !primaryStatData) return;
+
+  const viewedCode = normalizeCode(primaryStatData?.user?.obserkode);
+  const selfCode = normalizeCode(userScoreboardData?.self_obserkode);
+  const rows = Array.isArray(userScoreboardData?.kommuner_overblik) ? userScoreboardData.kommuner_overblik : [];
+
+  if (!viewedCode || !selfCode || viewedCode !== selfCode || !rows.length) {
+    card.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+
+  const validRows = rows.filter(r => r && r.kommune_id && r.kommune_navn);
+  if (!validRows.length) {
+    card.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+
+  const hasSelection = validRows.some(r => String(r.kommune_id) === String(kommuneOverviewSelection));
+  if (!hasSelection) {
+    kommuneOverviewSelection = String(validRows[0].kommune_id);
+  }
+
+  select.innerHTML = validRows
+    .map((row, index) => `<option value="${String(row.kommune_id)}">${row.kommune_navn}${index === 0 ? ' (primær)' : ''}</option>`)
+    .join('');
+  select.value = String(kommuneOverviewSelection);
+  select.onchange = () => {
+    kommuneOverviewSelection = String(select.value || '');
+    renderKommuneOverview();
+  };
+
+  const selected = validRows.find(r => String(r.kommune_id) === String(kommuneOverviewSelection)) || validRows[0];
+  const alle = selected?.alle || null;
+  const matrikel = selected?.matrikel || null;
+
+  const rowHtml = (label, row, scope) => {
+    const count = Number(row?.antal_arter || 0);
+    const rank = row?.placering ? `#${row.placering}` : '-';
+    const sidst = row?.sidste_art ? `${row.sidste_art}${row?.sidste_dato ? ` (${row.sidste_dato})` : ''}` : '-';
+    const params = new URLSearchParams({
+      scope,
+      kommune: String(selected.kommune_id),
+      kommune_navn: String(selected.kommune_navn)
+    });
+    const link = `scoreboard.html?${params.toString()}`;
+    return `
+      <tr>
+        <td>${label}</td>
+        <td>${count > 0 ? formatNumber(count) : '0'}</td>
+        <td>${rank}</td>
+        <td>${sidst}</td>
+        <td><a href="${link}">Se listen</a></td>
+      </tr>
+    `;
+  };
+
+  content.innerHTML = `
+    <table class="profile-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Arter</th>
+          <th>Placering</th>
+          <th>Sidste art</th>
+          <th>Liste</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowHtml('Alle', alle, 'kommune_alle')}
+        ${rowHtml('Matrikel', matrikel, 'kommune_matrikel')}
+      </tbody>
+    </table>
+  `;
+
+  card.style.display = 'block';
+}
+
 function renderStatistik() {
   if (!primaryStatData) return;
 
@@ -575,6 +664,8 @@ function renderStatistik() {
     ],
     'Observationer'
   );
+
+  renderKommuneOverview();
 }
 
 function getQueryParam(name) {
@@ -682,6 +773,19 @@ async function loadCurrentUser() {
   return null;
 }
 
+async function loadUserScoreboardData() {
+  try {
+    const res = await fetch('/api/user_scoreboard');
+    if (!res.ok) {
+      userScoreboardData = null;
+      return;
+    }
+    userScoreboardData = await res.json();
+  } catch (e) {
+    userScoreboardData = null;
+  }
+}
+
 // Main initialization
 const queryObserkode = getQueryParam('obserkode');
 const statisticsContent = document.getElementById('statistics-content');
@@ -689,6 +793,10 @@ const statisticsContent = document.getElementById('statistics-content');
 statisticsContent.style.display = 'block';
 initSearch();
 initComparison();
+
+loadUserScoreboardData().then(() => {
+  renderKommuneOverview();
+});
 
 // Load statistics
 if (queryObserkode) {
