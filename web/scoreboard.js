@@ -1,4 +1,4 @@
-// Version: 1.11.12 - 2026-03-02 20.27.34
+// Version: 1.11.13 - 2026-03-02 20.28.27
 // © Christian Vemmelund Helligsø
 
 
@@ -63,6 +63,65 @@ function buildDailyDmyRange(startDate, endDate) {
     cursor.setDate(cursor.getDate() + 1);
   }
   return labels;
+}
+
+function parseDmyLabelParts(label) {
+  const parts = String(label || '').split('-');
+  if (parts.length !== 3) return null;
+  const day = Number.parseInt(parts[0], 10);
+  const month = Number.parseInt(parts[1], 10);
+  const year = Number.parseInt(parts[2], 10);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  return { day, month, year };
+}
+
+function createDailyXAxisOptions(labels) {
+  const parsed = (labels || []).map(parseDmyLabelParts).filter(Boolean);
+  const years = parsed.map(p => p.year);
+  const minYear = years.length ? Math.min(...years) : new Date().getFullYear();
+  const maxYear = years.length ? Math.max(...years) : minYear;
+  const spanYears = maxYear - minYear + 1;
+  const overFiveYears = spanYears > 5;
+
+  return {
+    title: { display: true, text: 'Dato' },
+    ticks: {
+      autoSkip: false,
+      maxRotation: 0,
+      minRotation: 0,
+      callback: function(value) {
+        const label = this.getLabelForValue(value);
+        const parts = parseDmyLabelParts(label);
+        if (!parts) return '';
+        if (overFiveYears) {
+          if (parts.day === 1 && parts.month === 1 && (parts.year % 5 === 0 || parts.year === minYear || parts.year === maxYear)) {
+            return String(parts.year);
+          }
+          return '';
+        }
+        if (parts.day !== 1) return '';
+        const monthNames = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+        const monthName = monthNames[Math.max(0, Math.min(11, parts.month - 1))];
+        return parts.month === 1 ? `${monthName} ${parts.year}` : monthName;
+      }
+    },
+    grid: {
+      color: (ctx) => {
+        const idx = ctx.tick?.value;
+        const label = (typeof idx === 'number') ? labels[idx] : null;
+        const parts = parseDmyLabelParts(label);
+        if (!parts) return 'rgba(0,0,0,0.08)';
+        if (overFiveYears) {
+          if (parts.day === 1 && parts.month === 1 && parts.year % 5 === 0) return 'rgba(0,0,0,0.35)';
+          if (parts.day === 1 && parts.month === 1) return 'rgba(0,0,0,0.18)';
+          return 'rgba(0,0,0,0.04)';
+        }
+        if (parts.day === 1 && parts.month === 1) return 'rgba(0,0,0,0.3)';
+        if (parts.day === 1) return 'rgba(0,0,0,0.16)';
+        return 'rgba(0,0,0,0.04)';
+      }
+    }
+  };
 }
 
 async function ensureGlobalYear() {
@@ -443,7 +502,7 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
     options: {
       plugins: { legend: { display: false } },
       scales: {
-        x: { title: { display: true, text: 'Dato' } },
+        x: createDailyXAxisOptions(labels),
         y: { title: { display: true, text: 'Antal arter' }, beginAtZero: true }
       }
     }
@@ -1032,7 +1091,7 @@ function visScoreboardTrend(data) {
         options: {
           plugins: { legend: { display: true } },
           scales: {
-            x: { title: { display: true, text: 'Dato' } },
+            x: createDailyXAxisOptions(sortedDates),
             y: { title: { display: true, text: 'Antal arter' }, beginAtZero: true }
           }
         }
@@ -1100,7 +1159,7 @@ function visScoreboardTrend(data) {
       options: {
         plugins: { legend: { display: true } },
         scales: {
-          x: { title: { display: true, text: 'Dato' } },
+          x: createDailyXAxisOptions(sortedDates),
           y: { title: { display: true, text: 'Antal arter' }, beginAtZero: true }
         }
       }

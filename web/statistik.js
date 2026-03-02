@@ -105,6 +105,12 @@ function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
   if (chartInstances[canvasId]) {
     chartInstances[canvasId].destroy();
   }
+
+  const numericYears = (labels || []).map(v => Number(v)).filter(Number.isFinite);
+  const minYear = numericYears.length ? Math.min(...numericYears) : null;
+  const maxYear = numericYears.length ? Math.max(...numericYears) : null;
+  const overFiveYears = minYear !== null && maxYear !== null && (maxYear - minYear + 1) > 5;
+
   chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
@@ -114,7 +120,29 @@ function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
     options: {
       plugins: { legend: { display: true } },
       scales: {
-        x: { title: { display: true, text: 'År' } },
+        x: {
+          title: { display: true, text: 'År' },
+          ticks: {
+            callback: function(value) {
+              const label = this.getLabelForValue(value);
+              const year = Number(label);
+              if (!Number.isFinite(year)) return '';
+              if (!overFiveYears) return String(year);
+              if (year === minYear || year === maxYear || year % 5 === 0) return String(year);
+              return '';
+            }
+          },
+          grid: {
+            color: (ctx) => {
+              const idx = ctx.tick?.value;
+              const year = Number((typeof idx === 'number' ? labels[idx] : null));
+              if (!Number.isFinite(year)) return 'rgba(0,0,0,0.08)';
+              if (overFiveYears && year % 5 === 0) return 'rgba(0,0,0,0.3)';
+              if (overFiveYears) return 'rgba(0,0,0,0.07)';
+              return 'rgba(0,0,0,0.12)';
+            }
+          }
+        },
         y: { title: { display: true, text: yAxisTitle }, beginAtZero: true }
       }
     }
