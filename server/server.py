@@ -1697,25 +1697,6 @@ async def sync_user_all_time(obserkode: str):
     print(f"[SYNC-ALL] All-time lister/scoreboards opdateret for {obserkode}")
 
 
-async def schedule_weekly_all_time_sync():
-    while True:
-        now = datetime.datetime.now()
-        target = now.replace(hour=3, minute=0, second=0, microsecond=0)
-        days_ahead = (7 - now.weekday()) % 7
-        target = target + datetime.timedelta(days=days_ahead)
-        if target <= now:
-            target = target + datetime.timedelta(days=7)
-        sleep_seconds = max(0, int((target - now).total_seconds()))
-        print(f"[SCHEDULE] Next weekly all-time sync at {target.isoformat()} (in {sleep_seconds}s)")
-        await asyncio.sleep(sleep_seconds)
-        try:
-            print("[SCHEDULE] Running weekly all-time sync...")
-            await daily_update_all_jsons()
-            print("[SCHEDULE] Weekly all-time sync done.")
-        except Exception as exc:
-            print(f"[SCHEDULE] Weekly all-time sync failed: {exc}")
-
-
 async def schedule_daily_year_sync():
     while True:
         now = datetime.datetime.now()
