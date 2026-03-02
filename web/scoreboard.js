@@ -1,4 +1,4 @@
-// Version: 1.12.7 - 2026-03-03 00.57.33
+// Version: 1.12.9 - 2026-03-03 00.58.41
 // © Christian Vemmelund Helligsø
 
 
@@ -686,6 +686,39 @@ function buildUserHeading({ apiScope, visNavn, aar, gruppe, afdeling, kommune, k
   return { title, subtitle };
 }
 
+function buildReturnScoreboardUrl(parentParams = {}, apiScope = 'user_global') {
+  const sourceScope = String(parentParams?.scope || apiScope || 'user_global');
+  const isUserScope = sourceScope.startsWith('user_');
+
+  let targetScope = sourceScope;
+  if (isUserScope) {
+    if (sourceScope === 'user_kommune_matrikel') targetScope = 'kommune_matrikel';
+    else if (sourceScope === 'user_kommune_alle') targetScope = 'kommune_alle';
+    else if (sourceScope === 'user_lokalafdeling') targetScope = 'lokal_alle';
+    else if (sourceScope === 'user_matrikel') targetScope = 'global_matrikel';
+    else targetScope = 'global_alle';
+
+    if (parentParams.gruppe) {
+      targetScope = sourceScope.includes('matrikel') ? 'gruppe_matrikel' : 'gruppe_alle';
+    } else if (parentParams.afdeling) {
+      targetScope = sourceScope.includes('matrikel') ? 'lokal_matrikel' : 'lokal_alle';
+    } else if (parentParams.kommune) {
+      targetScope = sourceScope.includes('matrikel') ? 'kommune_matrikel' : 'kommune_alle';
+    }
+  }
+
+  const url = new URL(window.location.pathname, window.location.origin);
+  url.searchParams.set('scope', targetScope);
+
+  if (parentParams.gruppe) url.searchParams.set('gruppe', parentParams.gruppe);
+  if (parentParams.afdeling) url.searchParams.set('afdeling', parentParams.afdeling);
+  if (parentParams.kommune) url.searchParams.set('kommune', parentParams.kommune);
+  if (parentParams.kommune_navn) url.searchParams.set('kommune_navn', parentParams.kommune_navn);
+  if (parentParams.aar) url.searchParams.set('aar', parentParams.aar);
+
+  return url.pathname + url.search;
+}
+
 // ---------- Brugerliste ----------
 async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentParams = {}) {
   clearSections();
@@ -875,23 +908,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
 
   // Tilbage -> genskab scoreboard
   document.getElementById('tilbageBtn').onclick = () => {
-    if (parentParams && parentParams.scope && String(parentParams.scope).startsWith('user_')) {
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.location.href = '/';
-      }
-      return;
-    }
-    if (parentParams) {
-      const url = new URL(window.location.pathname, window.location.origin);
-      ['scope', 'gruppe', 'afdeling', 'aar'].forEach(key => {
-        if (parentParams[key]) url.searchParams.set(key, parentParams[key]);
-      });
-      window.history.replaceState({}, '', url.pathname + url.search);
-    } else {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    const returnUrl = buildReturnScoreboardUrl(parentParams, apiScope);
+    window.history.replaceState({}, '', returnUrl);
     firstsSortMode = "alphabetical";
     visSide();
   };
