@@ -1,4 +1,4 @@
-// Version: 1.11.9 - 2026-03-02 20.17.54
+// Version: 1.11.10 - 2026-03-02 20.20.16
 // © Christian Vemmelund Helligsø
 
 
@@ -296,6 +296,16 @@ function buildUserYearOptions(selectedValue) {
   return options.join("\n");
 }
 
+function buildUserMatrikelOptions(selectedIndex) {
+  const selected = Number(selectedIndex) || 1;
+  const maxIndex = Math.max(4, selected);
+  const options = [];
+  for (let index = 1; index <= maxIndex; index++) {
+    options.push(`<option value="${index}" ${index === selected ? "selected" : ""}>Matrikel ${index}</option>`);
+  }
+  return options.join("\n");
+}
+
 function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValue) {
   const target = document.getElementById(targetId);
   if (!target) return;
@@ -403,7 +413,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const period = parentParams.period;
   const aar = parentParams.aar || new Date().getFullYear();
   const matrikelIndex = Number(matrikel) || 1;
+  const isPersonalMatrikelPage = scope === "user_matrikel";
   const isExtraMatrikelView = scope.endsWith("matrikel") && matrikelIndex > 1;
+  const showPersonalMatrikelControls = isPersonalMatrikelPage;
 
   let apiScope = "user_global";
   const body = { scope: apiScope, obserkode };
@@ -411,7 +423,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (scope.endsWith("matrikel")) {
     apiScope = "user_matrikel";
     body.scope = apiScope;
-    if (isExtraMatrikelView) {
+    if (showPersonalMatrikelControls || isExtraMatrikelView) {
       body.matrikel = matrikelIndex;
       if (period) body.period = period;
     }
@@ -437,7 +449,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (afdeling) urlParams.set('afdeling', afdeling);
   if (kommune) urlParams.set('kommune', kommune);
   if (aar) urlParams.set('aar', aar);
-  if (scope.endsWith("matrikel") && isExtraMatrikelView) {
+  if (scope.endsWith("matrikel") && (showPersonalMatrikelControls || isExtraMatrikelView)) {
     urlParams.set('matrikel', String(matrikelIndex));
     if (period) urlParams.set('period', period);
   }
@@ -451,9 +463,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   });
   const data = await res.json();
   const firsts = Array.isArray(data.firsts) ? data.firsts : [];
-  const periodOptions = isExtraMatrikelView && Array.isArray(data.period_options) ? data.period_options : [];
-  const selectedPeriodName = isExtraMatrikelView ? (data.selected_period_name || "") : "";
-  const activePeriodName = isExtraMatrikelView ? (data.active_period_name || "") : "";
+  const periodOptions = showPersonalMatrikelControls && Array.isArray(data.period_options) ? data.period_options : [];
+  const selectedPeriodName = showPersonalMatrikelControls ? (data.selected_period_name || "") : "";
+  const activePeriodName = showPersonalMatrikelControls ? (data.active_period_name || "") : "";
 
   // Render
   const container = document.getElementById("main");
@@ -490,14 +502,21 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
 
   const statistikLink = `statistik.html?obserkode=${encodeURIComponent(obserkode)}`;
 
-  const yearControlHtml = isExtraMatrikelView ? `
+  const matrikelControlHtml = showPersonalMatrikelControls ? `
+    <label for="userMatrikelSelect">Matrikel:</label>
+    <select id="userMatrikelSelect" style="padding:0.4em 0.6em;">
+      ${buildUserMatrikelOptions(matrikelIndex)}
+    </select>
+  ` : "";
+
+  const yearControlHtml = showPersonalMatrikelControls ? `
     <label for="userYearSelect">År:</label>
     <select id="userYearSelect" style="padding:0.4em 0.6em;">
       ${buildUserYearOptions(aar)}
     </select>
   ` : "";
 
-  const periodControlHtml = isExtraMatrikelView && periodOptions.length
+  const periodControlHtml = showPersonalMatrikelControls && periodOptions.length
     ? `
       <label for="userPeriodSelect">Periode:</label>
       <select id="userPeriodSelect" style="padding:0.4em 0.6em;max-width:260px;">
@@ -511,9 +530,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     : "";
 
   let html = `
-    ${isExtraMatrikelView ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${yearControlHtml}${periodControlHtml}</div>` : ""}
-    ${isExtraMatrikelView && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
-    ${isExtraMatrikelView ? `<div id="userTrendWrap"></div>` : ""}
+    ${showPersonalMatrikelControls ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${matrikelControlHtml}${yearControlHtml}${periodControlHtml}</div>` : ""}
+    ${showPersonalMatrikelControls && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
+    ${showPersonalMatrikelControls ? `<div id="userTrendWrap"></div>` : ""}
     <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin:0.8em 0 1em;">
       <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
       <button id="statistikBtn" type="button">Observatør statistik</button>
@@ -528,26 +547,35 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     renderFirsts(firsts, sortMode, apiScope);
   }
 
-  if (isExtraMatrikelView) {
+  if (showPersonalMatrikelControls) {
     renderUserTrendChart("userTrendWrap", data.trend_points, visNavn, aar);
   }
 
-  const userYearSelect = isExtraMatrikelView ? document.getElementById('userYearSelect') : null;
+  const userMatrikelSelect = showPersonalMatrikelControls ? document.getElementById('userMatrikelSelect') : null;
+  if (userMatrikelSelect) {
+    userMatrikelSelect.onchange = () => {
+      const nextParams = { ...parentParams, scope: 'user_matrikel', matrikel: userMatrikelSelect.value };
+      delete nextParams.period;
+      visUserFirsts(obserkode, navn, sortMode, nextParams);
+    };
+  }
+
+  const userYearSelect = showPersonalMatrikelControls ? document.getElementById('userYearSelect') : null;
   if (userYearSelect) {
     userYearSelect.onchange = () => {
       const nextParams = { ...parentParams, aar: userYearSelect.value };
-      if (isExtraMatrikelView && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+      if (showPersonalMatrikelControls && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
         nextParams.scope = 'user_matrikel';
       }
       visUserFirsts(obserkode, navn, sortMode, nextParams);
     };
   }
 
-  const userPeriodSelect = isExtraMatrikelView ? document.getElementById('userPeriodSelect') : null;
+  const userPeriodSelect = showPersonalMatrikelControls ? document.getElementById('userPeriodSelect') : null;
   if (userPeriodSelect) {
     userPeriodSelect.onchange = () => {
       const nextParams = { ...parentParams, period: userPeriodSelect.value };
-      if (isExtraMatrikelView && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+      if (showPersonalMatrikelControls && apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
         nextParams.scope = 'user_matrikel';
       }
       visUserFirsts(obserkode, navn, sortMode, nextParams);
