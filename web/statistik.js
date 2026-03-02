@@ -149,13 +149,23 @@ function renderMatrikelYearList(targetId, data, user, compareData = null, compar
     ? '<th>X</th>'
     : indexes.map(idx => `<th>Matrikel ${idx}</th>`).join('');
 
+  const formatMatrikelCell = (idx, cell) => {
+    const count = Number(cell?.count || 0);
+    const rank = cell?.rank;
+    if (idx === 1 && rank) return `${formatNumber(count)} (#${rank})`;
+    return formatNumber(count);
+  };
+
   const buildPrimaryCountCells = (matriklerMap) => {
     if (singleMatrikel) {
       const idx = indexes[0];
-      const value = Number(matriklerMap?.[String(idx)]?.count || 0);
-      return `<td>${formatNumber(value)}</td>`;
+      const cell = matriklerMap?.[String(idx)] || {};
+      return `<td>${formatMatrikelCell(idx, cell)}</td>`;
     }
-    return indexes.map(idx => `<td>${formatNumber(Number(matriklerMap?.[String(idx)]?.count || 0))}</td>`).join('');
+    return indexes.map(idx => {
+      const cell = matriklerMap?.[String(idx)] || {};
+      return `<td>${formatMatrikelCell(idx, cell)}</td>`;
+    }).join('');
   };
 
   const totalParams = new URLSearchParams({
@@ -169,7 +179,10 @@ function renderMatrikelYearList(targetId, data, user, compareData = null, compar
 
   const totalPrimaryMap = {};
   indexes.forEach(idx => {
-    totalPrimaryMap[String(idx)] = { count: Number(totals?.[String(idx)]?.count || 0) };
+    totalPrimaryMap[String(idx)] = {
+      count: Number(totals?.[String(idx)]?.count || 0),
+      rank: totals?.[String(idx)]?.rank ?? null
+    };
   });
   const totalRank = totals?.['1']?.rank ? `#${totals['1'].rank}` : '-';
 
