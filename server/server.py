@@ -1947,8 +1947,14 @@ async def profile_data(request: Request):
     global_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_alle", "scoreboard.json")
     matrikel_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_matrikel", "scoreboard.json")
 
-    global_sb_rows = _load_json(global_sb_path) or []
-    matrikel_sb_rows = _load_json(matrikel_sb_path) or []
+    try:
+        global_sb_rows = _load_json(global_sb_path) or []
+    except Exception:
+        global_sb_rows = []
+    try:
+        matrikel_sb_rows = _load_json(matrikel_sb_path) or []
+    except Exception:
+        matrikel_sb_rows = []
 
     for row in global_sb_rows:
         if row.get("obserkode") == obserkode:

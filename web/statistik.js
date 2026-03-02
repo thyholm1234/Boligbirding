@@ -232,22 +232,26 @@ function getQueryParam(name) {
 }
 
 async function loadStatistik(obserkode) {
-  const res = await fetch(`/api/statistik_data?obserkode=${encodeURIComponent(obserkode)}`);
-  if (res.status === 404) {
-    document.getElementById('profile-header').innerHTML = '<div class="muted">Observatør ikke fundet.</div>';
-    return;
-  }
-  if (!res.ok) {
-    document.getElementById('profile-header').innerHTML = '<div class="muted">Fejl ved indlæsning af data.</div>';
-    return;
-  }
+  try {
+    const res = await fetch(`/api/statistik_data?obserkode=${encodeURIComponent(obserkode)}`);
+    if (res.status === 404) {
+      document.getElementById('profile-header').innerHTML = '<div class="muted">Observatør ikke fundet.</div>';
+      return;
+    }
+    if (!res.ok) {
+      document.getElementById('profile-header').innerHTML = '<div class="muted">Fejl ved indlæsning af data.</div>';
+      return;
+    }
 
-  const data = await res.json();
-  primaryStatData = data;
-  compareStatData = null;
-  const compareStatus = document.getElementById('compare-status');
-  if (compareStatus) compareStatus.textContent = '';
-  renderStatistik();
+    const data = await res.json();
+    primaryStatData = data;
+    compareStatData = null;
+    const compareStatus = document.getElementById('compare-status');
+    if (compareStatus) compareStatus.textContent = '';
+    renderStatistik();
+  } catch (e) {
+    document.getElementById('profile-header').innerHTML = '<div class="muted">Fejl ved indlæsning af data.</div>';
+  }
 }
 
 function initSearch() {
