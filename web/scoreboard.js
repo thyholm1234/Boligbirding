@@ -1,4 +1,4 @@
-// Version: 1.11.14 - 2026-03-02 20.31.39
+// Version: 1.11.15 - 2026-03-02 20.36.00
 // © Christian Vemmelund Helligsø
 
 
@@ -515,6 +515,20 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
   });
 }
 
+function buildTrendPointsFromFirsts(firsts) {
+  const sorted = Array.isArray(firsts) ? [...firsts] : [];
+  sorted.sort((a, b) => parseDmyToTime(a?.dato) - parseDmyToTime(b?.dato));
+  const trendPoints = [];
+  sorted.forEach((item, idx) => {
+    if (!item?.dato) return;
+    trendPoints.push({
+      dato: item.dato,
+      count: idx + 1
+    });
+  });
+  return trendPoints;
+}
+
 // ---------- Brugerliste ----------
 async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentParams = {}) {
   clearSections();
@@ -587,6 +601,10 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const periodOptions = showPersonalMatrikelControls && Array.isArray(data.period_options) ? data.period_options : [];
   const selectedPeriodName = showPersonalMatrikelControls ? (data.selected_period_name || "") : "";
   const activePeriodName = showPersonalMatrikelControls ? (data.active_period_name || "") : "";
+  const showPersonalTrend = apiScope.startsWith("user_");
+  const trendPointsForGraph = (showPersonalMatrikelControls && Array.isArray(data.trend_points))
+    ? data.trend_points
+    : buildTrendPointsFromFirsts(firsts);
 
   // Render
   const container = document.getElementById("main");
@@ -653,7 +671,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   let html = `
     ${showPersonalMatrikelControls ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${matrikelControlHtml}${yearControlHtml}${periodControlHtml}</div>` : ""}
     ${showPersonalMatrikelControls && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
-    ${showPersonalMatrikelControls ? `<div id="userTrendWrap"></div>` : ""}
+    ${showPersonalTrend ? `<div id="userTrendWrap"></div>` : ""}
     <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin:0.8em 0 1em;">
       <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
       <button id="statistikBtn" type="button">Observatør statistik</button>
@@ -668,8 +686,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     renderFirsts(firsts, sortMode, apiScope);
   }
 
-  if (showPersonalMatrikelControls) {
-    renderUserTrendChart("userTrendWrap", data.trend_points, visNavn, aar);
+  if (showPersonalTrend) {
+    renderUserTrendChart("userTrendWrap", trendPointsForGraph, visNavn, aar);
   }
 
   const userMatrikelSelect = showPersonalMatrikelControls ? document.getElementById('userMatrikelSelect') : null;

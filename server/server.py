@@ -2726,14 +2726,74 @@ async def statistik_data(obserkode: str):
 
     # Observationer pr. aar (fra DB)
     obs_by_year: Dict[int, int] = {}
+    obs_rows: List[Observation] = []
     async with SessionLocal() as dbsession:
-        obs_dates = (await dbsession.execute(
-            select(Observation.dato).where(Observation.obserkode == obserkode)
+        obs_rows = (await dbsession.execute(
+            select(Observation).where(Observation.obserkode == obserkode)
         )).scalars().all()
-        for d in obs_dates:
+        for row in obs_rows:
+            d = getattr(row, "dato", None)
             if not d:
                 continue
             obs_by_year[d.year] = obs_by_year.get(d.year, 0) + 1
+
+    raw_filter = await get_global_filter()
+    excluded_keys = _get_excluded_species_keys()
+    matrikel_indexes = _collect_matrikel_indexes_from_observations(obs_rows, raw_filter)
+    if not matrikel_indexes:
+        matrikel_indexes = [1]
+
+    obs_by_year_rows: Dict[int, List[Observation]] = {}
+    for row in obs_rows:
+        d = getattr(row, "dato", None)
+        if not d:
+            continue
+        obs_by_year_rows.setdefault(d.year, []).append(row)
+
+    def _count_matrikel_species(rows: List[Observation], matrikel_index: int) -> int:
+        tagged = [
+            row for row in (rows or [])
+            if _observation_has_matrikel_tag(row, raw_filter, matrikel_index)
+        ]
+        return len(_firsts_from_obs(tagged, excluded_keys=excluded_keys))
+
+    matrikel_totals_by_index: Dict[int, Dict[str, Optional[int]]] = {}
+    for idx in matrikel_indexes:
+        count_total = _count_matrikel_species(obs_rows, idx)
+        rank_total = total_rank_matrikel if idx == 1 else None
+        matrikel_totals_by_index[idx] = {
+            "count": count_total,
+            "rank": rank_total,
+        }
+
+    matrikel_year_rows: List[Dict[str, Any]] = []
+    for year in year_dirs:
+        rows_for_year = obs_by_year_rows.get(year, [])
+        per_index: Dict[str, Dict[str, Optional[int]]] = {}
+        year_has_data = False
+
+        rank_matrikel_1 = None
+        sb_m_path = os.path.join(data_root, str(year), "scoreboards", "global_matrikel", "scoreboard.json")
+        sb_m_rows = _load_json(sb_m_path) or []
+        for sb_row in sb_m_rows:
+            if sb_row.get("obserkode") == obserkode:
+                rank_matrikel_1 = sb_row.get("placering")
+                break
+
+        for idx in matrikel_indexes:
+            count_year = _count_matrikel_species(rows_for_year, idx)
+            if count_year > 0:
+                year_has_data = True
+            per_index[str(idx)] = {
+                "count": count_year,
+                "rank": rank_matrikel_1 if idx == 1 and count_year > 0 else None,
+            }
+
+        if year_has_data:
+            matrikel_year_rows.append({
+                "year": year,
+                "matrikler": per_index,
+            })
 
     all_years = sorted(set(year_dirs) | set(obs_by_year.keys()) | set(matrikel_by_year.keys()))
 
@@ -2769,6 +2829,9 @@ async def statistik_data(obserkode: str):
         },
         "years": years,
         "matrikel_years": matrikel_years,
+        "matrikel_available_indexes": matrikel_indexes,
+        "matrikel_totals": {str(k): v for k, v in matrikel_totals_by_index.items()},
+        "matrikel_year_rows": matrikel_year_rows,
         "charts": {
             "global_by_year": chart_global,
             "matrikel_by_year": chart_matrikel,
