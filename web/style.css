@@ -1,4 +1,4 @@
-/* Version: 1.12.0 - 2026-03-03 00.37.54 */
+/* Version: 1.12.2 - 2026-03-03 00.41.32 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -175,6 +175,11 @@ input[type="submit"]:hover { background: var(--btn-hover); border-color: var(--p
   flex-direction: column;
   max-width: 420px;
   transition: background 0.2s, border 0.2s;
+}
+
+.user-card.user-card-self {
+  background: var(--table-row-alt);
+  border-color: var(--accent);
 }
 
 .card.gruppe-card {

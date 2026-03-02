@@ -1,4 +1,4 @@
-// Version: 1.12.0 - 2026-03-03 00.37.54
+// Version: 1.12.2 - 2026-03-03 00.41.32
 // © Christian Vemmelund Helligsø
 
 
@@ -12,10 +12,39 @@ initMobileNavbar();
 let lastScoreboardParams = null;
 let firstsSortMode = "alphabetical"; // "alphabetical" | "newest" | "oldest"
 let cachedGlobalYear = null;
+let selfObserkode = null;
 
 // Snapshot af originale data pr. scope/gruppe (til robust filtrering)
 let masterData = null;            // { rows, koder, matrix, totals, arter }
 let lastSelectedKoder = null;     // Husk sidste brugervalg i filteret
+
+async function ensureSelfObserkode() {
+  if (selfObserkode) return selfObserkode;
+  try {
+    const res = await fetch('/api/profile_data');
+    if (!res.ok) return null;
+    const data = await res.json();
+    selfObserkode = String(data?.user?.obserkode || data?.obserkode || '').trim();
+    return selfObserkode || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function renderScoreboardCards(rows) {
+  const ownCode = String(selfObserkode || '').trim().toUpperCase();
+  return (Array.isArray(rows) ? rows : []).map(row => {
+    const rowCode = String(row?.obserkode || '').trim().toUpperCase();
+    const ownClass = ownCode && rowCode === ownCode ? ' user-card-self' : '';
+    return `
+      <div class="user-card${ownClass}" data-obserkode="${row.obserkode}">
+        <strong>#${row.placering} ${row.navn}</strong><br>
+        Antal arter: ${row.antal_arter}<br>
+        Sidste art: ${row.sidste_art ? row.sidste_art + (row.sidste_dato ? " (" + row.sidste_dato + ")" : "") : ""}
+      </div>
+    `;
+  }).join("");
+}
 
 function parseDmyToTime(value) {
   const parts = (value || "").split("-");
@@ -264,6 +293,7 @@ async function visSide() {
 
   // ------- SCOREBOARD -------
   if (!params.scope || !params.scope.startsWith("user_")) {
+    await ensureSelfObserkode();
     lastScoreboardParams = params;
     await ensureGlobalYear();
 
@@ -305,13 +335,7 @@ async function visSide() {
     }
 
     // Cards
-    container.innerHTML = rows.map(row => `
-      <div class="user-card" data-obserkode="${row.obserkode}">
-        <strong>#${row.placering} ${row.navn}</strong><br>
-        Antal arter: ${row.antal_arter}<br>
-        Sidste art: ${row.sidste_art ? row.sidste_art + (row.sidste_dato ? " (" + row.sidste_dato + ")" : "") : ""}
-      </div>
-    `).join("");
+    container.innerHTML = renderScoreboardCards(rows);
 
     if (!params.scope || !params.scope.startsWith("gruppe_")) {
       insertYearSelectorRow(params, container);
@@ -1272,13 +1296,7 @@ function filtrerScoreboardPåKoder(valgteKoder, params) {
   }
 
   // Cards
-  container.innerHTML = filtered.rows.map(row => `
-    <div class="user-card" data-obserkode="${row.obserkode}">
-      <strong>#${row.placering} ${row.navn}</strong><br>
-      Antal arter: ${row.antal_arter}<br>
-      Sidste art: ${row.sidste_art ? row.sidste_art + (row.sidste_dato ? " (" + row.sidste_dato + ")" : "") : ""}
-    </div>
-  `).join("");
+  container.innerHTML = renderScoreboardCards(filtered.rows);
 
   // Filter-knap igen
   tilføjGruppeFilterKnappen(filtered, params, container);

@@ -816,6 +816,61 @@ async def _user_matrikel_view_payload(
         "year": "global" if is_global else year_hint,
     }
 
+
+async def _user_kommune_view_payload(
+    obserkode: str,
+    aar_value: Any,
+    kommune_id_value: Any,
+    matrikel_only: bool = False,
+) -> Dict[str, Any]:
+    kommune_id = _normalize_single_kommune(kommune_id_value)
+    if not kommune_id:
+        return {"firsts": []}
+
+    is_global = str(aar_value) == "global"
+    today = datetime.date.today()
+    raw_filter = await get_global_filter()
+    excluded_keys = _get_excluded_species_keys()
+
+    query = select(Observation).where(
+        Observation.obserkode == obserkode,
+        Observation.dato <= today,
+    )
+    if not is_global:
+        year_value = int(aar_value)
+        start_date = datetime.date(year_value, 1, 1)
+        end_date = min(datetime.date(year_value, 12, 31), today)
+        query = query.where(
+            Observation.dato >= start_date,
+            Observation.dato <= end_date,
+        )
+
+    async with SessionLocal() as session:
+        obs_rows = (await session.execute(query)).scalars().all()
+        site_numbers = (await session.execute(
+            select(Lokation.site_number).where(Lokation.kommune_id == int(kommune_id))
+        )).scalars().all()
+
+    if not site_numbers:
+        kommune_name = _kommune_name_by_id(str(kommune_id))
+        if kommune_name:
+            site_numbers = _load_kommune_sites_from_file(kommune_name)
+
+    site_set = {_parse_int(value) for value in site_numbers if _parse_int(value) is not None}
+    if not site_set:
+        return {"firsts": []}
+
+    selected_rows = [row for row in obs_rows if _parse_int(row.loknr) in site_set]
+    if matrikel_only:
+        selected_rows = [
+            row for row in selected_rows
+            if _observation_has_matrikel_tag(row, raw_filter, 1)
+        ]
+
+    return {
+        "firsts": _firsts_from_obs(selected_rows, excluded_keys=excluded_keys)
+    }
+
 async def generate_user_lists(obserkode: str, aar: int):
     obserkode = normalize_obserkode(obserkode)
     _, _, OBSER_DIR = get_data_dirs(aar)
@@ -3334,6 +3389,14 @@ async def api_obser(request: Request):
         path = os.path.join(userdir, "lokalafdeling.json")
         key = "afdeling"
     elif scope in ("user_kommune_alle", "user_kommune_matrikel"):
+        kommune_id = params.get("kommune")
+        if kommune_id:
+            return await _user_kommune_view_payload(
+                obserkode=obserkode,
+                aar_value=aar,
+                kommune_id_value=kommune_id,
+                matrikel_only=(scope == "user_kommune_matrikel"),
+            )
         path = os.path.join(userdir, "kommune.json")
         key = "kommune"
     else:
