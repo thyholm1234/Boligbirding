@@ -1,4 +1,4 @@
-// Version: 1.11.8 - 2026-03-02 20.14.38
+// Version: 1.11.9 - 2026-03-02 20.17.54
 // © Christian Vemmelund Helligsø
 
 
@@ -296,27 +296,72 @@ function buildUserYearOptions(selectedValue) {
   return options.join("\n");
 }
 
-function renderUserTrendChart(targetId, trendPoints, labelText) {
+function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValue) {
   const target = document.getElementById(targetId);
   if (!target) return;
 
   const points = Array.isArray(trendPoints) ? trendPoints : [];
-  if (!points.length) {
-    target.innerHTML = "";
-    return;
-  }
-
   target.innerHTML = `<h3 style="margin:0.6em 0;">Udvikling i sete arter</h3><canvas id="userTrendChart" height="140"></canvas>`;
 
   if (typeof Chart === "undefined") return;
 
-  const labels = [];
-  const values = [];
+  const today = new Date();
+  const selectedYear = Number.parseInt(String(selectedYearValue), 10);
+  const chartYear = Number.isNaN(selectedYear) ? today.getFullYear() : selectedYear;
+
+  const startDate = new Date(chartYear, 0, 1);
+  const yearEndDate = new Date(chartYear, 11, 31);
+  const endDate = chartYear < today.getFullYear() ? yearEndDate : today;
+
+  if (startDate > endDate) {
+    target.innerHTML = "";
+    return;
+  }
+
+  const toIsoKey = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  const isoToDmy = (isoKey) => {
+    const [y, m, d] = String(isoKey).split('-');
+    return `${d}-${m}-${y}`;
+  };
+  const dmyToIso = (dmy) => {
+    const parts = String(dmy || '').split('-');
+    if (parts.length !== 3) return null;
+    const [d, m, y] = parts;
+    if (!d || !m || !y) return null;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  };
+
+  const startKey = toIsoKey(startDate);
+  const endKey = toIsoKey(endDate);
+
+  const countByDay = {};
   points.forEach(point => {
     if (!point || !point.dato) return;
-    labels.push(point.dato);
-    values.push(Number(point.count || 0));
+    const isoKey = dmyToIso(point.dato);
+    if (!isoKey) return;
+    if (isoKey < startKey || isoKey > endKey) return;
+    const value = Number(point.count || 0);
+    countByDay[isoKey] = Math.max(Number(countByDay[isoKey] || 0), value);
   });
+
+  const labels = [];
+  const values = [];
+  let currentValue = 0;
+  const cursor = new Date(startDate.getTime());
+  while (cursor <= endDate) {
+    const key = toIsoKey(cursor);
+    if (Object.prototype.hasOwnProperty.call(countByDay, key)) {
+      currentValue = countByDay[key];
+    }
+    labels.push(isoToDmy(key));
+    values.push(currentValue);
+    cursor.setDate(cursor.getDate() + 1);
+  }
 
   if (!labels.length) {
     target.innerHTML = "";
@@ -484,7 +529,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   }
 
   if (isExtraMatrikelView) {
-    renderUserTrendChart("userTrendWrap", data.trend_points, visNavn);
+    renderUserTrendChart("userTrendWrap", data.trend_points, visNavn, aar);
   }
 
   const userYearSelect = isExtraMatrikelView ? document.getElementById('userYearSelect') : null;
