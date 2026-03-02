@@ -499,7 +499,7 @@ function renderStatistik() {
     compareStatData ? Number(compareStatData?.lists?.danmark?.count || 0) : null,
     compareStatData?.lists?.danmark?.rank ?? null
   );
-  renderYearList(
+  renderMatrikelYearList(
     'matrikel-year-list',
     data,
     user,
