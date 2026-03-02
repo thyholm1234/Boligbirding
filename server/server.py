@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Quer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
-from html import escape
+from html import escape, unescape
 from passlib.context import CryptContext
 
 SAFE_OBSERKODE_RE = re.compile(r"^[A-Z0-9]{2,16}$")
@@ -2999,6 +2999,7 @@ async def get_matrix():
 
 # --- GRUPPEMODEL (i memory eller database, her som fil for demo) ---
 GRUPPEFIL = os.path.join(SERVER_DIR, "grupper.json")
+EXCLUDED_SPECIES_FILE = os.path.join(SERVER_DIR, "excluded_species.json")
 
 def load_grupper():
     if not os.path.exists(GRUPPEFIL):
@@ -3009,6 +3010,66 @@ def load_grupper():
 def save_grupper(grupper):
     with open(GRUPPEFIL, "w", encoding="utf-8") as f:
         json.dump(grupper, f, ensure_ascii=False, indent=2)
+
+def _normalize_species_name(value: str) -> str:
+    return " ".join(str(value or "").strip().split())
+
+def load_excluded_species() -> List[str]:
+    if not os.path.exists(EXCLUDED_SPECIES_FILE):
+        return []
+    try:
+        with open(EXCLUDED_SPECIES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    unique: Dict[str, str] = {}
+    for item in data:
+        name = _normalize_species_name(item)
+        if not name:
+            continue
+        key = name.casefold()
+        if key not in unique:
+            unique[key] = name
+    return sorted(unique.values(), key=lambda x: x.casefold())
+
+def save_excluded_species(species: List[str]):
+    cleaned = []
+    seen = set()
+    for item in species:
+        name = _normalize_species_name(item)
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(name)
+    cleaned.sort(key=lambda x: x.casefold())
+    with open(EXCLUDED_SPECIES_FILE, "w", encoding="utf-8") as f:
+        json.dump(cleaned, f, ensure_ascii=False, indent=2)
+
+def _extract_bracket_species_from_dof_html(html_text: str) -> List[str]:
+    rows = re.findall(r"<tr[^>]*>.*?</tr>", html_text or "", flags=re.IGNORECASE | re.DOTALL)
+    found = {}
+    for row in rows:
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.IGNORECASE | re.DOTALL)
+        if len(tds) < 3:
+            continue
+        species_cell = tds[2]
+        text = re.sub(r"<[^>]+>", "", species_cell)
+        text = unescape(text).replace("\xa0", " ")
+        text = _normalize_species_name(text)
+        if not (text.startswith("[") and text.endswith("]")):
+            continue
+        name = _normalize_species_name(text[1:-1])
+        if not name:
+            continue
+        key = name.casefold()
+        if key not in found:
+            found[key] = name
+    return sorted(found.values(), key=lambda x: x.casefold())
 
 def find_gruppe(grupper, navn):
     for g in grupper:
@@ -3231,6 +3292,71 @@ async def admin_get_grupper(request: Request, admin: bool = Depends(require_admi
     """
     grupper = load_grupper()
     return [{"navn": g["navn"]} for g in grupper]
+
+@app.get("/api/admin/excluded_species")
+async def admin_get_excluded_species(admin: bool = Depends(require_admin)):
+    return {"species": load_excluded_species()}
+
+@app.post("/api/admin/excluded_species")
+async def admin_add_excluded_species(payload: Dict[str, Any] = Body(...), admin: bool = Depends(require_admin)):
+    artnavn = _normalize_species_name(payload.get("artnavn", ""))
+    if not artnavn:
+        raise HTTPException(status_code=400, detail="Artnavn mangler")
+
+    species = load_excluded_species()
+    existing_keys = {name.casefold() for name in species}
+    if artnavn.casefold() not in existing_keys:
+        species.append(artnavn)
+        save_excluded_species(species)
+        species = load_excluded_species()
+    return {"ok": True, "species": species}
+
+@app.delete("/api/admin/excluded_species")
+async def admin_remove_excluded_species(artnavn: str = Query(""), admin: bool = Depends(require_admin)):
+    target = _normalize_species_name(artnavn)
+    if not target:
+        raise HTTPException(status_code=400, detail="Artnavn mangler")
+
+    species = load_excluded_species()
+    target_key = target.casefold()
+    filtered = [name for name in species if name.casefold() != target_key]
+    save_excluded_species(filtered)
+    return {"ok": True, "species": filtered}
+
+@app.post("/api/admin/excluded_species/save")
+async def admin_save_excluded_species(payload: Dict[str, Any] = Body(...), admin: bool = Depends(require_admin)):
+    species = payload.get("species")
+    if not isinstance(species, list):
+        raise HTTPException(status_code=400, detail="species skal være en liste")
+    save_excluded_species([str(x) for x in species])
+    saved = load_excluded_species()
+    return {"ok": True, "species": saved, "count": len(saved)}
+
+@app.post("/api/admin/excluded_species/sync")
+async def admin_sync_excluded_species_from_dof(admin: bool = Depends(require_admin)):
+    url = "https://dofbasen.dk/opslag/artdata.php"
+    try:
+        response = requests.get(url, timeout=25)
+        response.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Kunne ikke hente artsliste fra DOFbasen: {exc}")
+
+    fetched_species = _extract_bracket_species_from_dof_html(response.text)
+    if not fetched_species:
+        raise HTTPException(status_code=502, detail="Fandt ingen arter i klammer i DOFbasens artsliste")
+
+    existing = load_excluded_species()
+    merged = existing + fetched_species
+    save_excluded_species(merged)
+    saved = load_excluded_species()
+
+    return {
+        "ok": True,
+        "msg": f"Sync fuldført: {len(fetched_species)} arter fundet i klammer. Liste indeholder nu {len(saved)} arter.",
+        "species": saved,
+        "fetched_count": len(fetched_species),
+        "total_count": len(saved)
+    }
 
 @app.post("/api/admin/slet_gruppe")
 async def admin_slet_gruppe(request: Request, data: dict = Body(...), admin: bool = Depends(require_admin)):

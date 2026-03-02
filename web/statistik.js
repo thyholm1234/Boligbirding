@@ -133,6 +133,48 @@ function mergeSeries(primary = [], compare = []) {
   return { labels, primaryValues, compareValues };
 }
 
+function buildDevelopmentSeriesFromFirsts(items = []) {
+  const byYear = new Map();
+  (items || []).forEach(item => {
+    const dato = String(item?.dato || '');
+    const parts = dato.split('-');
+    if (parts.length !== 3) return;
+    const year = Number(parts[2]);
+    if (!Number.isFinite(year)) return;
+    byYear.set(year, (byYear.get(year) || 0) + 1);
+  });
+
+  const years = Array.from(byYear.keys()).sort((a, b) => a - b);
+  let running = 0;
+  return years.map(year => {
+    running += byYear.get(year) || 0;
+    return { year, count: running };
+  });
+}
+
+function mergeCumulativeSeries(primary = [], compare = []) {
+  const years = new Set();
+  (primary || []).forEach(d => years.add(Number(d.year)));
+  (compare || []).forEach(d => years.add(Number(d.year)));
+  const labels = Array.from(years).filter(Number.isFinite).sort((a, b) => a - b);
+
+  const primaryMap = new Map((primary || []).map(d => [Number(d.year), Number(d.count) || 0]));
+  const compareMap = new Map((compare || []).map(d => [Number(d.year), Number(d.count) || 0]));
+
+  let lastPrimary = 0;
+  let lastCompare = 0;
+  const primaryValues = labels.map(y => {
+    if (primaryMap.has(y)) lastPrimary = primaryMap.get(y) || 0;
+    return lastPrimary;
+  });
+  const compareValues = labels.map(y => {
+    if (compareMap.has(y)) lastCompare = compareMap.get(y) || 0;
+    return lastCompare;
+  });
+
+  return { labels, primaryValues, compareValues };
+}
+
 function createDataset(label, data, color) {
   return {
     label,
@@ -196,6 +238,12 @@ function renderStatistik() {
   const globalSeries = mergeSeries(data.charts?.global_by_year || [], compareStatData?.charts?.global_by_year || []);
   const matrikelSeries = mergeSeries(data.charts?.matrikel_by_year || [], compareStatData?.charts?.matrikel_by_year || []);
   const obsSeries = mergeSeries(data.charts?.obs_by_year || [], compareStatData?.charts?.obs_by_year || []);
+  const globalDevPrimary = buildDevelopmentSeriesFromFirsts(data.lists?.danmark?.items || []);
+  const globalDevCompare = buildDevelopmentSeriesFromFirsts(compareStatData?.lists?.danmark?.items || []);
+  const matrikelDevPrimary = buildDevelopmentSeriesFromFirsts(data.lists?.vp?.items || []);
+  const matrikelDevCompare = buildDevelopmentSeriesFromFirsts(compareStatData?.lists?.vp?.items || []);
+  const globalDevSeries = mergeCumulativeSeries(globalDevPrimary, globalDevCompare);
+  const matrikelDevSeries = mergeCumulativeSeries(matrikelDevPrimary, matrikelDevCompare);
 
   buildLineChart(
     'chart-global',
@@ -214,6 +262,24 @@ function renderStatistik() {
       ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', matrikelSeries.compareValues, '#ef6c00')] : [])
     ],
     'Matrikelarter'
+  );
+  buildLineChart(
+    'chart-global-dev',
+    globalDevSeries.labels,
+    [
+      createDataset(user.obserkode || 'Primær', globalDevSeries.primaryValues, '#00695c'),
+      ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', globalDevSeries.compareValues, '#c62828')] : [])
+    ],
+    'Sete arter (kumulativ)'
+  );
+  buildLineChart(
+    'chart-matrikel-dev',
+    matrikelDevSeries.labels,
+    [
+      createDataset(user.obserkode || 'Primær', matrikelDevSeries.primaryValues, '#00838f'),
+      ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', matrikelDevSeries.compareValues, '#ef6c00')] : [])
+    ],
+    'Sete matrikelarter (kumulativ)'
   );
   buildLineChart(
     'chart-obs',

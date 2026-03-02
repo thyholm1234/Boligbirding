@@ -1,4 +1,4 @@
-<!-- Version: 1.10.29 - 2026-03-02 14.59.20 -->
+<!-- Version: 1.10.30 - 2026-03-02 15.16.58 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin</title>
-    <link rel="stylesheet" href="style.css?v=1.10.29">
+    <link rel="stylesheet" href="style.css?v=1.10.30">
     <script type="module">
         import { renderNavbar, initNavbar, initMobileNavbar } from './navbar.js';
         renderNavbar();
@@ -30,6 +30,29 @@
             <input type="text" id="globalFilter" placeholder="Globalt matrikel-filter">
             <button>Gem filter</button>
         </form>
+        <div style="margin-top:2em; margin-left:0; margin-right:auto; max-width:620px;">
+            <h2>Arter der ikke skal fremgå som godkendte</h2>
+            <div style="display:flex;gap:0.6em;flex-wrap:wrap;margin-bottom:0.8em;">
+                <button type="button" id="syncExcludedSpeciesBtn">Sync fra DOFbasen ([...])</button>
+                <button type="button" id="saveExcludedSpeciesBtn">Gem liste</button>
+            </div>
+            <label for="excludedSpeciesBulk" class="muted" style="display:block;margin-bottom:0.35em;">En art pr. linje (kan redigeres manuelt):</label>
+            <textarea id="excludedSpeciesBulk" rows="10" style="width:100%;margin-bottom:0.8em;"></textarea>
+            <form id="excludedSpeciesForm" style="display:flex;gap:0.6em;flex-wrap:wrap;margin-bottom:0.8em;">
+                <input type="text" id="excludedSpeciesInput" placeholder="Artnavn" required style="flex:1;min-width:220px;">
+                <button type="submit">Tilføj</button>
+            </form>
+            <div id="excludedSpeciesStatus" class="muted" style="margin-bottom:0.6em;"></div>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:0.45em;">Art</th>
+                        <th style="text-align:left; padding:0.45em; width:120px;">Handling</th>
+                    </tr>
+                </thead>
+                <tbody id="excludedSpeciesTableBody"></tbody>
+            </table>
+        </div>
         <button id="syncAllBtn" style="margin-top:1em;">Sync alle</button>
         <button id="updateLokationerBtn" style="margin-top:1em;">Sync kommune-lokationer</button>
         <div id="updateLokationerStatus" style="margin-top:0.4em;"></div>
@@ -59,6 +82,6 @@
             <div id="adminUserStatus" class="muted" style="margin-top:0.8em;"></div>
         </div>
     </div>
-    <script src="admin.js?v=1.10.29"></script>
+    <script src="admin.js?v=1.10.30"></script>
 </body>
 </html>

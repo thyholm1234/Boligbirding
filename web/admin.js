@@ -1,4 +1,4 @@
-// Version: 1.10.29 - 2026-03-02 14.59.20
+// Version: 1.10.30 - 2026-03-02 15.16.58
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -10,6 +10,82 @@ async function getApiMessage(res, fallback) {
     if (data?.detail) return data.detail;
     if (data?.msg) return data.msg;
     return fallback;
+}
+
+function escapeHtml(text) {
+    return String(text || "")
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function hentUdelukkedeArter() {
+    const res = await fetch('/api/admin/excluded_species');
+    const data = await res.json();
+    const arter = Array.isArray(data.species) ? data.species : [];
+    const tbody = document.getElementById('excludedSpeciesTableBody');
+    const bulkEl = document.getElementById('excludedSpeciesBulk');
+    if (bulkEl) {
+        bulkEl.value = arter.join('\n');
+    }
+    if (!tbody) return;
+
+    if (!arter.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="muted" style="padding:0.45em;">Ingen arter tilføjet.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = arter.map(art => `
+        <tr>
+            <td style="padding:0.45em;">${escapeHtml(art)}</td>
+            <td style="padding:0.45em;">
+                <button type="button" class="remove-excluded-species" data-art="${escapeHtml(art)}">Fjern</button>
+            </td>
+        </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.remove-excluded-species').forEach(btn => {
+        btn.onclick = async () => {
+            const art = (btn.dataset.art || '').trim();
+            if (!art) return;
+            if (!confirm(`Fjern '${art}' fra listen?`)) return;
+            const statusEl = document.getElementById('excludedSpeciesStatus');
+            btn.disabled = true;
+            try {
+                const res = await fetch(`/api/admin/excluded_species?artnavn=${encodeURIComponent(art)}`, { method: 'DELETE' });
+                const msg = await getApiMessage(res, res.ok ? 'Arten er fjernet.' : 'Kunne ikke fjerne art.');
+                if (statusEl) statusEl.textContent = msg;
+                if (res.ok) {
+                    await hentUdelukkedeArter();
+                }
+            } catch (_) {
+                if (statusEl) statusEl.textContent = 'Kunne ikke fjerne art.';
+            } finally {
+                btn.disabled = false;
+            }
+        };
+    });
+}
+
+function parseExcludedSpeciesBulk() {
+    const bulkEl = document.getElementById('excludedSpeciesBulk');
+    if (!bulkEl) return [];
+    const unique = new Map();
+    bulkEl.value
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .forEach(name => {
+            const key = name.toLocaleLowerCase();
+            if (!unique.has(key)) unique.set(key, name);
+        });
+    return Array.from(unique.values()).sort((a, b) => a.localeCompare(b, 'da'));
 }
 
 async function hentObserkoder() {
@@ -185,6 +261,92 @@ document.getElementById('filterForm').addEventListener('submit', async function(
     const filter = document.getElementById('globalFilter').value.trim();
     await fetch(`/api/set_filter?filter=${encodeURIComponent(filter)}`, { method: "POST" });
 });
+
+const excludedSpeciesForm = document.getElementById('excludedSpeciesForm');
+if (excludedSpeciesForm) {
+    excludedSpeciesForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const input = document.getElementById('excludedSpeciesInput');
+        const statusEl = document.getElementById('excludedSpeciesStatus');
+        const artnavn = (input?.value || '').trim();
+        if (!artnavn) {
+            if (statusEl) statusEl.textContent = 'Artnavn mangler.';
+            return;
+        }
+        try {
+            const res = await fetch('/api/admin/excluded_species', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ artnavn })
+            });
+            const msg = await getApiMessage(res, res.ok ? 'Art tilføjet.' : 'Kunne ikke tilføje art.');
+            if (statusEl) statusEl.textContent = msg;
+            if (res.ok) {
+                input.value = '';
+                await hentUdelukkedeArter();
+            }
+        } catch (_) {
+            if (statusEl) statusEl.textContent = 'Kunne ikke tilføje art.';
+        }
+    });
+}
+
+const saveExcludedSpeciesBtn = document.getElementById('saveExcludedSpeciesBtn');
+if (saveExcludedSpeciesBtn) {
+    saveExcludedSpeciesBtn.onclick = async () => {
+        const statusEl = document.getElementById('excludedSpeciesStatus');
+        const species = parseExcludedSpeciesBulk();
+        saveExcludedSpeciesBtn.disabled = true;
+        const originalText = saveExcludedSpeciesBtn.textContent;
+        saveExcludedSpeciesBtn.textContent = 'Gemmer...';
+        try {
+            const res = await fetch('/api/admin/excluded_species/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ species })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                const msg = data.detail || data.msg || 'Kunne ikke gemme liste.';
+                if (statusEl) statusEl.textContent = msg;
+            } else {
+                if (statusEl) statusEl.textContent = `Liste gemt (${data.count} arter).`;
+                await hentUdelukkedeArter();
+            }
+        } catch (_) {
+            if (statusEl) statusEl.textContent = 'Kunne ikke gemme liste.';
+        } finally {
+            saveExcludedSpeciesBtn.textContent = originalText;
+            saveExcludedSpeciesBtn.disabled = false;
+        }
+    };
+}
+
+const syncExcludedSpeciesBtn = document.getElementById('syncExcludedSpeciesBtn');
+if (syncExcludedSpeciesBtn) {
+    syncExcludedSpeciesBtn.onclick = async () => {
+        const statusEl = document.getElementById('excludedSpeciesStatus');
+        syncExcludedSpeciesBtn.disabled = true;
+        const originalText = syncExcludedSpeciesBtn.textContent;
+        syncExcludedSpeciesBtn.textContent = 'Synkroniserer...';
+        try {
+            const res = await fetch('/api/admin/excluded_species/sync', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                const msg = data.detail || data.msg || 'Kunne ikke synkronisere.';
+                if (statusEl) statusEl.textContent = msg;
+            } else {
+                if (statusEl) statusEl.textContent = data.msg || 'Sync fuldført.';
+                await hentUdelukkedeArter();
+            }
+        } catch (_) {
+            if (statusEl) statusEl.textContent = 'Kunne ikke synkronisere.';
+        } finally {
+            syncExcludedSpeciesBtn.textContent = originalText;
+            syncExcludedSpeciesBtn.disabled = false;
+        }
+    };
+}
 
 document.getElementById('syncAllBtn').onclick = async function() {
     const btn = this;
@@ -367,6 +529,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         hentGlobalFilter();
         hentObserkoder();
         hentGrupper();
+        hentUdelukkedeArter();
         await hentAktueltAar(); // <-- Hent aktuelt år fra serveren
     }
 });
