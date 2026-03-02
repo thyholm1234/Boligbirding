@@ -655,6 +655,85 @@ def _firsts_from_obs(obs_iter: List[Observation], excluded_keys: Optional[set] =
         key=lambda x: datetime.datetime.strptime(x["dato"], "%d-%m-%Y"),
     )
 
+async def _user_matrikel_view_payload(
+    obserkode: str,
+    aar_value: Any,
+    matrikel_index: int = 1,
+    selected_period_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    raw_filter = await get_global_filter()
+    today = datetime.date.today()
+
+    is_global = str(aar_value) == "global"
+    if is_global:
+        range_start = datetime.date.min
+        range_end = datetime.date.max
+        year_hint = today.year
+    else:
+        year_hint = int(aar_value)
+        range_start = datetime.date(year_hint, 1, 1)
+        range_end = datetime.date(year_hint, 12, 31)
+
+    visible_end = min(range_end, today)
+    excluded_keys = _get_excluded_species_keys()
+
+    async with SessionLocal() as session:
+        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        obs_query = select(Observation).where(Observation.obserkode == obserkode)
+        if not is_global:
+            obs_query = obs_query.where(
+                Observation.dato >= range_start,
+                Observation.dato <= visible_end,
+            )
+        obs_rows = (await session.execute(obs_query)).scalars().all()
+
+    tagged_rows = [
+        row for row in obs_rows
+        if _observation_has_matrikel_tag(row, raw_filter, matrikel_index)
+    ]
+    if is_global:
+        tagged_rows = [row for row in tagged_rows if row.dato and row.dato <= today]
+
+    period_map = _load_user_matrikel_periods(user)
+    period_key = _matrikel_key(matrikel_index)
+    periods = period_map.get(period_key) or []
+    period_options = [
+        period for period in periods
+        if _period_overlaps_range(period, range_start, visible_end)
+    ]
+    period_options.sort(key=lambda period: period.get("start_date") or "")
+
+    reference_date = _reference_date_for_range(range_start, visible_end)
+    active_period = _select_active_period(period_options, range_start, visible_end, reference_date=reference_date) if period_options else None
+
+    selected_period = None
+    if selected_period_name:
+        selected_period = next((period for period in period_options if (period.get("name") or "") == selected_period_name), None)
+    if selected_period is None:
+        selected_period = active_period
+
+    if selected_period:
+        selected_rows = [row for row in tagged_rows if _period_matches_date(selected_period, row.dato)]
+    else:
+        selected_rows = tagged_rows
+
+    firsts = _firsts_from_obs(selected_rows, excluded_keys=excluded_keys)
+
+    trend_points: List[Dict[str, Any]] = []
+    for idx, row in enumerate(firsts, start=1):
+        if row.get("dato"):
+            trend_points.append({"dato": row.get("dato"), "count": idx})
+
+    return {
+        "firsts": firsts,
+        "matrikel_index": matrikel_index,
+        "period_options": period_options,
+        "selected_period_name": (selected_period or {}).get("name") if selected_period else None,
+        "active_period_name": (active_period or {}).get("name") if active_period else None,
+        "trend_points": trend_points,
+        "year": "global" if is_global else year_hint,
+    }
+
 async def generate_user_lists(obserkode: str, aar: int):
     obserkode = normalize_obserkode(obserkode)
     _, _, OBSER_DIR = get_data_dirs(aar)
@@ -2993,11 +3072,14 @@ async def api_obser(request: Request):
         path = os.path.join(userdir, "global.json")
         key = "firsts"
     elif scope == "user_matrikel":
-        path = os.path.join(userdir, "matrikelarter.json")
-        key = "firsts"
+        matrikel_index = _matrikel_index_from_key(params.get("matrikel") or params.get("matrikel_index") or 1) or 1
+        period_name = params.get("period")
+        payload = await _user_matrikel_view_payload(obserkode, aar, matrikel_index=matrikel_index, selected_period_name=period_name)
+        return payload
     elif scope == "user_matrikel2":
-        path = os.path.join(userdir, "matrikel2arter.json")
-        key = "firsts"
+        period_name = params.get("period")
+        payload = await _user_matrikel_view_payload(obserkode, aar, matrikel_index=2, selected_period_name=period_name)
+        return payload
     elif scope == "user_lokalafdeling":
         afdeling = params.get("afdeling")
         path = os.path.join(userdir, "lokalafdeling.json")
@@ -3076,6 +3158,8 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         }
 
     result = {}
+    result["self_obserkode"] = obserkode
+    result["self_navn"] = request.session.get("navn") or obserkode
 
     # Nationalt - alle
     try:

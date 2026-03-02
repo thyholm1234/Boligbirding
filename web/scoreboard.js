@@ -1,4 +1,4 @@
-// Version: 1.11.6 - 2026-03-02 17.38.53
+// Version: 1.11.7 - 2026-03-02 20.13.33
 // © Christian Vemmelund Helligsø
 
 
@@ -285,14 +285,78 @@ function clearSections() {
   if (t) t.innerHTML = "";
 }
 
+function buildUserYearOptions(selectedValue) {
+  const currentYear = new Date().getFullYear();
+  const minYear = 1950;
+  const selected = String(selectedValue || currentYear);
+  const options = [`<option value="global" ${selected === "global" ? "selected" : ""}>Total</option>`];
+  for (let year = currentYear; year >= minYear; year--) {
+    options.push(`<option value="${year}" ${selected === String(year) ? "selected" : ""}>${year}</option>`);
+  }
+  return options.join("\n");
+}
+
+function renderUserTrendChart(targetId, trendPoints, labelText) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+
+  const points = Array.isArray(trendPoints) ? trendPoints : [];
+  if (!points.length) {
+    target.innerHTML = "";
+    return;
+  }
+
+  target.innerHTML = `<h3 style="margin:0.6em 0;">Udvikling i sete arter</h3><canvas id="userTrendChart" height="140"></canvas>`;
+
+  if (typeof Chart === "undefined") return;
+
+  const labels = [];
+  const values = [];
+  points.forEach(point => {
+    if (!point || !point.dato) return;
+    labels.push(point.dato);
+    values.push(Number(point.count || 0));
+  });
+
+  if (!labels.length) {
+    target.innerHTML = "";
+    return;
+  }
+
+  new Chart(document.getElementById('userTrendChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: labelText || 'Arter',
+        data: values,
+        borderColor: 'hsl(210,70%,45%)',
+        fill: false,
+        tension: 0
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Dato' } },
+        y: { title: { display: true, text: 'Antal arter' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
 // ---------- Brugerliste ----------
 async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentParams = {}) {
+  clearSections();
+
   // Parent scope -> vælg API-scope
   const scope = parentParams.scope || 'global_alle';
   const gruppe = parentParams.gruppe;
   const afdeling = parentParams.afdeling;
   const kommune = parentParams.kommune;
-  const aar = parentParams.aar;
+  const matrikel = parentParams.matrikel || parentParams.matrikel_index || 1;
+  const period = parentParams.period;
+  const aar = parentParams.aar || new Date().getFullYear();
 
   let apiScope = "user_global";
   const body = { scope: apiScope, obserkode };
@@ -300,6 +364,8 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (scope.endsWith("matrikel")) {
     apiScope = "user_matrikel";
     body.scope = apiScope;
+    body.matrikel = matrikel;
+    if (period) body.period = period;
   } else if (scope.startsWith("lokal")) {
     apiScope = "user_lokalafdeling";
     body.scope = apiScope;
@@ -322,6 +388,10 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (afdeling) urlParams.set('afdeling', afdeling);
   if (kommune) urlParams.set('kommune', kommune);
   if (aar) urlParams.set('aar', aar);
+  if (scope.endsWith("matrikel")) {
+    urlParams.set('matrikel', matrikel);
+    if (period) urlParams.set('period', period);
+  }
   window.history.pushState({}, '', '?' + urlParams.toString());
 
   // Hent data
@@ -332,6 +402,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   });
   const data = await res.json();
   const firsts = Array.isArray(data.firsts) ? data.firsts : [];
+  const periodOptions = Array.isArray(data.period_options) ? data.period_options : [];
+  const selectedPeriodName = data.selected_period_name || "";
+  const activePeriodName = data.active_period_name || "";
 
   // Render
   const container = document.getElementById("main");
@@ -367,8 +440,35 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   if (sortMode === "oldest") sortLabel = "Ældste";
 
   const statistikLink = `statistik.html?obserkode=${encodeURIComponent(obserkode)}`;
+
+  const yearControlHtml = `
+    <label for="userYearSelect">År:</label>
+    <select id="userYearSelect" style="padding:0.4em 0.6em;">
+      ${buildUserYearOptions(aar)}
+    </select>
+  `;
+
+  const periodControlHtml = apiScope === "user_matrikel" && periodOptions.length
+    ? `
+      <label for="userPeriodSelect">Periode:</label>
+      <select id="userPeriodSelect" style="padding:0.4em 0.6em;max-width:260px;">
+        ${periodOptions.map(p => {
+          const name = p.name || "Periode";
+          const selected = selectedPeriodName && name === selectedPeriodName;
+          return `<option value="${name}" ${selected ? "selected" : ""}>${name}</option>`;
+        }).join("\n")}
+      </select>
+    `
+    : "";
+
   let html = `
-    <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin-bottom:1em;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">
+      ${yearControlHtml}
+      ${periodControlHtml}
+    </div>
+    ${apiScope === "user_matrikel" && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
+    <div id="userTrendWrap"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin:0.8em 0 1em;">
       <button id="sortBtn" type="button">Sortering: ${sortLabel}</button>
       <button id="statistikBtn" type="button">Observatør statistik</button>
     </div>
@@ -382,8 +482,40 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     renderFirsts(firsts, sortMode, apiScope);
   }
 
+  renderUserTrendChart("userTrendWrap", data.trend_points, visNavn);
+
+  const userYearSelect = document.getElementById('userYearSelect');
+  if (userYearSelect) {
+    userYearSelect.onchange = () => {
+      const nextParams = { ...parentParams, aar: userYearSelect.value };
+      if (apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+        nextParams.scope = 'user_matrikel';
+      }
+      visUserFirsts(obserkode, navn, sortMode, nextParams);
+    };
+  }
+
+  const userPeriodSelect = document.getElementById('userPeriodSelect');
+  if (userPeriodSelect) {
+    userPeriodSelect.onchange = () => {
+      const nextParams = { ...parentParams, period: userPeriodSelect.value };
+      if (apiScope === 'user_matrikel' && nextParams.scope && String(nextParams.scope).startsWith('user_')) {
+        nextParams.scope = 'user_matrikel';
+      }
+      visUserFirsts(obserkode, navn, sortMode, nextParams);
+    };
+  }
+
   // Tilbage -> genskab scoreboard
   document.getElementById('tilbageBtn').onclick = () => {
+    if (parentParams && parentParams.scope && String(parentParams.scope).startsWith('user_')) {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = '/';
+      }
+      return;
+    }
     if (parentParams) {
       const url = new URL(window.location.pathname, window.location.origin);
       ['scope', 'gruppe', 'afdeling', 'aar'].forEach(key => {
