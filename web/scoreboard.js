@@ -1,4 +1,4 @@
-// Version: 1.11.13 - 2026-03-02 20.28.27
+// Version: 1.11.14 - 2026-03-02 20.31.39
 // © Christian Vemmelund Helligsø
 
 
@@ -500,6 +500,12 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
       }]
     },
     options: {
+      elements: {
+        point: {
+          radius: 0,
+          hoverRadius: 0
+        }
+      },
       plugins: { legend: { display: false } },
       scales: {
         x: createDailyXAxisOptions(labels),
@@ -1089,6 +1095,12 @@ function visScoreboardTrend(data) {
         type: 'line',
         data: { labels: sortedDates, datasets },
         options: {
+          elements: {
+            point: {
+              radius: 0,
+              hoverRadius: 0
+            }
+          },
           plugins: { legend: { display: true } },
           scales: {
             x: createDailyXAxisOptions(sortedDates),
@@ -1157,6 +1169,12 @@ function visScoreboardTrend(data) {
       type: 'line',
       data: { labels: sortedDates, datasets },
       options: {
+        elements: {
+          point: {
+            radius: 0,
+            hoverRadius: 0
+          }
+        },
         plugins: { legend: { display: true } },
         scales: {
           x: createDailyXAxisOptions(sortedDates),

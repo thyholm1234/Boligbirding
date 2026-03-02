@@ -1,4 +1,4 @@
-// Version: 1.11.13 - 2026-03-02 20.28.27
+// Version: 1.11.14 - 2026-03-02 20.31.39
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;

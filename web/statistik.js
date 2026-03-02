@@ -118,6 +118,12 @@ function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
       datasets
     },
     options: {
+      elements: {
+        point: {
+          radius: 0,
+          hoverRadius: 0
+        }
+      },
       plugins: { legend: { display: true } },
       scales: {
         x: {
@@ -221,7 +227,9 @@ function createDataset(label, data, color) {
     borderColor: color,
     backgroundColor: color,
     fill: false,
-    tension: 0.2
+    tension: 0,
+    pointRadius: 0,
+    pointHoverRadius: 0
   };
 }
 
