@@ -1990,6 +1990,30 @@ async def profile_data(request: Request):
             total_rank_matrikel = row.get("placering")
             break
 
+    total_rank_global = None
+    total_rank_matrikel = None
+    global_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_alle", "scoreboard.json")
+    matrikel_sb_path = os.path.join(SERVER_DIR, "data", "global", "scoreboards", "global_matrikel", "scoreboard.json")
+
+    try:
+        global_sb_rows = _load_json(global_sb_path) or []
+    except Exception:
+        global_sb_rows = []
+    try:
+        matrikel_sb_rows = _load_json(matrikel_sb_path) or []
+    except Exception:
+        matrikel_sb_rows = []
+
+    for row in global_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_global = row.get("placering")
+            break
+
+    for row in matrikel_sb_rows:
+        if row.get("obserkode") == obserkode:
+            total_rank_matrikel = row.get("placering")
+            break
+
     # Blockers: arter kun set af denne bruger (global all-time)
     art_counts: Dict[str, int] = {}
     async with SessionLocal() as dbsession:

@@ -1,7 +1,7 @@
-// Version: 1.10.27 - 2026-03-02 14.55.17
+// Version: 1.10.28 - 2026-03-02 14.57.11
 // © Christian Vemmelund Helligsø
 
-const CACHE_NAME = 'boligbirding-v1.10.27';
+const CACHE_NAME = 'boligbirding-v1.10.28';
 const PRECACHE_URLS = [
   '/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png'
@@ -36,6 +36,12 @@ self.addEventListener('activate', (event) => {
 // Optionelt: network-first for navigationer, så index.html altid kan opdatere hurtigt
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const requestUrl = new URL(request.url);
+
+  // Ignorer ikke-http(s) requests (fx chrome-extension://)
+  if (!['http:', 'https:'].includes(requestUrl.protocol)) {
+    return;
+  }
 
   // Undgå cache for alle API-kald (alt under /api)
   if (request.url.includes('/api/')) {
