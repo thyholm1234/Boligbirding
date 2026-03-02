@@ -1,7 +1,7 @@
-// Version: 1.11.17 - 2026-03-02 20.43.24
+// Version: 1.11.18 - 2026-03-02 23.40.48
 // © Christian Vemmelund Helligsø
 
-const CACHE_NAME = 'boligbirding-v1.11.17';
+const CACHE_NAME = 'boligbirding-v1.11.18';
 const PRECACHE_URLS = [
   '/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png'
@@ -53,6 +53,26 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Scripts og styles: network-first for at undgå stale bundles i cache
+  const isScriptOrStyle =
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    requestUrl.pathname.endsWith('.js') ||
+    requestUrl.pathname.endsWith('.css');
+
+  if (isScriptOrStyle) {
+    event.respondWith(
+      fetch(request).then((resp) => {
+        if (request.method === 'GET' && resp && resp.status === 200 && resp.type === 'basic') {
+          const respClone = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, respClone));
+        }
+        return resp;
+      }).catch(() => caches.match(request))
     );
     return;
   }
