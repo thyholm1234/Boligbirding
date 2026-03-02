@@ -113,6 +113,8 @@ class User(Base):
     navn          = Column(String)
     lokalafdeling = Column(String, nullable=True)
     kommune       = Column(String, nullable=True)
+    lokalafdelinger_json = Column(Text, nullable=True)
+    kommuner_json = Column(Text, nullable=True)
     matrikel1_perioder = Column(Text, nullable=True)
     matrikel2_perioder = Column(Text, nullable=True)
     matrikel_perioder_json = Column(Text, nullable=True)
@@ -598,6 +600,72 @@ def _kommune_name_by_id(kommune_id: str) -> Optional[str]:
         if row.get("id") == kommune_id:
             return row.get("navn")
     return None
+
+def _load_json_string_list(raw_value: Optional[str]) -> List[str]:
+    if not raw_value:
+        return []
+    try:
+        parsed = json.loads(raw_value)
+    except Exception:
+        return []
+    return [str(v).strip() for v in parsed if str(v).strip()] if isinstance(parsed, list) else []
+
+def _normalize_lokalafdelinger(values: Any) -> List[str]:
+    allowed = set(AFDELINGER)
+    normalized: List[str] = []
+    for value in (values or []):
+        item = str(value or "").strip()
+        if not item or item not in allowed:
+            continue
+        if item not in normalized:
+            normalized.append(item)
+        if len(normalized) >= 3:
+            break
+    return normalized
+
+def _normalize_kommuner(values: Any) -> List[str]:
+    kommuner = _read_kommuner()
+    valid_ids = {str(row.get("id")) for row in kommuner if row.get("id")}
+    navn_to_id = {
+        str(row.get("navn") or "").strip().lower(): str(row.get("id"))
+        for row in kommuner
+        if row.get("id") and row.get("navn")
+    }
+
+    normalized: List[str] = []
+    for value in (values or []):
+        item = str(value or "").strip()
+        if not item:
+            continue
+        if item.isdigit() and item in valid_ids:
+            resolved = item
+        else:
+            resolved = navn_to_id.get(item.lower())
+            if not resolved:
+                continue
+        if resolved not in normalized:
+            normalized.append(resolved)
+        if len(normalized) >= 5:
+            break
+    return normalized
+
+def _user_opted_lokalafdelinger(user: Optional[User]) -> List[str]:
+    if not user:
+        return []
+    from_json = _normalize_lokalafdelinger(_load_json_string_list(getattr(user, "lokalafdelinger_json", None)))
+    if from_json:
+        return from_json
+    fallback = str(getattr(user, "lokalafdeling", "") or "").strip()
+    return _normalize_lokalafdelinger([fallback]) if fallback else []
+
+def _user_opted_kommuner(user: Optional[User]) -> List[str]:
+    if not user:
+        return []
+    from_json = _normalize_kommuner(_load_json_string_list(getattr(user, "kommuner_json", None)))
+    if from_json:
+        return from_json
+    fallback = str(getattr(user, "kommune", "") or "").strip()
+    return _normalize_kommuner([fallback]) if fallback else []
 
 # ---------------------------------------------------------
 #  Global filter & year
@@ -1278,6 +1346,9 @@ async def generate_scoreboards_from_lists(aar: int):
     for afd in AFDELINGER:
         rows_matr = []
         for u in users:
+            opted_lokal = _user_opted_lokalafdelinger(u)
+            if afd not in opted_lokal:
+                continue
             la_map = _load_json(os.path.join(OBSER_DIR, u.obserkode, "lokalafdeling.json")) or {}
             L_matr = (la_map.get(afd) or {}).get("matrikel") or []
             a2, art2, dato2 = _score_from_list(L_matr)
@@ -1303,6 +1374,9 @@ async def generate_scoreboards_from_lists(aar: int):
     for afd in AFDELINGER:
         rows_alle = []
         for u in users:
+            opted_lokal = _user_opted_lokalafdelinger(u)
+            if afd not in opted_lokal:
+                continue
             la_map = _load_json(os.path.join(OBSER_DIR, u.obserkode, "lokalafdeling.json")) or {}
             L_alle = (la_map.get(afd) or {}).get("alle") or []
             a1, art1, dato1 = _score_from_list(L_alle)
@@ -1349,12 +1423,10 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
     excluded_keys = _get_excluded_species_keys()
 
     def _user_in_kommune(user: User, kommune_id: int, kommune_name: str) -> bool:
-        value = str(getattr(user, "kommune", "") or "").strip()
-        if not value:
+        opted_ids = _user_opted_kommuner(user)
+        if not opted_ids:
             return False
-        if value.isdigit():
-            return int(value) == kommune_id
-        return value.lower() == (kommune_name or "").strip().lower()
+        return str(kommune_id) in opted_ids
 
     def _is_valid_art(name: str) -> bool:
         n = _normalize_base_art_name(name)
@@ -1543,6 +1615,9 @@ async def generate_global_scoreboards_all_time():
     for afd in AFDELINGER:
         rows_matr = []
         for u in users:
+            opted_lokal = _user_opted_lokalafdelinger(u)
+            if afd not in opted_lokal:
+                continue
             la_map = _load_json(os.path.join(obser_dir, u.obserkode, "lokalafdeling.json")) or {}
             L_matr = (la_map.get(afd) or {}).get("matrikel") or []
             a2, art2, dato2 = _score_from_list(L_matr)
@@ -1561,6 +1636,9 @@ async def generate_global_scoreboards_all_time():
     for afd in AFDELINGER:
         rows_alle = []
         for u in users:
+            opted_lokal = _user_opted_lokalafdelinger(u)
+            if afd not in opted_lokal:
+                continue
             la_map = _load_json(os.path.join(obser_dir, u.obserkode, "lokalafdeling.json")) or {}
             L_alle = (la_map.get(afd) or {}).get("alle") or []
             a1, art1, dato1 = _score_from_list(L_alle)
@@ -1600,15 +1678,9 @@ async def generate_global_scoreboards_all_time():
         rows_alle = []
         rows_matr = []
         for u in users:
-            value = str(getattr(u, "kommune", "") or "").strip()
-            if not value:
+            opted_kommuner = _user_opted_kommuner(u)
+            if str(kommune_id) not in opted_kommuner:
                 continue
-            if value.isdigit():
-                if int(value) != kommune_id:
-                    continue
-            else:
-                if value.lower() != kommune_name.lower():
-                    continue
 
             k_data = _load_json(os.path.join(obser_dir, u.obserkode, "kommune.json")) or {}
             a1, art1, dato1 = _score_from_list(k_data.get("alle") or [])
@@ -2308,6 +2380,8 @@ async def get_userprefs(request: Request):
         return {
             "lokalafdeling": None,
             "kommune": None,
+            "lokalafdelinger": [],
+            "kommuner": [],
             "obserkode": None,
             "navn": None,
             "matrikel_perioder": {},
@@ -2340,6 +2414,8 @@ async def get_userprefs(request: Request):
             return {
                 "lokalafdeling": user.lokalafdeling,
                 "kommune": kommune_value,
+                "lokalafdelinger": _user_opted_lokalafdelinger(user),
+                "kommuner": _user_opted_kommuner(user),
                 "obserkode": user.obserkode,
                 "navn": user.navn,
                 "matrikel_perioder": filtered_periods,
@@ -2350,6 +2426,8 @@ async def get_userprefs(request: Request):
     return {
         "lokalafdeling": None,
         "kommune": None,
+        "lokalafdelinger": [],
+        "kommuner": [],
         "obserkode": None,
         "navn": None,
         "matrikel_perioder": {},
@@ -3002,6 +3080,50 @@ async def admin_sync_all_previous_years(request: Request):
         "msg": "Synkronisering gennemført med gammel metode (alle historiske data genopbygget)."
     }
 
+@app.post("/api/admin/rebuild_scoreboards_from_db")
+async def admin_rebuild_scoreboards_from_db(request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan genopbygge scoreboards")
+    enforce_sync_rate_limit(request, 15)
+
+    async with SessionLocal() as session:
+        users = [
+            u for u in (await session.execute(select(User))).scalars().all()
+            if SAFE_OBSERKODE_RE.fullmatch((u.obserkode or "").strip().upper())
+        ]
+
+        year_rows = (await session.execute(
+            select(func.extract("year", Observation.dato)).where(Observation.dato.is_not(None)).distinct()
+        )).all()
+
+    years: List[int] = []
+    for (year_value,) in year_rows:
+        try:
+            parsed = int(year_value)
+        except Exception:
+            continue
+        if parsed > 0:
+            years.append(parsed)
+    years = sorted(set(years))
+
+    rebuilt_user_count = 0
+    for user in users:
+        for year in years:
+            await generate_user_lists(user.obserkode, year)
+        await generate_user_global_lists(user.obserkode)
+        rebuilt_user_count += 1
+
+    for year in years:
+        await generate_scoreboards_from_lists(year)
+    await generate_global_scoreboards_all_time()
+
+    return {
+        "ok": True,
+        "years": years,
+        "users": rebuilt_user_count,
+        "msg": f"Scoreboards genopbygget fra DB for {len(years)} år og {rebuilt_user_count} brugere"
+    }
+
 @app.post("/api/sync_mine_observationer")
 async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     """
@@ -3508,6 +3630,10 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
 async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
     lokalafdeling = data.get("lokalafdeling")
     kommune = data.get("kommune")
+    has_lokalafdelinger = "lokalafdelinger" in data
+    has_kommuner = "kommuner" in data
+    lokalafdelinger = _normalize_lokalafdelinger(data.get("lokalafdelinger") or []) if has_lokalafdelinger else None
+    kommuner = _normalize_kommuner(data.get("kommuner") or []) if has_kommuner else None
     has_dynamic = "matrikel_perioder" in data
     dynamic_periods = _normalize_matrikel_period_map(data.get("matrikel_perioder") or {}) if has_dynamic else None
     has_m1 = "matrikel1_perioder" in data
@@ -3526,6 +3652,16 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
         user.lokalafdeling = lokalafdeling
         user.kommune = kommune
+
+        if has_lokalafdelinger:
+            user.lokalafdelinger_json = json.dumps(lokalafdelinger or [], ensure_ascii=False)
+        elif not _user_opted_lokalafdelinger(user) and lokalafdeling:
+            user.lokalafdelinger_json = json.dumps(_normalize_lokalafdelinger([lokalafdeling]), ensure_ascii=False)
+
+        if has_kommuner:
+            user.kommuner_json = json.dumps(kommuner or [], ensure_ascii=False)
+        elif not _user_opted_kommuner(user) and kommune:
+            user.kommuner_json = json.dumps(_normalize_kommuner([kommune]), ensure_ascii=False)
 
         current_map = _load_user_matrikel_periods(user)
         if has_dynamic:
@@ -4149,6 +4285,8 @@ async def admin_update_user(payload: Dict[str, Any] = Body(...), admin: bool = D
 # ---------------------------------------------------------
 async def ensure_user_optional_columns():
     statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS lokalafdelinger_json TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS kommuner_json TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel1_perioder TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel2_perioder TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS matrikel_perioder_json TEXT",

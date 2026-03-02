@@ -1,4 +1,4 @@
-// Version: 1.11.19 - 2026-03-02 23.43.26
+// Version: 1.11.21 - 2026-03-03 00.03.28
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -379,6 +379,30 @@ if (syncPreviousYearsBtn) {
         } catch (e) {
             btn.textContent = "Fejl!";
             setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+        }
+    };
+}
+
+const rebuildScoreboardsBtn = document.getElementById('rebuildScoreboardsBtn');
+if (rebuildScoreboardsBtn) {
+    rebuildScoreboardsBtn.onclick = async function() {
+        const btn = this;
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Genbygger scoreboards...";
+        try {
+            const res = await fetch('/api/admin/rebuild_scoreboards_from_db', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) {
+                const msg = data.detail || data.msg || 'Kunne ikke genbygge scoreboards';
+                btn.textContent = `Fejl: ${msg}`;
+            } else {
+                btn.textContent = data.msg || '✓ Genopbygget';
+            }
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3500);
+        } catch (e) {
+            btn.textContent = "Fejl!";
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2200);
         }
     };
 }

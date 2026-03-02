@@ -1,4 +1,4 @@
-// Version: 1.11.19 - 2026-03-02 23.43.26
+// Version: 1.11.21 - 2026-03-03 00.03.28
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -108,6 +108,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }, delayMs);
   }
 
+  function getMultiSelectValues(selectEl, maxCount) {
+    if (!selectEl) return [];
+    const selected = Array.from(selectEl.selectedOptions || []).map(option => option.value).filter(Boolean);
+    return selected.slice(0, maxCount);
+  }
+
+  function enforceMultiSelectLimit(selectEl, maxCount, statusEl) {
+    if (!selectEl) return;
+    const selected = Array.from(selectEl.selectedOptions || []);
+    if (selected.length <= maxCount) return;
+    selected.slice(maxCount).forEach(option => {
+      option.selected = false;
+    });
+    if (statusEl) {
+      statusEl.textContent = `Du kan højst vælge ${maxCount}.`;
+      setTimeout(() => {
+        if (statusEl.textContent === `Du kan højst vælge ${maxCount}.`) statusEl.textContent = '';
+      }, 2200);
+    }
+  }
+
   function renderMatrikelEditor() {
     const wrap = document.getElementById('matrikelSettings');
     if (!wrap) return;
@@ -206,6 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function saveAllPrefs() {
     const lokalafdelingInput = document.getElementById('lokalafdeling');
     const kommuneInput = document.getElementById('kommune');
+    const lokalafdelingerOptInInput = document.getElementById('lokalafdelingerOptIn');
+    const kommunerOptInInput = document.getElementById('kommunerOptIn');
     const availableKeys = [...(matrikelState.availableKeys || [])]
       .filter(key => matrikelIndexFromKey(key));
     availableKeys.forEach(key => {
@@ -227,6 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           lokalafdeling: lokalafdelingInput ? lokalafdelingInput.value : '',
           kommune: kommuneInput ? kommuneInput.value : '',
+          lokalafdelinger: getMultiSelectValues(lokalafdelingerOptInInput, 3),
+          kommuner: getMultiSelectValues(kommunerOptInInput, 5),
           matrikel_perioder: payloadPeriodMap
         })
       });
@@ -478,10 +503,21 @@ document.addEventListener('DOMContentLoaded', () => {
             ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
           </select>
           <label for="kommune">Kommune:</label>
-          <select id="kommune" name="kommune" style="width:100%;">
+          <select id="kommune" name="kommune" style="width:100%;margin-bottom:1em;">
             <option value="">Vælg...</option>
             ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
+          <label for="lokalafdelingerOptIn">Opt-in lokalafdelinger (max 3):</label>
+          <select id="lokalafdelingerOptIn" name="lokalafdelingerOptIn" multiple size="6" style="width:100%;margin-bottom:0.35em;">
+            ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
+          </select>
+          <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke lokalafdelinger du vil optræde på scoreboards i.</div>
+
+          <label for="kommunerOptIn">Opt-in kommuner (max 5):</label>
+          <select id="kommunerOptIn" name="kommunerOptIn" multiple size="8" style="width:100%;margin-bottom:0.35em;">
+            ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
+          </select>
+          <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke kommuner du vil optræde på scoreboards i.</div>
         `;
       }
 
@@ -494,6 +530,20 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (data.kommune && document.getElementById('kommune')) {
             document.getElementById('kommune').value = data.kommune;
+          }
+          const lokalOpt = document.getElementById('lokalafdelingerOptIn');
+          if (lokalOpt) {
+            const selectedLokal = Array.isArray(data.lokalafdelinger) ? data.lokalafdelinger : [];
+            Array.from(lokalOpt.options).forEach(option => {
+              option.selected = selectedLokal.includes(option.value);
+            });
+          }
+          const kommuneOpt = document.getElementById('kommunerOptIn');
+          if (kommuneOpt) {
+            const selectedKommuner = Array.isArray(data.kommuner) ? data.kommuner.map(v => String(v)) : [];
+            Array.from(kommuneOpt.options).forEach(option => {
+              option.selected = selectedKommuner.includes(String(option.value));
+            });
           }
           const fallbackIndexes = Object.keys(data.matrikel_perioder || {})
             .map(key => matrikelIndexFromKey(key))
@@ -512,12 +562,26 @@ document.addEventListener('DOMContentLoaded', () => {
       // GEM VED ÆNDRING
       const lokalafdelingInput = document.getElementById('lokalafdeling');
       const kommuneInput = document.getElementById('kommune');
+      const lokalafdelingerOptInInput = document.getElementById('lokalafdelingerOptIn');
+      const kommunerOptInInput = document.getElementById('kommunerOptIn');
       const afdelingFormEl = document.getElementById('afdelingForm');
       function gemAfdelingKommune() {
         saveAllPrefs();
       }
       if (lokalafdelingInput) lokalafdelingInput.addEventListener('change', gemAfdelingKommune);
       if (kommuneInput) kommuneInput.addEventListener('change', gemAfdelingKommune);
+      if (lokalafdelingerOptInInput) {
+        lokalafdelingerOptInInput.addEventListener('change', () => {
+          enforceMultiSelectLimit(lokalafdelingerOptInInput, 3, document.getElementById('matrikelSaveStatus'));
+          gemAfdelingKommune();
+        });
+      }
+      if (kommunerOptInInput) {
+        kommunerOptInInput.addEventListener('change', () => {
+          enforceMultiSelectLimit(kommunerOptInInput, 5, document.getElementById('matrikelSaveStatus'));
+          gemAfdelingKommune();
+        });
+      }
       if (afdelingFormEl) {
         afdelingFormEl.addEventListener('submit', (event) => {
           event.preventDefault();
