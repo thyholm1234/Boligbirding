@@ -1,4 +1,4 @@
-// Version: 1.12.2 - 2026-03-03 00.41.32
+// Version: 1.12.4 - 2026-03-03 00.46.26
 // © Christian Vemmelund Helligsø
 
 
@@ -251,6 +251,66 @@ function getParams() {
   return params;
 }
 
+// Intern matrix over understøttede query-kombinationer (scope + kontekst + år)
+const SCOREBOARD_SCOPE_MATRIX = {
+  global_alle: { listType: 'Alle kryds', title: 'National rangliste', userPrefixYear: 'Årsarter for', userPrefixGlobal: 'Arter (alle år) for' },
+  global_matrikel: { listType: 'Matrikel', title: 'National matrikel-rangliste', userPrefixYear: 'Matrikelarter for', userPrefixGlobal: 'Matrikelarter (alle år) for' },
+  gruppe_alle: { listType: 'Alle kryds', title: 'Gruppe – Rangliste' },
+  gruppe_matrikel: { listType: 'Matrikel', title: 'Gruppe – Matrikel-rangliste' },
+  lokal_alle: { listType: 'Alle kryds', title: 'Lokalafdeling – Rangliste', userPrefixYear: 'Lokalarter for', userPrefixGlobal: 'Lokalarter (alle år) for' },
+  lokal_matrikel: { listType: 'Matrikel', title: 'Lokalafdeling – Matrikel-rangliste' },
+  kommune_alle: { listType: 'Alle kryds', title: 'Kommune – Rangliste', userPrefixYear: 'Kommunearter for', userPrefixGlobal: 'Kommunearter (alle år) for' },
+  kommune_matrikel: { listType: 'Matrikel', title: 'Kommune – Matrikel-rangliste', userPrefixYear: 'Kommune matrikelarter for', userPrefixGlobal: 'Kommune matrikelarter (alle år) for' },
+  user_global: { listType: 'Alle kryds', title: 'Brugerliste' },
+  user_matrikel: { listType: 'Matrikel', title: 'Brugerliste – Matrikel' },
+  user_lokalafdeling: { listType: 'Alle kryds', title: 'Brugerliste – Lokalafdeling' },
+  user_kommune_alle: { listType: 'Alle kryds', title: 'Brugerliste – Kommune' },
+  user_kommune_matrikel: { listType: 'Matrikel', title: 'Brugerliste – Kommune matrikel' }
+};
+
+function setScoreboardSubtitle(text) {
+  const pageTitle = document.getElementById('page-title');
+  if (!pageTitle) return;
+  const subtitleId = 'scoreboard-subtitle';
+  let subtitle = document.getElementById(subtitleId);
+  if (!text) {
+    if (subtitle) subtitle.remove();
+    return;
+  }
+  if (!subtitle) {
+    subtitle = document.createElement('div');
+    subtitle.id = subtitleId;
+    subtitle.style.fontSize = '1.05em';
+    subtitle.style.marginBottom = '1em';
+    pageTitle.insertAdjacentElement('afterend', subtitle);
+  }
+  subtitle.textContent = text;
+}
+
+function buildScoreboardHeading(params) {
+  const scope = String(params?.scope || '');
+  const meta = SCOREBOARD_SCOPE_MATRIX[scope] || { listType: 'Alle kryds', title: 'Scoreboard' };
+  const isAllTime = String(params?.aar || '') === 'global';
+  const yearText = isAllTime ? 'Alle år' : `År ${params?.aar || cachedGlobalYear || new Date().getFullYear()}`;
+
+  let title = meta.title;
+  if (scope === 'gruppe_alle' || scope === 'gruppe_matrikel') {
+    title = params?.gruppe ? `${params.gruppe} – ${scope === 'gruppe_matrikel' ? 'Matrikel-rangliste' : 'Rangliste'}` : meta.title;
+  } else if (scope === 'lokal_alle' || scope === 'lokal_matrikel') {
+    title = params?.afdeling ? `${params.afdeling} – ${scope === 'lokal_matrikel' ? 'Matrikel-rangliste' : 'Rangliste'}` : meta.title;
+  } else if (scope === 'kommune_alle' || scope === 'kommune_matrikel') {
+    const kommuneLabel = params?.kommune_navn || params?.kommune || 'Kommune';
+    title = `${kommuneLabel} – ${scope === 'kommune_matrikel' ? 'Matrikel-rangliste' : 'Rangliste'}`;
+  }
+
+  const subtitleParts = [yearText, meta.listType || 'Alle kryds'];
+  if (params?.gruppe) subtitleParts.unshift(`Gruppe: ${params.gruppe}`);
+  if (params?.afdeling) subtitleParts.unshift(`Lokalafdeling: ${params.afdeling}`);
+  if (params?.kommune_navn) subtitleParts.unshift(`Kommune: ${params.kommune_navn}`);
+
+  return { title, subtitle: subtitleParts.join(' · ') };
+}
+
 // ---------- API ----------
 async function hentData(params) {
   let url, body;
@@ -311,18 +371,9 @@ async function visSide() {
         : {}
     };
 
-    // Titel
-    let title = "Scoreboard";
-    if (params.scope === "global_alle") title = "National rangliste";
-    else if (params.scope === "global_matrikel") title = "National matrikel-rangliste";
-    else if (params.scope === "gruppe_alle") title = (params.gruppe ? params.gruppe + " – Rangliste" : "Gruppe – Rangliste");
-    else if (params.scope === "gruppe_matrikel") title = (params.gruppe ? params.gruppe + " – Matrikel-rangliste" : "Gruppe – Matrikel-rangliste");
-    else if (params.scope === "lokal_alle") title = (params.afdeling ? params.afdeling + " – Rangliste" : "Lokalafdeling – Rangliste");
-    else if (params.scope === "lokal_matrikel") title = (params.afdeling ? params.afdeling + " – Matrikel-rangliste" : "Lokalafdeling – Matrikel-rangliste");
-    else if (params.scope === "kommune_alle") title = (params.kommune_navn ? params.kommune_navn + " – Rangliste" : "Kommune – Rangliste");
-    else if (params.scope === "kommune_matrikel") title = (params.kommune_navn ? params.kommune_navn + " – Matrikel-rangliste" : "Kommune – Matrikel-rangliste");
-
-    setResponsiveTitle(pageTitle, title);
+    const heading = buildScoreboardHeading(params);
+    setResponsiveTitle(pageTitle, heading.title);
+    setScoreboardSubtitle(heading.subtitle);
 
     const rows = masterData.rows;
     if (!rows.length) {
@@ -364,6 +415,7 @@ async function visSide() {
 
   // ------- BRUGERLISTE -------
   else {
+    setScoreboardSubtitle('');
     firstsSortMode = params.sort || "alphabetical";
     await visUserFirsts(params.obserkode, params.navn || "", firstsSortMode, params);
   }
@@ -553,6 +605,68 @@ function buildTrendPointsFromFirsts(firsts) {
   return trendPoints;
 }
 
+function normalizeDisplayName(navn, obserkode) {
+  const raw = String(navn || '').trim();
+  if (!raw) return obserkode;
+  const withoutRank = raw.replace(/^#\d+\s*/i, '').trim();
+  return withoutRank || obserkode;
+}
+
+function buildUserScopeSubtitle({ apiScope, scope, gruppe, afdeling, kommune, kommuneNavn, aar, matrikelIndex }) {
+  const parts = [];
+  const isAllTime = String(aar) === 'global';
+
+  if (apiScope === 'user_kommune_alle' || apiScope === 'user_kommune_matrikel' || String(scope).startsWith('kommune')) {
+    if (kommuneNavn) {
+      parts.push(`Kommune: ${kommuneNavn}`);
+    } else if (kommune) {
+      parts.push(`Kommune-ID: ${kommune}`);
+    }
+  }
+
+  if (apiScope === 'user_lokalafdeling' && afdeling) {
+    parts.push(`Lokalafdeling: ${afdeling}`);
+  }
+
+  if (String(scope).startsWith('gruppe') && gruppe) {
+    parts.push(`Gruppe: ${gruppe}`);
+  }
+
+  if (apiScope === 'user_matrikel') {
+    parts.push(`Matrikel ${matrikelIndex}`);
+  }
+
+  parts.push(isAllTime ? 'Alle år' : `År ${aar}`);
+
+  if (apiScope === 'user_kommune_matrikel' || (apiScope === 'user_matrikel' && matrikelIndex >= 1)) {
+    parts.push('Matrikel');
+  } else {
+    parts.push('Alle kryds');
+  }
+
+  return parts.join(' · ');
+}
+
+function buildUserHeading({ apiScope, visNavn, aar, gruppe, afdeling, kommune, kommuneNavn, matrikelIndex }) {
+  const meta = SCOREBOARD_SCOPE_MATRIX[apiScope] || SCOREBOARD_SCOPE_MATRIX.user_global;
+  const isAllTime = String(aar) === 'global';
+  const prefix = isAllTime
+    ? (meta.userPrefixGlobal || 'Første observationer for')
+    : (meta.userPrefixYear || 'Første observationer for');
+  const title = `${prefix} ${visNavn}`;
+  const subtitle = buildUserScopeSubtitle({
+    apiScope,
+    scope: apiScope,
+    gruppe,
+    afdeling,
+    kommune,
+    kommuneNavn,
+    aar,
+    matrikelIndex,
+  });
+  return { title, subtitle };
+}
+
 // ---------- Brugerliste ----------
 async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentParams = {}) {
   clearSections();
@@ -562,6 +676,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const gruppe = parentParams.gruppe;
   const afdeling = parentParams.afdeling;
   const kommune = parentParams.kommune;
+  const kommuneNavn = parentParams.kommune_navn;
   const matrikel = parentParams.matrikel || parentParams.matrikel_index || 1;
   const period = parentParams.period;
   const aar = parentParams.aar || new Date().getFullYear();
@@ -634,29 +749,19 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const container = document.getElementById("main");
   const pageTitle = document.getElementById("page-title");
 
-  const visNavn = navn && !navn.startsWith("#") ? navn : obserkode;
-  const isAllTime = String(aar) === "global";
-  let prefix = "Første observationer for ";
-  if (apiScope === "user_global") prefix = isAllTime ? "Arter (alle år) for " : "Årsarter for ";
-  if (apiScope === "user_lokalafdeling") prefix = isAllTime ? "Lokalarter (alle år) for " : "Lokalarter for ";
-  if (apiScope === "user_matrikel") prefix = isAllTime ? "Matrikelarter (alle år) for " : "Matrikelarter for ";
-  pageTitle.textContent = prefix + visNavn;
-
-  // Underrubrik for lokalafdeling
-  const subtitleId = "scoreboard-subtitle";
-  let subtitle = document.getElementById(subtitleId);
-  if (apiScope === "user_lokalafdeling" && afdeling) {
-    if (!subtitle) {
-      subtitle = document.createElement("div");
-      subtitle.id = subtitleId;
-      subtitle.style.fontSize = "1.1em";
-      subtitle.style.marginBottom = "1em";
-      pageTitle.insertAdjacentElement("afterend", subtitle);
-    }
-    subtitle.textContent = afdeling;
-  } else if (subtitle) {
-    subtitle.remove();
-  }
+  const visNavn = normalizeDisplayName(navn, obserkode);
+  const userHeading = buildUserHeading({
+    apiScope,
+    visNavn,
+    aar,
+    gruppe,
+    afdeling,
+    kommune,
+    kommuneNavn,
+    matrikelIndex,
+  });
+  pageTitle.textContent = userHeading.title;
+  setScoreboardSubtitle(userHeading.subtitle);
 
   let sortLabel = "";
   if (sortMode === "alphabetical") sortLabel = "Alfabetisk";
