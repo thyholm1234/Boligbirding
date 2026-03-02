@@ -344,11 +344,34 @@ def _period_overlaps_range(period: Dict[str, Optional[str]], start_date: datetim
         period_end = datetime.date.max
     return period_start <= end_date and period_end >= start_date
 
-def _select_active_period(periods: List[Dict[str, Optional[str]]], start_date: datetime.date, end_date: datetime.date) -> Optional[Dict[str, Optional[str]]]:
+def _reference_date_for_range(start_date: datetime.date, end_date: datetime.date) -> datetime.date:
+    today = datetime.date.today()
+    if today < start_date:
+        return start_date
+    if today > end_date:
+        return end_date
+    return today
+
+def _select_active_period(
+    periods: List[Dict[str, Optional[str]]],
+    start_date: datetime.date,
+    end_date: datetime.date,
+    reference_date: Optional[datetime.date] = None,
+) -> Optional[Dict[str, Optional[str]]]:
+    ref_date = reference_date or _reference_date_for_range(start_date, end_date)
     overlapping = [p for p in periods if _period_overlaps_range(p, start_date, end_date)]
     if not overlapping:
         return None
-    return max(overlapping, key=lambda p: p.get("start_date") or "")
+
+    active_for_ref = [p for p in overlapping if _period_matches_date(p, ref_date)]
+    if active_for_ref:
+        return max(active_for_ref, key=lambda p: p.get("start_date") or "")
+
+    fallback = [p for p in overlapping if (_parse_iso_date(p.get("start_date")) or datetime.date.min) <= ref_date]
+    if fallback:
+        return max(fallback, key=lambda p: p.get("start_date") or "")
+
+    return min(overlapping, key=lambda p: p.get("start_date") or "")
 
 def _matrikel_obs_for_range(
     obs_rows: List[Observation],
@@ -356,15 +379,17 @@ def _matrikel_obs_for_range(
     periods: List[Dict[str, Optional[str]]],
     start_date: datetime.date,
     end_date: datetime.date,
+    reference_date: Optional[datetime.date] = None,
 ) -> Dict[str, List[Observation]]:
     tagged = [row for row in obs_rows if tag and tag in (row.turnoter or "")]
-    return _apply_period_selection(tagged, periods, start_date, end_date)
+    return _apply_period_selection(tagged, periods, start_date, end_date, reference_date=reference_date)
 
 def _apply_period_selection(
     tagged_rows: List[Observation],
     periods: List[Dict[str, Optional[str]]],
     start_date: datetime.date,
     end_date: datetime.date,
+    reference_date: Optional[datetime.date] = None,
 ) -> Dict[str, List[Observation]]:
     tagged = list(tagged_rows or [])
     if not periods:
@@ -375,7 +400,7 @@ def _apply_period_selection(
         if any(_period_matches_date(period, row.dato) for period in periods)
     ]
 
-    active_period = _select_active_period(periods, start_date, end_date)
+    active_period = _select_active_period(periods, start_date, end_date, reference_date=reference_date)
     if not active_period:
         return {"active": [], "historical": historical_rows}
 
@@ -552,6 +577,7 @@ async def generate_user_lists(obserkode: str, aar: int):
     user_periods = _load_user_matrikel_periods(user)
     year_start = datetime.date(aar, 1, 1)
     year_end = datetime.date(aar, 12, 31)
+    year_reference_date = _reference_date_for_range(year_start, year_end)
     excluded_keys = _get_excluded_species_keys()
 
     # Global (alle)
@@ -567,6 +593,7 @@ async def generate_user_lists(obserkode: str, aar: int):
         periods=user_periods.get("matrikel1") or [],
         start_date=year_start,
         end_date=year_end,
+        reference_date=year_reference_date,
     )
     matrikel_list = _firsts_from_obs(m1_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
@@ -583,6 +610,7 @@ async def generate_user_lists(obserkode: str, aar: int):
         periods=user_periods.get("matrikel2") or [],
         start_date=year_start,
         end_date=year_end,
+        reference_date=year_reference_date,
     )
     matrikel2_list = _firsts_from_obs(m2_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikel2arter.json"), "w", encoding="utf-8") as f:
@@ -669,12 +697,14 @@ async def generate_user_global_lists(obserkode: str):
     # Matrikel 1 (aktiv periode, all-time)
     all_start = datetime.date.min
     all_end = datetime.date.max
+    all_reference_date = datetime.date.today()
     tagged_m1 = [row for row in obs if _observation_has_matrikel_tag(row, filt, 1)]
     m1_obs = _apply_period_selection(
         tagged_rows=tagged_m1,
         periods=user_periods.get("matrikel1") or [],
         start_date=all_start,
         end_date=all_end,
+        reference_date=all_reference_date,
     )
     matrikel_list = _firsts_from_obs(m1_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
@@ -691,6 +721,7 @@ async def generate_user_global_lists(obserkode: str):
         periods=user_periods.get("matrikel2") or [],
         start_date=all_start,
         end_date=all_end,
+        reference_date=all_reference_date,
     )
     matrikel2_list = _firsts_from_obs(m2_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikel2arter.json"), "w", encoding="utf-8") as f:
