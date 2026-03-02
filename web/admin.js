@@ -1,5 +1,17 @@
-// Version: 1.10.22 - 2026-02-17 01.59.28
+// Version: 1.10.23 - 2026-03-02 14.18.02
 // © Christian Vemmelund Helligsø
+async function getApiMessage(res, fallback) {
+    let data = null;
+    try {
+        data = await res.json();
+    } catch (_) {
+        data = null;
+    }
+    if (data?.detail) return data.detail;
+    if (data?.msg) return data.msg;
+    return fallback;
+}
+
 async function hentObserkoder() {
     const res = await fetch('/api/obserkoder');
     const koder = await res.json();
@@ -41,8 +53,8 @@ async function hentObserkoder() {
             btn.textContent = "Synkroniserer...";
             try {
                 const res = await fetch(`/api/sync_obserkode?kode=${encodeURIComponent(kode)}`, { method: "POST" });
-                const data = await res.json();
-                btn.textContent = data.msg || "✓ Synkroniseret";
+                const msg = await getApiMessage(res, res.ok ? "✓ Synkroniseret" : "Fejl!");
+                btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
                 setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
             } catch (e) {
                 btn.textContent = "Fejl!";
@@ -60,8 +72,8 @@ async function hentObserkoder() {
             btn.textContent = "Starter full sync...";
             try {
                 const res = await fetch(`/api/admin/full_sync_user?kode=${encodeURIComponent(kode)}`, { method: "POST" });
-                const data = await res.json();
-                btn.textContent = data.msg || "✓ Startet";
+                const msg = await getApiMessage(res, res.ok ? "✓ Startet" : "Fejl!");
+                btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
                 setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2200);
             } catch (e) {
                 btn.textContent = "Fejl!";
@@ -181,8 +193,8 @@ document.getElementById('syncAllBtn').onclick = async function() {
     btn.textContent = "Synkroniserer alle...";
     try {
         const res = await fetch('/api/sync_all', { method: "POST" });
-        const data = await res.json();
-        btn.textContent = data.msg || "✓ Synkroniseret";
+        const msg = await getApiMessage(res, res.ok ? "✓ Synkroniseret" : "Fejl!");
+        btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
     } catch (e) {
         btn.textContent = "Fejl!";
@@ -237,7 +249,8 @@ async function checkAdmin() {
             if (resp.ok) {
                 location.reload();
             } else {
-                alert('Forkert adgangskode eller obserkode');
+                const msg = await getApiMessage(resp, 'Forkert adgangskode eller obserkode');
+                alert(msg);
             }
         };
         return false;
@@ -372,9 +385,19 @@ document.getElementById('yearForm').addEventListener('submit', async function(e)
     e.preventDefault();
     const year = document.getElementById('syncYear').value.trim();
     localStorage.setItem('syncYear', year);
-    await fetch(`/api/set_year?year=${encodeURIComponent(year)}`, { method: "POST" });
+    const setYearRes = await fetch(`/api/set_year?year=${encodeURIComponent(year)}`, { method: "POST" });
+    if (!setYearRes.ok) {
+        const msg = await getApiMessage(setYearRes, 'Kunne ikke sætte år.');
+        alert(msg);
+        return;
+    }
     alert('År sat til ' + year + '. Synkroniserer alle koder...');
-    await fetch('/api/sync_all', { method: "POST" });
+    const syncRes = await fetch('/api/sync_all', { method: "POST" });
+    if (!syncRes.ok) {
+        const msg = await getApiMessage(syncRes, 'Kunne ikke synkronisere alle koder.');
+        alert(msg);
+        return;
+    }
     alert('Alle koder synkroniseret for år ' + year);
     await hentAktueltAar(); // Opdater feltet efter ændring
 });

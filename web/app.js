@@ -1,4 +1,4 @@
-// Version: 1.10.22 - 2026-02-17 01.59.28
+// Version: 1.10.23 - 2026-03-02 14.18.02
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';

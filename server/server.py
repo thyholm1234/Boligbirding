@@ -188,6 +188,39 @@ def ensure_obserkode_access(request: Request, obserkode: str):
     if session.get("obserkode") != obserkode:
         raise HTTPException(status_code=403, detail="Ingen adgang til denne obserkode")
 
+_sync_rate_limit_last_call: Dict[str, float] = {}
+_admin_login_last_call: Dict[str, float] = {}
+
+def _client_host(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+def enforce_sync_rate_limit(request: Request, min_interval_seconds: int = 30):
+    session = request.session
+    if session.get("is_admin"):
+        actor = f"admin:{session.get('obserkode') or _client_host(request)}"
+    else:
+        actor = f"user:{session.get('obserkode') or _client_host(request)}"
+
+    now = time.time()
+    last = _sync_rate_limit_last_call.get(actor, 0)
+    elapsed = now - last
+    if elapsed < min_interval_seconds:
+        wait = int(min_interval_seconds - elapsed) + 1
+        raise HTTPException(status_code=429, detail=f"Vent {wait} sekunder før næste sync")
+    _sync_rate_limit_last_call[actor] = now
+
+def enforce_admin_login_rate_limit(request: Request, min_interval_seconds: int = 5):
+    actor = _client_host(request)
+    now = time.time()
+    last = _admin_login_last_call.get(actor, 0)
+    elapsed = now - last
+    if elapsed < min_interval_seconds:
+        wait = int(min_interval_seconds - elapsed) + 1
+        raise HTTPException(status_code=429, detail=f"For mange loginforsøg. Vent {wait} sekunder.")
+    _admin_login_last_call[actor] = now
+
 def get_user_dir(aar: int, obserkode: str) -> str:
     _, _, OBSER_DIR = get_data_dirs(aar)
     return os.path.join(OBSER_DIR, normalize_obserkode(obserkode))
@@ -1661,6 +1694,7 @@ async def schedule_daily_year_sync():
                 ]
             for kode in koder:
                 await fetch_and_store(kode, aar)
+                await asyncio.sleep(30)
             print(f"[SCHEDULE] Daily year sync done for {aar}.")
         except Exception as exc:
             print(f"[SCHEDULE] Daily year sync failed: {exc}")
@@ -1671,6 +1705,7 @@ async def schedule_daily_year_sync():
 # ---------------------------------------------------------
 @app.post("/api/admin_login")
 async def admin_login(request: Request, data: Dict[str, Any]):
+    enforce_admin_login_rate_limit(request, 5)
     password = data.get("password", "")
     session = request.session
     async with SessionLocal() as dbsession:
@@ -1692,6 +1727,7 @@ async def admin_login(request: Request, data: Dict[str, Any]):
 
 @app.post("/api/adminlogin")
 async def adminlogin(request: Request, data: dict):
+    enforce_admin_login_rate_limit(request, 5)
     kode = data.get("obserkode", "").strip()
     password = data.get("password", "")
     session = request.session
@@ -1735,7 +1771,9 @@ async def obser_is_admin(request: Request):
 #  API: Global filter & year
 # ---------------------------------------------------------
 @app.post("/api/set_filter")
-async def set_filter_api(filter: str):
+async def set_filter_api(filter: str, request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan ændre filter")
     await set_global_filter(filter)
     return {"msg": "Globalt filter opdateret"}
 
@@ -1744,7 +1782,9 @@ async def get_filter_api():
     return {"filter": await get_global_filter()}
 
 @app.post("/api/set_year")
-async def set_year_api(year: int):
+async def set_year_api(year: int, request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan ændre år")
     await set_global_year(year)
     return {"msg": "Globalt år opdateret"}
 
@@ -2037,8 +2077,11 @@ async def statistik_data(obserkode: str):
     """Get statistics for any obserkode (public endpoint)"""
     if not obserkode or obserkode.strip() == "":
         raise HTTPException(status_code=400, detail="obserkode required")
-    
-    obserkode = obserkode.strip().upper()
+
+    try:
+        obserkode = normalize_obserkode(obserkode)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ugyldig obserkode")
 
     async with SessionLocal() as dbsession:
         user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
@@ -2250,23 +2293,51 @@ async def observationer_table(request: Request):
 #  API: Sync
 # ---------------------------------------------------------
 @app.post("/api/sync_obserkode")
-async def sync_obserkode_api(kode: str, aar: Optional[int] = None, background_tasks: BackgroundTasks = None):
+async def sync_obserkode_api(request: Request, kode: Optional[str] = None, aar: Optional[int] = None, background_tasks: BackgroundTasks = None):
+    web_session = request.session
+    if not web_session.get("obserkode") and not web_session.get("is_admin"):
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+
+    if web_session.get("is_admin"):
+        if not kode:
+            raise HTTPException(status_code=400, detail="Admin skal angive obserkode")
+        try:
+            resolved_kode = normalize_obserkode(kode)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ugyldig obserkode")
+    else:
+        resolved_kode = web_session.get("obserkode")
+        if not resolved_kode:
+            raise HTTPException(status_code=401, detail="Ikke logget ind")
+        if kode:
+            try:
+                provided_kode = normalize_obserkode(kode)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Ugyldig obserkode")
+            if provided_kode != resolved_kode:
+                raise HTTPException(status_code=403, detail="Ingen adgang til denne obserkode")
+
+    enforce_sync_rate_limit(request, 30)
+
     # sikr at bruger findes (navn bruges i scoreboard)
     async with SessionLocal() as session:
-        user = (await session.execute(select(User).where(User.obserkode == kode))).scalar()
+        user = (await session.execute(select(User).where(User.obserkode == resolved_kode))).scalar()
         if not user:
-            session.add(User(obserkode=kode, navn=kode, lokalafdeling=None))
+            session.add(User(obserkode=resolved_kode, navn=resolved_kode, lokalafdeling=None))
             await session.commit()
-        ok = (await session.execute(select(Obserkode).where(Obserkode.kode == kode))).scalar()
+        ok = (await session.execute(select(Obserkode).where(Obserkode.kode == resolved_kode))).scalar()
         if not ok:
-            session.add(Obserkode(kode=kode))
+            session.add(Obserkode(kode=resolved_kode))
             await session.commit()
     # kør sync nu
-    await fetch_and_store(kode, aar)
-    return {"msg": f"Sync kørt for {kode}", "aar": aar or (await get_global_year())}
+    await fetch_and_store(resolved_kode, aar)
+    return {"msg": f"Sync kørt for {resolved_kode}", "aar": aar or (await get_global_year())}
 
 @app.post("/api/sync_all")
-async def sync_all_api():
+async def sync_all_api(request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan køre sync_all")
+    enforce_sync_rate_limit(request, 30)
     await daily_update_all_jsons()
     return {"ok": True, "msg": "Synkronisering for alle brugere er gennemført"}
 
@@ -2279,10 +2350,22 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     obserkode = session.get("obserkode")
     if not obserkode:
         raise HTTPException(status_code=401, detail="Ikke logget ind")
+    enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
     await fetch_and_store(obserkode, aar)
     return {"ok": True, "msg": f"Synkronisering gennemført for {obserkode} ({aar})"}
+
+@app.post("/api/full_sync_me")
+async def full_sync_me(request: Request):
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+    enforce_sync_rate_limit(request, 30)
+
+    asyncio.create_task(sync_user_all_time(obserkode))
+    return {"ok": True, "msg": f"Fuld synkronisering startet for {obserkode}"}
 
 # ---------------------------------------------------------
 #  API: Firsts & Scoreboards (filer)
@@ -3057,7 +3140,8 @@ async def admin_slet_gruppe(request: Request, data: dict = Body(...), admin: boo
 
 
 @app.post("/api/admin/full_sync_user")
-async def admin_full_sync_user(kode: str, admin: bool = Depends(require_admin)):
+async def admin_full_sync_user(request: Request, kode: str, admin: bool = Depends(require_admin)):
+    enforce_sync_rate_limit(request, 30)
     try:
         obserkode = normalize_obserkode(kode)
     except ValueError:
@@ -3144,12 +3228,14 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
     print("[START] DB klar. Static peger på:", WEB_DIR)
     asyncio.create_task(schedule_daily_kommune_sync())
-    asyncio.create_task(schedule_weekly_all_time_sync())
     asyncio.create_task(schedule_daily_year_sync())
 
 
 @app.post("/api/full_sync_all")
-async def full_sync_all():
+async def full_sync_all(request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan køre fuld sync for alle")
+    enforce_sync_rate_limit(request, 30)
     asyncio.create_task(daily_update_all_jsons())
     return {"msg": "Fuld synkronisering for alle brugere er startet"}
 

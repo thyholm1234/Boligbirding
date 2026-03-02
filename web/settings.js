@@ -1,4 +1,4 @@
-// Version: 1.10.22 - 2026-02-17 01.59.28
+// Version: 1.10.23 - 2026-03-02 14.18.02
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -13,6 +13,33 @@ fetch('/api/get_grupper')
   });
 
 document.addEventListener('DOMContentLoaded', () => {
+  const fullSyncBtn = document.getElementById('fullSyncBtn');
+  const fullSyncStatus = document.getElementById('fullSyncStatus');
+  if (fullSyncBtn) {
+    fullSyncBtn.addEventListener('click', async () => {
+      fullSyncBtn.disabled = true;
+      if (fullSyncStatus) {
+        fullSyncStatus.textContent = 'Starter fuld sync...';
+      }
+      try {
+        const res = await fetch('/api/full_sync_me', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.detail || data.msg || 'Kunne ikke starte fuld sync');
+        }
+        if (fullSyncStatus) {
+          fullSyncStatus.textContent = data.msg || 'Fuld sync er startet.';
+        }
+      } catch (err) {
+        if (fullSyncStatus) {
+          fullSyncStatus.textContent = `Fejl: ${err.message || err}`;
+        }
+      } finally {
+        fullSyncBtn.disabled = false;
+      }
+    });
+  }
+
   // Hent brugerdata og grupper fra server
   fetch('/api/get_userprefs')
     .then(res => res.json())

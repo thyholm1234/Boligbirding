@@ -10,19 +10,24 @@ fetch('/api/get_grupper')
   .then(res => res.json())
   .then(grupper => { addGruppeLinks(grupper); });
 
+const chartInstances = {};
+let primaryStatData = null;
+let compareStatData = null;
+
 function formatNumber(value) {
   const num = Number(value);
   if (Number.isNaN(num)) return value;
   return num.toLocaleString('da-DK');
 }
 
-function renderYearList(targetId, years, user, scope) {
+function renderYearList(targetId, years, user, scope, compareYears = [], compareUser = null) {
   const target = document.getElementById(targetId);
   if (!target) return;
   const filtered = (years || []).filter(y => {
     const count = Number.parseInt(y.count, 10);
     return Number.isFinite(count) && count > 0;
   });
+  const compareMap = new Map((compareYears || []).map(y => [String(y.year), y]));
   if (!filtered.length) {
     target.innerHTML = '<div class="muted">Ingen årsdata fundet.</div>';
     return;
@@ -37,15 +42,22 @@ function renderYearList(targetId, years, user, scope) {
     const link = `scoreboard.html?${params.toString()}`;
     const count = formatNumber(y.count);
     const rank = y.rank ? `#${y.rank}` : '-';
+    const compareRow = compareMap.get(String(y.year));
+    const compareCell = compareUser
+      ? `<td>${compareRow ? `${formatNumber(compareRow.count)} (${compareRow.rank ? `#${compareRow.rank}` : '-'})` : '-'}</td>`
+      : '';
     return `
       <tr>
         <td>${y.year}</td>
         <td><a href="${link}">Se listen</a></td>
         <td>${count}</td>
         <td>${rank}</td>
+        ${compareCell}
       </tr>
     `;
   }).join('');
+
+  const compareHeader = compareUser ? `<th>${compareUser.obserkode || 'Sammenligning'}</th>` : '';
 
   target.innerHTML = `
     <table class="profile-table">
@@ -55,6 +67,7 @@ function renderYearList(targetId, years, user, scope) {
           <th>Liste</th>
           <th>X</th>
           <th>Placering</th>
+          ${compareHeader}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -62,32 +75,125 @@ function renderYearList(targetId, years, user, scope) {
   `;
 }
 
-function buildLineChart(canvasId, labels, data, label, color) {
+function buildLineChart(canvasId, labels, datasets, yAxisTitle) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || typeof Chart === 'undefined') return;
-  new Chart(canvas.getContext('2d'), {
+  if (chartInstances[canvasId]) {
+    chartInstances[canvasId].destroy();
+  }
+  chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels,
-      datasets: [
-        {
-          label,
-          data,
-          borderColor: color,
-          backgroundColor: color,
-          fill: false,
-          tension: 0.2
-        }
-      ]
+      datasets
     },
     options: {
       plugins: { legend: { display: true } },
       scales: {
         x: { title: { display: true, text: 'År' } },
-        y: { title: { display: true, text: label }, beginAtZero: true }
+        y: { title: { display: true, text: yAxisTitle }, beginAtZero: true }
       }
     }
   });
+}
+
+function mergeSeries(primary = [], compare = []) {
+  const years = new Set();
+  (primary || []).forEach(d => years.add(Number(d.year)));
+  (compare || []).forEach(d => years.add(Number(d.year)));
+  const labels = Array.from(years).filter(Number.isFinite).sort((a, b) => a - b);
+  const primaryMap = new Map((primary || []).map(d => [Number(d.year), Number(d.count) || 0]));
+  const compareMap = new Map((compare || []).map(d => [Number(d.year), Number(d.count) || 0]));
+  const primaryValues = labels.map(y => primaryMap.get(y) || 0);
+  const compareValues = labels.map(y => compareMap.get(y) || 0);
+  return { labels, primaryValues, compareValues };
+}
+
+function createDataset(label, data, color) {
+  return {
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: color,
+    fill: false,
+    tension: 0.2
+  };
+}
+
+function buildTotalListLink(user, scope, title) {
+  const params = new URLSearchParams({
+    scope,
+    aar: 'global',
+    obserkode: user.obserkode || '',
+    navn: user.navn || user.obserkode || ''
+  });
+  return `<a href="scoreboard.html?${params.toString()}">${title}</a>`;
+}
+
+function renderStatistik() {
+  if (!primaryStatData) return;
+
+  const data = primaryStatData;
+  const user = data.user || {};
+  const compareUser = compareStatData?.user || null;
+
+  const header = document.getElementById('profile-header');
+  if (header) {
+    const kommune = user.kommune_navn || user.kommune || '-';
+    const totalGlobalLink = buildTotalListLink(user, 'user_global', 'Totalliste DK-arter');
+    const totalMatrikelLink = buildTotalListLink(user, 'user_matrikel', 'Totalliste matrikelarter');
+    const compareText = compareUser
+      ? `<div><b>Sammenligner med:</b> ${compareUser.navn || '-'} (${compareUser.obserkode || '-'})</div>`
+      : '';
+    header.innerHTML = `
+      <div class="profile-title">${user.navn || 'Ukendt bruger'}</div>
+      <div class="profile-meta">
+        <div><b>Obserkode:</b> ${user.obserkode || '-'}</div>
+        <div><b>Lokalafdeling:</b> ${user.lokalafdeling || '-'}</div>
+        <div><b>Kommune:</b> ${kommune}</div>
+        ${compareText}
+      </div>
+      <div class="profile-meta" style="margin-top:0.75em;display:flex;gap:0.9em;flex-wrap:wrap;">
+        <div>${totalGlobalLink}</div>
+        <div>${totalMatrikelLink}</div>
+      </div>
+    `;
+  }
+
+  renderYearList('year-list', data.years || [], user, 'user_global', compareStatData?.years || [], compareUser);
+  renderYearList('matrikel-year-list', data.matrikel_years || [], user, 'user_matrikel', compareStatData?.matrikel_years || [], compareUser);
+
+  const globalSeries = mergeSeries(data.charts?.global_by_year || [], compareStatData?.charts?.global_by_year || []);
+  const matrikelSeries = mergeSeries(data.charts?.matrikel_by_year || [], compareStatData?.charts?.matrikel_by_year || []);
+  const obsSeries = mergeSeries(data.charts?.obs_by_year || [], compareStatData?.charts?.obs_by_year || []);
+
+  buildLineChart(
+    'chart-global',
+    globalSeries.labels,
+    [
+      createDataset(user.obserkode || 'Primær', globalSeries.primaryValues, '#2b7a78'),
+      ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', globalSeries.compareValues, '#d32f2f')] : [])
+    ],
+    'Arter'
+  );
+  buildLineChart(
+    'chart-matrikel',
+    matrikelSeries.labels,
+    [
+      createDataset(user.obserkode || 'Primær', matrikelSeries.primaryValues, '#3aafa9'),
+      ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', matrikelSeries.compareValues, '#ef6c00')] : [])
+    ],
+    'Matrikelarter'
+  );
+  buildLineChart(
+    'chart-obs',
+    obsSeries.labels,
+    [
+      createDataset(user.obserkode || 'Primær', obsSeries.primaryValues, '#1976d2'),
+      ...(compareUser ? [createDataset(compareUser.obserkode || 'Sammenligning', obsSeries.compareValues, '#8e24aa')] : [])
+    ],
+    'Observationer'
+  );
 }
 
 function getQueryParam(name) {
@@ -107,41 +213,11 @@ async function loadStatistik(obserkode) {
   }
 
   const data = await res.json();
-
-  const user = data.user || {};
-  const header = document.getElementById('profile-header');
-  if (header) {
-    const kommune = user.kommune_navn || user.kommune || '-';
-    header.innerHTML = `
-      <div class="profile-title">${user.navn || 'Ukendt bruger'}</div>
-      <div class="profile-meta">
-        <div><b>Obserkode:</b> ${user.obserkode || '-'}</div>
-        <div><b>Lokalafdeling:</b> ${user.lokalafdeling || '-'}</div>
-        <div><b>Kommune:</b> ${kommune}</div>
-      </div>
-    `;
-  }
-  renderYearList('year-list', data.years || [], user, 'user_global');
-  renderYearList('matrikel-year-list', data.matrikel_years || [], user, 'user_matrikel');
-
-  const chartGlobal = data.charts?.global_by_year || [];
-  const chartMatrikel = data.charts?.matrikel_by_year || [];
-  const chartObs = data.charts?.obs_by_year || [];
-
-  const filteredGlobal = chartGlobal.filter(d => Number(d.count) > 0);
-  const filteredMatrikel = chartMatrikel.filter(d => Number(d.count) > 0);
-  const filteredObs = chartObs.filter(d => Number(d.count) > 0);
-
-  const labelsGlobal = filteredGlobal.map(d => d.year);
-  const valuesGlobal = filteredGlobal.map(d => d.count);
-  const labelsMatrikel = filteredMatrikel.map(d => d.year);
-  const valuesMatrikel = filteredMatrikel.map(d => d.count);
-  const labelsObs = filteredObs.map(d => d.year);
-  const valuesObs = filteredObs.map(d => d.count);
-
-  buildLineChart('chart-global', labelsGlobal, valuesGlobal, 'Arter', '#2b7a78');
-  buildLineChart('chart-matrikel', labelsMatrikel, valuesMatrikel, 'Matrikelarter', '#3aafa9');
-  buildLineChart('chart-obs', labelsObs, valuesObs, 'Observationer', '#1976d2');
+  primaryStatData = data;
+  compareStatData = null;
+  const compareStatus = document.getElementById('compare-status');
+  if (compareStatus) compareStatus.textContent = '';
+  renderStatistik();
 }
 
 function initSearch() {
@@ -159,6 +235,52 @@ function initSearch() {
     if (e.key === 'Enter') {
       btn.click();
     }
+  });
+}
+
+function initComparison() {
+  const input = document.getElementById('compare-obserkode-input');
+  const btn = document.getElementById('compare-btn');
+  const clearBtn = document.getElementById('clear-compare-btn');
+  const status = document.getElementById('compare-status');
+
+  const runCompare = async () => {
+    if (!primaryStatData?.user?.obserkode) return;
+    const value = (input?.value || '').trim().toUpperCase();
+    if (!value) {
+      if (status) status.textContent = 'Indtast en obserkode for at sammenligne.';
+      return;
+    }
+    if (value === String(primaryStatData.user.obserkode || '').toUpperCase()) {
+      if (status) status.textContent = 'Du sammenligner allerede med den viste observatør.';
+      return;
+    }
+    if (status) status.textContent = `Henter data for ${value}...`;
+    try {
+      const res = await fetch(`/api/statistik_data?obserkode=${encodeURIComponent(value)}`);
+      if (!res.ok) {
+        if (status) status.textContent = 'Kunne ikke finde observatør til sammenligning.';
+        return;
+      }
+      compareStatData = await res.json();
+      renderStatistik();
+      if (status) status.textContent = `Sammenligner nu med ${compareStatData?.user?.obserkode || value}.`;
+    } catch (e) {
+      if (status) status.textContent = 'Fejl ved hentning af sammenligningsdata.';
+    }
+  };
+
+  btn?.addEventListener('click', runCompare);
+  input?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      runCompare();
+    }
+  });
+  clearBtn?.addEventListener('click', () => {
+    compareStatData = null;
+    renderStatistik();
+    if (status) status.textContent = 'Sammenligning fjernet.';
+    if (input) input.value = '';
   });
 }
 
@@ -181,6 +303,7 @@ const statisticsContent = document.getElementById('statistics-content');
 
 statisticsContent.style.display = 'block';
 initSearch();
+initComparison();
 
 // Load statistics
 if (queryObserkode) {

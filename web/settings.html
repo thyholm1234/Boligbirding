@@ -1,4 +1,4 @@
-<!-- Version: 1.10.22 - 2026-02-17 01.59.28 -->
+<!-- Version: 1.10.23 - 2026-03-02 14.18.02 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,12 +6,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Vælg lokalafdeling</title>
-  <link rel="stylesheet" href="style.css?v=1.10.22">
+  <link rel="stylesheet" href="style.css?v=1.10.23">
 </head>
 <body>
   <div style="max-width:340px;margin:60px auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
     <h2>Profil</h2>
     <div id="userInfo" style="margin-bottom:1.5em;color:#333;font-size:1em"></div>
+    <div style="margin:0 0 1.25em 0;">
+      <button id="fullSyncBtn" type="button" style="width:100%;">Kør fuld sync (mig)</button>
+      <div id="fullSyncStatus" style="margin-top:0.6em;font-size:0.95em;"></div>
+    </div>
     <form id="afdelingForm">
       <label for="lokalafdeling" style="font-weight:bold;">Lokalafdeling:</label>
       <select id="lokalafdeling" required style="margin:0.5em 0 1em 0;width:100%;">
@@ -47,6 +51,6 @@
   <div id="grupper"></div>
 </div>
 
-<script type="module" src="settings.js?v=1.10.22"></script>
+<script type="module" src="settings.js?v=1.10.23"></script>
 </body>
 </html>
