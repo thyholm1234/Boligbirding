@@ -250,6 +250,27 @@ def safe_str(val):
         return ""
     return str(val)
 
+def _normalize_base_art_name(name: Optional[str]) -> str:
+    return (name or "").split("(")[0].split(",")[0].strip()
+
+def _get_excluded_species_keys() -> set:
+    try:
+        names = load_excluded_species()
+    except Exception:
+        names = []
+    return {
+        _normalize_base_art_name(name).casefold()
+        for name in names
+        if _normalize_base_art_name(name)
+    }
+
+def _is_excluded_species(name: Optional[str], excluded_keys: Optional[set] = None) -> bool:
+    keys = excluded_keys if excluded_keys is not None else _get_excluded_species_keys()
+    base_name = _normalize_base_art_name(name)
+    if not base_name:
+        return False
+    return base_name.casefold() in keys
+
 def merged_note_text(turnoter: Any, fuglenoter: Any) -> str:
     turnoter_str = safe_str(turnoter).strip()
     fuglenoter_str = safe_str(fuglenoter).strip()
@@ -345,11 +366,14 @@ async def set_global_year(value: int):
 # ---------------------------------------------------------
 #  First lists (individuelle)
 # ---------------------------------------------------------
-def _firsts_from_obs(obs_iter: List[Observation]) -> List[Dict[str, Any]]:
+def _firsts_from_obs(obs_iter: List[Observation], excluded_keys: Optional[set] = None) -> List[Dict[str, Any]]:
     firsts: Dict[str, Dict[str, Any]] = {}
+    blocked = excluded_keys if excluded_keys is not None else _get_excluded_species_keys()
     for o in obs_iter:
-        navn = (o.artnavn or "").split('(')[0].split(',')[0].strip()
+        navn = _normalize_base_art_name(o.artnavn)
         if "sp." in navn or "/" in navn or " x " in navn:
+            continue
+        if navn.casefold() in blocked:
             continue
         key = navn.casefold()
         if key not in firsts or o.dato < firsts[key]["dato"]:
@@ -387,16 +411,17 @@ async def generate_user_lists(obserkode: str, aar: int):
         filt = await get_global_filter()
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
     filt = resolve_filter_tag(filt, aar)
+    excluded_keys = _get_excluded_species_keys()
 
     # Global (alle)
-    global_list = _firsts_from_obs(obs)
+    global_list = _firsts_from_obs(obs, excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "global.json"), "w", encoding="utf-8") as f:
         json.dump(global_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/{aar}: global.json ({len(global_list)} arter)")
 
     # Matrikel (filter på Turnoter)
     m_obs = [o for o in obs if filt and filt in (o.turnoter or "")]
-    matrikel_list = _firsts_from_obs(m_obs)
+    matrikel_list = _firsts_from_obs(m_obs, excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
         json.dump(matrikel_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/{aar}: matrikelarter.json ({len(matrikel_list)} arter, filter='{filt}')")
@@ -406,8 +431,8 @@ async def generate_user_lists(obserkode: str, aar: int):
     for afd in AFDELINGER:
         la_obs = [o for o in obs if (o.afdeling or "").strip() == afd]
         la_dict[afd] = {
-            "alle": _firsts_from_obs(la_obs),
-            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")]),
+            "alle": _firsts_from_obs(la_obs, excluded_keys=excluded_keys),
+            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")], excluded_keys=excluded_keys),
         }
     with open(os.path.join(user_dir, "lokalafdeling.json"), "w", encoding="utf-8") as f:
         json.dump(la_dict, f, ensure_ascii=False, indent=2)
@@ -439,9 +464,9 @@ async def generate_user_lists(obserkode: str, aar: int):
         site_set = set(_parse_int(x) for x in site_numbers if _parse_int(x) is not None)
         if site_set:
             k_obs = [o for o in obs if o.loknr in site_set]
-            kommune_alle = _firsts_from_obs(k_obs)
+            kommune_alle = _firsts_from_obs(k_obs, excluded_keys=excluded_keys)
             if filt:
-                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")])
+                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")], excluded_keys=excluded_keys)
 
     kommune_payload = {
         "kommune_id": str(kommune_id) if kommune_id else None,
@@ -463,9 +488,10 @@ async def generate_user_global_lists(obserkode: str):
         obs = (await session.execute(q)).scalars().all()
         filt = await get_global_filter()
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+    excluded_keys = _get_excluded_species_keys()
 
     # Global (alle)
-    global_list = _firsts_from_obs(obs)
+    global_list = _firsts_from_obs(obs, excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "global.json"), "w", encoding="utf-8") as f:
         json.dump(global_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: global.json ({len(global_list)} arter)")
@@ -474,7 +500,7 @@ async def generate_user_global_lists(obserkode: str):
     matrikel_list = []
     if filt:
         m_obs = [o for o in obs if filt in (o.turnoter or "")]
-        matrikel_list = _firsts_from_obs(m_obs)
+        matrikel_list = _firsts_from_obs(m_obs, excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
         json.dump(matrikel_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: matrikelarter.json ({len(matrikel_list)} arter, filter='{filt}')")
@@ -485,8 +511,8 @@ async def generate_user_global_lists(obserkode: str):
         afdeling = user.lokalafdeling
         la_obs = [o for o in obs if (o.afdeling or "").strip() == afdeling]
         la_dict[afdeling] = {
-            "alle": _firsts_from_obs(la_obs),
-            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")]),
+            "alle": _firsts_from_obs(la_obs, excluded_keys=excluded_keys),
+            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")], excluded_keys=excluded_keys),
         }
     with open(os.path.join(user_dir, "lokalafdeling.json"), "w", encoding="utf-8") as f:
         json.dump(la_dict, f, ensure_ascii=False, indent=2)
@@ -519,9 +545,9 @@ async def generate_user_global_lists(obserkode: str):
         site_set = set(_parse_int(x) for x in site_numbers if _parse_int(x) is not None)
         if site_set:
             k_obs = [o for o in obs if o.loknr in site_set]
-            kommune_alle = _firsts_from_obs(k_obs)
+            kommune_alle = _firsts_from_obs(k_obs, excluded_keys=excluded_keys)
             if filt:
-                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")])
+                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")], excluded_keys=excluded_keys)
 
     kommune_payload = {
         "kommune_id": str(kommune_id) if kommune_id else None,
@@ -751,13 +777,16 @@ async def generate_scoreboards_from_lists(aar: int):
     """
     import datetime
     import shutil
+    excluded_keys = _get_excluded_species_keys()
 
     # --- Hjælpere ---
     def _normalize_art(name: str) -> str:
         return (name or "").split("(")[0].split(",")[0].strip()
 
     def _is_valid_art(name: str) -> bool:
-        n = name or ""
+        n = _normalize_base_art_name(name)
+        if n.casefold() in excluded_keys:
+            return False
         return ("sp." not in n) and ("/" not in n) and (" x " not in n)
 
     def _parse_dato(d: str) -> datetime.datetime:
@@ -899,6 +928,7 @@ async def generate_scoreboards_from_lists(aar: int):
 
 async def generate_kommune_scoreboards(aar: int, users: List[User]):
     import shutil
+    excluded_keys = _get_excluded_species_keys()
 
     def _user_in_kommune(user: User, kommune_id: int, kommune_name: str) -> bool:
         value = str(getattr(user, "kommune", "") or "").strip()
@@ -909,7 +939,9 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
         return value.lower() == (kommune_name or "").strip().lower()
 
     def _is_valid_art(name: str) -> bool:
-        n = name or ""
+        n = _normalize_base_art_name(name)
+        if n.casefold() in excluded_keys:
+            return False
         return ("sp." not in n) and ("/" not in n) and (" x " not in n)
 
     def _firsts_from_obs_rows(obs_rows, filter_tag: Optional[str] = None):
@@ -1022,12 +1054,15 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
 
 async def generate_global_scoreboards_all_time():
     import shutil
+    excluded_keys = _get_excluded_species_keys()
 
     def _normalize_art(name: str) -> str:
         return (name or "").split("(")[0].split(",")[0].strip()
 
     def _is_valid_art(name: str) -> bool:
-        n = name or ""
+        n = _normalize_base_art_name(name)
+        if n.casefold() in excluded_keys:
+            return False
         return ("sp." not in n) and ("/" not in n) and (" x " not in n)
 
     def _parse_dato(d: str) -> datetime.datetime:
@@ -2452,11 +2487,60 @@ async def admin_sync_all_current_year(request: Request):
         raise HTTPException(status_code=403, detail="Kun admin kan køre sync for alle")
     enforce_sync_rate_limit(request, 30)
     aar = await get_global_year()
-    await daily_update_all_jsons()
+    async with SessionLocal() as session:
+        koder = [
+            normalize_obserkode(k.kode)
+            for k in (await session.execute(select(Obserkode))).scalars().all()
+            if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
+        ]
+    for kode in koder:
+        await fetch_and_store(kode, aar)
     return {
         "ok": True,
         "year": aar,
+        "users": len(koder),
         "msg": f"Synkronisering for alle brugere er gennemført for {aar} (ikke full sync)"
+    }
+
+@app.post("/api/admin/sync_all_previous_years")
+async def admin_sync_all_previous_years(request: Request):
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Kun admin kan køre sync for alle")
+    enforce_sync_rate_limit(request, 30)
+
+    current_year = await get_global_year()
+    data_root = os.path.join(SERVER_DIR, "data")
+    years = []
+    if os.path.isdir(data_root):
+        years = sorted(
+            int(n) for n in os.listdir(data_root)
+            if n.isdigit() and int(n) < current_year
+        )
+
+    if not years:
+        return {
+            "ok": True,
+            "years": [],
+            "users": 0,
+            "msg": f"Ingen tidligere år fundet før {current_year}."
+        }
+
+    async with SessionLocal() as session:
+        koder = [
+            normalize_obserkode(k.kode)
+            for k in (await session.execute(select(Obserkode))).scalars().all()
+            if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
+        ]
+
+    for aar in years:
+        for kode in koder:
+            await fetch_and_store(kode, aar)
+
+    return {
+        "ok": True,
+        "years": years,
+        "users": len(koder),
+        "msg": f"Synkronisering gennemført for alle brugere for {len(years)} tidligere år ({years[0]}-{years[-1]})."
     }
 
 @app.post("/api/sync_mine_observationer")

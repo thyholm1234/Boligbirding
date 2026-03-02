@@ -1,4 +1,4 @@
-// Version: 1.10.32 - 2026-03-02 15.21.20
+// Version: 1.10.33 - 2026-03-02 15.31.40
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -363,6 +363,25 @@ document.getElementById('syncAllBtn').onclick = async function() {
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
     }
 };
+
+const syncPreviousYearsBtn = document.getElementById('syncPreviousYearsBtn');
+if (syncPreviousYearsBtn) {
+    syncPreviousYearsBtn.onclick = async function() {
+        const btn = this;
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Synkroniserer tidligere år...";
+        try {
+            const res = await fetch('/api/admin/sync_all_previous_years', { method: "POST" });
+            const msg = await getApiMessage(res, res.ok ? "✓ Synkroniseret" : "Fejl!");
+            btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3000);
+        } catch (e) {
+            btn.textContent = "Fejl!";
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+        }
+    };
+}
 
 document.getElementById('updateLokationerBtn').onclick = async function() {
     const btn = this;
