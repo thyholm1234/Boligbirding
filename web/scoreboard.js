@@ -1,4 +1,4 @@
-// Version: 1.12.5 - 2026-03-03 00.48.51
+// Version: 1.12.6 - 2026-03-03 00.56.16
 // © Christian Vemmelund Helligsø
 
 
@@ -283,6 +283,8 @@ function setScoreboardSubtitle(text) {
     subtitle.id = subtitleId;
     subtitle.style.fontSize = '1.05em';
     subtitle.style.textAlign = 'center';
+    subtitle.style.display = 'block';
+    subtitle.style.width = '100%';
     subtitle.style.color = 'var(--text-muted)';
     subtitle.style.marginBottom = '1em';
     pageTitle.insertAdjacentElement('afterend', subtitle);
@@ -636,7 +638,7 @@ function buildUserScopeSubtitle({ apiScope, scope, gruppe, afdeling, kommune, ko
   const isAllTime = String(aar) === 'global';
 
   if (kommuneNavn) {
-    parts.push(`Kommune: ${kommuneNavn}`);
+    parts.push(`Kommune: ${kommuneNavn}${kommune ? ` (${kommune})` : ''}`);
   } else if (kommune) {
     parts.push(`Kommune-ID: ${kommune}`);
   }
