@@ -2507,40 +2507,10 @@ async def admin_sync_all_previous_years(request: Request):
     if not request.session.get("is_admin"):
         raise HTTPException(status_code=403, detail="Kun admin kan køre sync for alle")
     enforce_sync_rate_limit(request, 30)
-
-    current_year = await get_global_year()
-    data_root = os.path.join(SERVER_DIR, "data")
-    years = []
-    if os.path.isdir(data_root):
-        years = sorted(
-            int(n) for n in os.listdir(data_root)
-            if n.isdigit() and int(n) < current_year
-        )
-
-    if not years:
-        return {
-            "ok": True,
-            "years": [],
-            "users": 0,
-            "msg": f"Ingen tidligere år fundet før {current_year}."
-        }
-
-    async with SessionLocal() as session:
-        koder = [
-            normalize_obserkode(k.kode)
-            for k in (await session.execute(select(Obserkode))).scalars().all()
-            if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
-        ]
-
-    for aar in years:
-        for kode in koder:
-            await fetch_and_store(kode, aar)
-
+    await daily_update_all_jsons()
     return {
         "ok": True,
-        "years": years,
-        "users": len(koder),
-        "msg": f"Synkronisering gennemført for alle brugere for {len(years)} tidligere år ({years[0]}-{years[-1]})."
+        "msg": "Synkronisering gennemført med gammel metode (alle historiske data genopbygget)."
     }
 
 @app.post("/api/sync_mine_observationer")
