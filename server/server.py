@@ -2446,6 +2446,17 @@ async def sync_all_api(request: Request):
     await daily_update_all_jsons()
     return {"ok": True, "msg": "Synkronisering for alle brugere er gennemført"}
 
+@app.post("/api/admin/sync_all_current_year")
+async def admin_sync_all_current_year(request: Request, admin: bool = Depends(require_admin)):
+    enforce_sync_rate_limit(request, 30)
+    aar = await get_global_year()
+    await daily_update_all_jsons()
+    return {
+        "ok": True,
+        "year": aar,
+        "msg": f"Synkronisering for alle brugere er gennemført for {aar} (ikke full sync)"
+    }
+
 @app.post("/api/sync_mine_observationer")
 async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     """

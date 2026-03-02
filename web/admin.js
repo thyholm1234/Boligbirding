@@ -1,4 +1,4 @@
-// Version: 1.10.30 - 2026-03-02 15.16.58
+// Version: 1.10.31 - 2026-03-02 15.19.32
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -352,12 +352,12 @@ document.getElementById('syncAllBtn').onclick = async function() {
     const btn = this;
     btn.disabled = true;
     const originalText = btn.textContent;
-    btn.textContent = "Synkroniserer alle...";
+    btn.textContent = "Synkroniserer alle (år)...";
     try {
-        const res = await fetch('/api/sync_all', { method: "POST" });
+        const res = await fetch('/api/admin/sync_all_current_year', { method: "POST" });
         const msg = await getApiMessage(res, res.ok ? "✓ Synkroniseret" : "Fejl!");
         btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
-        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2400);
     } catch (e) {
         btn.textContent = "Fejl!";
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
