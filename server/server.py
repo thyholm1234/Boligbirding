@@ -28,7 +28,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, String, Date, Integer, select, func
+from sqlalchemy import Column, String, Date, Integer, Text, select, func, text
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -113,6 +113,8 @@ class User(Base):
     navn          = Column(String)
     lokalafdeling = Column(String, nullable=True)
     kommune       = Column(String, nullable=True)
+    matrikel1_perioder = Column(Text, nullable=True)
+    matrikel2_perioder = Column(Text, nullable=True)
 
 class AdminPassword(Base):
     __tablename__ = "adminpassword"
@@ -243,6 +245,142 @@ def resolve_filter_tag(filt: str, aar: int) -> str:
     if filt == "#BB":
         return f"#BB{str(aar)[-2:]}"
     return filt
+
+def resolve_matrikel_tags(filt: str, aar: int) -> Dict[str, str]:
+    base_tag = resolve_filter_tag(filt, aar)
+    if not base_tag:
+        return {"matrikel1": "", "matrikel2": ""}
+    return {
+        "matrikel1": base_tag,
+        "matrikel2": f"{base_tag}-2"
+    }
+
+def _observation_has_matrikel_tag(row: Observation, raw_filter: str, matrikel_number: int) -> bool:
+    if not raw_filter:
+        return False
+    year_value = row.dato.year if getattr(row, "dato", None) else datetime.datetime.now().year
+    base_tag = resolve_filter_tag(raw_filter, year_value)
+    if not base_tag:
+        return False
+    tag_value = base_tag if matrikel_number == 1 else f"{base_tag}-2"
+    return tag_value in (row.turnoter or "")
+
+def _parse_iso_date(value: Any) -> Optional[datetime.date]:
+    if value is None:
+        return None
+    text_value = str(value).strip()
+    if not text_value:
+        return None
+    try:
+        return datetime.datetime.strptime(text_value, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+def _normalize_matrikel_periods(periods: Any) -> List[Dict[str, Optional[str]]]:
+    if not isinstance(periods, list):
+        return []
+
+    normalized: List[Dict[str, Optional[str]]] = []
+    for row in periods:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or row.get("navn") or "").strip()
+        start_raw = row.get("start_date") or row.get("start") or row.get("fra")
+        end_raw = row.get("end_date") or row.get("end") or row.get("til")
+
+        start_date = _parse_iso_date(start_raw)
+        end_date = _parse_iso_date(end_raw)
+        if not name or not start_date:
+            continue
+        if end_date and end_date < start_date:
+            continue
+
+        normalized.append({
+            "name": name,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat() if end_date else None,
+        })
+
+    normalized.sort(key=lambda item: item["start_date"])
+    return normalized
+
+def _load_user_matrikel_periods(user: Optional[User]) -> Dict[str, List[Dict[str, Optional[str]]]]:
+    if not user:
+        return {"matrikel1": [], "matrikel2": []}
+
+    def _decode(raw_value: Optional[str]) -> List[Dict[str, Optional[str]]]:
+        if not raw_value:
+            return []
+        try:
+            parsed = json.loads(raw_value)
+        except Exception:
+            return []
+        return _normalize_matrikel_periods(parsed)
+
+    return {
+        "matrikel1": _decode(getattr(user, "matrikel1_perioder", None)),
+        "matrikel2": _decode(getattr(user, "matrikel2_perioder", None)),
+    }
+
+def _period_matches_date(period: Dict[str, Optional[str]], obs_date: Optional[datetime.date]) -> bool:
+    if not obs_date:
+        return False
+    start_date = _parse_iso_date(period.get("start_date"))
+    end_date = _parse_iso_date(period.get("end_date"))
+    if not start_date:
+        return False
+    if obs_date < start_date:
+        return False
+    if end_date and obs_date > end_date:
+        return False
+    return True
+
+def _period_overlaps_range(period: Dict[str, Optional[str]], start_date: datetime.date, end_date: datetime.date) -> bool:
+    period_start = _parse_iso_date(period.get("start_date"))
+    period_end = _parse_iso_date(period.get("end_date"))
+    if not period_start:
+        return False
+    if period_end is None:
+        period_end = datetime.date.max
+    return period_start <= end_date and period_end >= start_date
+
+def _select_active_period(periods: List[Dict[str, Optional[str]]], start_date: datetime.date, end_date: datetime.date) -> Optional[Dict[str, Optional[str]]]:
+    overlapping = [p for p in periods if _period_overlaps_range(p, start_date, end_date)]
+    if not overlapping:
+        return None
+    return max(overlapping, key=lambda p: p.get("start_date") or "")
+
+def _matrikel_obs_for_range(
+    obs_rows: List[Observation],
+    tag: str,
+    periods: List[Dict[str, Optional[str]]],
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> Dict[str, List[Observation]]:
+    tagged = [row for row in obs_rows if tag and tag in (row.turnoter or "")]
+    return _apply_period_selection(tagged, periods, start_date, end_date)
+
+def _apply_period_selection(
+    tagged_rows: List[Observation],
+    periods: List[Dict[str, Optional[str]]],
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> Dict[str, List[Observation]]:
+    tagged = list(tagged_rows or [])
+    if not periods:
+        return {"active": tagged, "historical": tagged}
+
+    historical_rows = [
+        row for row in tagged
+        if any(_period_matches_date(period, row.dato) for period in periods)
+    ]
+
+    active_period = _select_active_period(periods, start_date, end_date)
+    if not active_period:
+        return {"active": [], "historical": historical_rows}
+
+    active_rows = [row for row in tagged if _period_matches_date(active_period, row.dato)]
+    return {"active": active_rows, "historical": historical_rows}
 
 def safe_str(val):
     # Konverterer nan og None til tom string
@@ -410,7 +548,10 @@ async def generate_user_lists(obserkode: str, aar: int):
         obs = (await session.execute(q)).scalars().all()
         filt = await get_global_filter()
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
-    filt = resolve_filter_tag(filt, aar)
+    tags = resolve_matrikel_tags(filt, aar)
+    user_periods = _load_user_matrikel_periods(user)
+    year_start = datetime.date(aar, 1, 1)
+    year_end = datetime.date(aar, 12, 31)
     excluded_keys = _get_excluded_species_keys()
 
     # Global (alle)
@@ -419,12 +560,37 @@ async def generate_user_lists(obserkode: str, aar: int):
         json.dump(global_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/{aar}: global.json ({len(global_list)} arter)")
 
-    # Matrikel (filter på Turnoter)
-    m_obs = [o for o in obs if filt and filt in (o.turnoter or "")]
-    matrikel_list = _firsts_from_obs(m_obs, excluded_keys=excluded_keys)
+    # Matrikel 1 (aktiv periode)
+    m1_obs = _matrikel_obs_for_range(
+        obs_rows=obs,
+        tag=tags["matrikel1"],
+        periods=user_periods.get("matrikel1") or [],
+        start_date=year_start,
+        end_date=year_end,
+    )
+    matrikel_list = _firsts_from_obs(m1_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
         json.dump(matrikel_list, f, ensure_ascii=False, indent=2)
-    print(f"[LISTS] {obserkode}/{aar}: matrikelarter.json ({len(matrikel_list)} arter, filter='{filt}')")
+    matrikel_historik = _firsts_from_obs(m1_obs["historical"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikelarter_historik.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel_historik, f, ensure_ascii=False, indent=2)
+    print(f"[LISTS] {obserkode}/{aar}: matrikelarter.json ({len(matrikel_list)} arter, filter='{tags['matrikel1']}')")
+
+    # Matrikel 2 (aktiv periode, privat)
+    m2_obs = _matrikel_obs_for_range(
+        obs_rows=obs,
+        tag=tags["matrikel2"],
+        periods=user_periods.get("matrikel2") or [],
+        start_date=year_start,
+        end_date=year_end,
+    )
+    matrikel2_list = _firsts_from_obs(m2_obs["active"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikel2arter.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel2_list, f, ensure_ascii=False, indent=2)
+    matrikel2_historik = _firsts_from_obs(m2_obs["historical"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikel2arter_historik.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel2_historik, f, ensure_ascii=False, indent=2)
+    print(f"[LISTS] {obserkode}/{aar}: matrikel2arter.json ({len(matrikel2_list)} arter, filter='{tags['matrikel2']}')")
 
     # Lokalafdeling – alle afdelinger
     la_dict: Dict[str, Dict[str, Any]] = {}
@@ -432,7 +598,10 @@ async def generate_user_lists(obserkode: str, aar: int):
         la_obs = [o for o in obs if (o.afdeling or "").strip() == afd]
         la_dict[afd] = {
             "alle": _firsts_from_obs(la_obs, excluded_keys=excluded_keys),
-            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")], excluded_keys=excluded_keys),
+            "matrikel": _firsts_from_obs([
+                o for o in la_obs
+                if o in m1_obs["active"]
+            ], excluded_keys=excluded_keys),
         }
     with open(os.path.join(user_dir, "lokalafdeling.json"), "w", encoding="utf-8") as f:
         json.dump(la_dict, f, ensure_ascii=False, indent=2)
@@ -465,8 +634,8 @@ async def generate_user_lists(obserkode: str, aar: int):
         if site_set:
             k_obs = [o for o in obs if o.loknr in site_set]
             kommune_alle = _firsts_from_obs(k_obs, excluded_keys=excluded_keys)
-            if filt:
-                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")], excluded_keys=excluded_keys)
+            if tags["matrikel1"]:
+                kommune_matrikel = _firsts_from_obs([o for o in k_obs if o in m1_obs["active"]], excluded_keys=excluded_keys)
 
     kommune_payload = {
         "kommune_id": str(kommune_id) if kommune_id else None,
@@ -488,6 +657,7 @@ async def generate_user_global_lists(obserkode: str):
         obs = (await session.execute(q)).scalars().all()
         filt = await get_global_filter()
         user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+    user_periods = _load_user_matrikel_periods(user)
     excluded_keys = _get_excluded_species_keys()
 
     # Global (alle)
@@ -496,14 +666,39 @@ async def generate_user_global_lists(obserkode: str):
         json.dump(global_list, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: global.json ({len(global_list)} arter)")
 
-    # Matrikel (brug globalt filter, ingen års-substitution)
-    matrikel_list = []
-    if filt:
-        m_obs = [o for o in obs if filt in (o.turnoter or "")]
-        matrikel_list = _firsts_from_obs(m_obs, excluded_keys=excluded_keys)
+    # Matrikel 1 (aktiv periode, all-time)
+    all_start = datetime.date.min
+    all_end = datetime.date.max
+    tagged_m1 = [row for row in obs if _observation_has_matrikel_tag(row, filt, 1)]
+    m1_obs = _apply_period_selection(
+        tagged_rows=tagged_m1,
+        periods=user_periods.get("matrikel1") or [],
+        start_date=all_start,
+        end_date=all_end,
+    )
+    matrikel_list = _firsts_from_obs(m1_obs["active"], excluded_keys=excluded_keys)
     with open(os.path.join(user_dir, "matrikelarter.json"), "w", encoding="utf-8") as f:
         json.dump(matrikel_list, f, ensure_ascii=False, indent=2)
+    matrikel_historik = _firsts_from_obs(m1_obs["historical"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikelarter_historik.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel_historik, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: matrikelarter.json ({len(matrikel_list)} arter, filter='{filt}')")
+
+    # Matrikel 2 (aktiv periode, privat all-time)
+    tagged_m2 = [row for row in obs if _observation_has_matrikel_tag(row, filt, 2)]
+    m2_obs = _apply_period_selection(
+        tagged_rows=tagged_m2,
+        periods=user_periods.get("matrikel2") or [],
+        start_date=all_start,
+        end_date=all_end,
+    )
+    matrikel2_list = _firsts_from_obs(m2_obs["active"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikel2arter.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel2_list, f, ensure_ascii=False, indent=2)
+    matrikel2_historik = _firsts_from_obs(m2_obs["historical"], excluded_keys=excluded_keys)
+    with open(os.path.join(user_dir, "matrikel2arter_historik.json"), "w", encoding="utf-8") as f:
+        json.dump(matrikel2_historik, f, ensure_ascii=False, indent=2)
+    print(f"[LISTS] {obserkode}/global: matrikel2arter.json ({len(matrikel2_list)} arter, filter='{filt}-2')")
 
     # Lokalafdeling – kun brugerens egen afdeling
     la_dict: Dict[str, Dict[str, Any]] = {}
@@ -512,7 +707,10 @@ async def generate_user_global_lists(obserkode: str):
         la_obs = [o for o in obs if (o.afdeling or "").strip() == afdeling]
         la_dict[afdeling] = {
             "alle": _firsts_from_obs(la_obs, excluded_keys=excluded_keys),
-            "matrikel": _firsts_from_obs([o for o in la_obs if filt and filt in (o.turnoter or "")], excluded_keys=excluded_keys),
+            "matrikel": _firsts_from_obs([
+                o for o in la_obs
+                if o in m1_obs["active"]
+            ], excluded_keys=excluded_keys),
         }
     with open(os.path.join(user_dir, "lokalafdeling.json"), "w", encoding="utf-8") as f:
         json.dump(la_dict, f, ensure_ascii=False, indent=2)
@@ -547,7 +745,7 @@ async def generate_user_global_lists(obserkode: str):
             k_obs = [o for o in obs if o.loknr in site_set]
             kommune_alle = _firsts_from_obs(k_obs, excluded_keys=excluded_keys)
             if filt:
-                kommune_matrikel = _firsts_from_obs([o for o in k_obs if filt in (o.turnoter or "")], excluded_keys=excluded_keys)
+                kommune_matrikel = _firsts_from_obs([o for o in k_obs if o in m1_obs["active"]], excluded_keys=excluded_keys)
 
     kommune_payload = {
         "kommune_id": str(kommune_id) if kommune_id else None,
@@ -977,10 +1175,6 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
     _safe_clear_dir(outdir_kommune_alle)
     _safe_clear_dir(outdir_kommune_matr)
 
-    filter_tag = resolve_filter_tag(await get_global_filter(), aar)
-    start_date = datetime.date(aar, 1, 1)
-    end_date = datetime.date(aar, 12, 31)
-
     async with SessionLocal() as session:
         lok_rows = (await session.execute(
             select(Lokation.kommune_id, Lokation.site_number)
@@ -1006,28 +1200,24 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
             rows_alle = []
             rows_matr = []
             for u in kommune_users:
-                if not site_numbers:
-                    a_all, art_all, dato_all = 0, "", ""
-                    a_m, art_m, dato_m = 0, "", ""
-                else:
-                    obs_rows = (await session.execute(
-                        select(Observation.artnavn, Observation.dato, Observation.turnoter)
-                        .where(
-                            Observation.obserkode == u.obserkode,
-                            Observation.dato >= start_date,
-                            Observation.dato <= end_date,
-                            Observation.loknr.in_(list(site_numbers))
-                        )
-                    )).all()
-
-                    firsts_alle = _firsts_from_obs_rows(obs_rows)
-                    a_all, art_all, dato_all = _score_from_firsts(firsts_alle)
-
-                    if filter_tag:
-                        firsts_m = _firsts_from_obs_rows(obs_rows, filter_tag=filter_tag)
-                        a_m, art_m, dato_m = _score_from_firsts(firsts_m)
-                    else:
-                        a_m, art_m, dato_m = 0, "", ""
+                user_dir = get_user_dir(aar, u.obserkode)
+                kommune_payload = _load_json(os.path.join(user_dir, "kommune.json")) or {}
+                a_all, art_all, dato_all = _score_from_firsts({
+                    (row.get("artnavn") or ""): {
+                        "dato": _parse_ddmmyyyy(row.get("dato")).date() if row.get("dato") else datetime.date.min,
+                        "artnavn": row.get("artnavn") or ""
+                    }
+                    for row in (kommune_payload.get("alle") or [])
+                    if isinstance(row, dict)
+                })
+                a_m, art_m, dato_m = _score_from_firsts({
+                    (row.get("artnavn") or ""): {
+                        "dato": _parse_ddmmyyyy(row.get("dato")).date() if row.get("dato") else datetime.date.min,
+                        "artnavn": row.get("artnavn") or ""
+                    }
+                    for row in (kommune_payload.get("matrikel") or [])
+                    if isinstance(row, dict)
+                })
 
                 rows_alle.append({
                     "navn": safe_output(u.navn or u.obserkode),
@@ -1892,12 +2082,19 @@ async def afdelinger():
 
 @app.get("/api/get_userprefs")
 async def get_userprefs(request: Request):
-    session = request.session
-    obserkode = session.get("obserkode")
+    web_session = request.session
+    obserkode = web_session.get("obserkode")
     if not obserkode:
-        return {"lokalafdeling": None, "kommune": None, "obserkode": None, "navn": None}
-    async with SessionLocal() as session:
-        user = (await session.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        return {
+            "lokalafdeling": None,
+            "kommune": None,
+            "obserkode": None,
+            "navn": None,
+            "matrikel1_perioder": [],
+            "matrikel2_perioder": []
+        }
+    async with SessionLocal() as dbsession:
+        user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         if user:
             kommune_value = getattr(user, "kommune", None)
             if kommune_value and not str(kommune_value).isdigit():
@@ -1905,13 +2102,23 @@ async def get_userprefs(request: Request):
                     if row.get("navn") == kommune_value:
                         kommune_value = row.get("id")
                         break
+            periods = _load_user_matrikel_periods(user)
             return {
                 "lokalafdeling": user.lokalafdeling,
                 "kommune": kommune_value,
                 "obserkode": user.obserkode,
-                "navn": user.navn
+                "navn": user.navn,
+                "matrikel1_perioder": periods.get("matrikel1") or [],
+                "matrikel2_perioder": periods.get("matrikel2") or [],
             }
-    return {"lokalafdeling": None, "kommune": None, "obserkode": None, "navn": None}
+    return {
+        "lokalafdeling": None,
+        "kommune": None,
+        "obserkode": None,
+        "navn": None,
+        "matrikel1_perioder": [],
+        "matrikel2_perioder": []
+    }
 
 
 def _normalize_artname(name: str) -> str:
@@ -2639,6 +2846,9 @@ async def api_obser(request: Request):
     elif scope == "user_matrikel":
         path = os.path.join(userdir, "matrikelarter.json")
         key = "firsts"
+    elif scope == "user_matrikel2":
+        path = os.path.join(userdir, "matrikel2arter.json")
+        key = "firsts"
     elif scope == "user_lokalafdeling":
         afdeling = params.get("afdeling")
         path = os.path.join(userdir, "lokalafdeling.json")
@@ -2702,6 +2912,19 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
                 }
         print("[DEBUG] Ingen match for obserkode:", obserkode)
         return None
+
+    def list_summary(rows: Any) -> Dict[str, Any]:
+        if not isinstance(rows, list) or not rows:
+            return {"antal_arter": 0, "sidste_art": "", "sidste_dato": ""}
+        clean_rows = [row for row in rows if isinstance(row, dict) and row.get("artnavn")]
+        if not clean_rows:
+            return {"antal_arter": 0, "sidste_art": "", "sidste_dato": ""}
+        latest = max(clean_rows, key=lambda row: _parse_ddmmyyyy(row.get("dato")))
+        return {
+            "antal_arter": len(clean_rows),
+            "sidste_art": latest.get("artnavn", ""),
+            "sidste_dato": latest.get("dato", ""),
+        }
 
     result = {}
 
@@ -2864,6 +3087,30 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
             gruppeinfo["matrikel"] = None
         result["grupper"].append(gruppeinfo)
 
+    # Matrikel 2 (privat, ingen scoreboard)
+    try:
+        user_dir = get_user_dir(aar, obserkode)
+        matrikel2_rows = _load_json(os.path.join(user_dir, "matrikel2arter.json")) or []
+        periods_payload = []
+        async with SessionLocal() as dbsession:
+            user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+            periods_payload = (_load_user_matrikel_periods(user) or {}).get("matrikel2") or []
+        latest_period_name = ""
+        if periods_payload:
+            latest_period_name = periods_payload[-1].get("name") or ""
+        result["matrikel2"] = {
+            **list_summary(matrikel2_rows),
+            "navn": latest_period_name,
+        }
+    except Exception as error:
+        print("[DEBUG] matrikel2 fejl:", error)
+        result["matrikel2"] = {
+            "antal_arter": 0,
+            "sidste_art": "",
+            "sidste_dato": "",
+            "navn": "",
+        }
+
     print("[DEBUG] Endeligt resultat:", result)
     return result
 
@@ -2955,6 +3202,10 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
 async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Request = None):
     lokalafdeling = data.get("lokalafdeling")
     kommune = data.get("kommune")
+    has_m1 = "matrikel1_perioder" in data
+    has_m2 = "matrikel2_perioder" in data
+    matrikel1_perioder = _normalize_matrikel_periods(data.get("matrikel1_perioder") or []) if has_m1 else None
+    matrikel2_perioder = _normalize_matrikel_periods(data.get("matrikel2_perioder") or []) if has_m2 else None
     if not request:
         raise HTTPException(status_code=401, detail="Ikke logget ind")
     web_session = request.session
@@ -2967,6 +3218,10 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
         user.lokalafdeling = lokalafdeling
         user.kommune = kommune
+        if has_m1:
+            user.matrikel1_perioder = json.dumps(matrikel1_perioder or [], ensure_ascii=False)
+        if has_m2:
+            user.matrikel2_perioder = json.dumps(matrikel2_perioder or [], ensure_ascii=False)
         await dbsession.commit()
     web_session["lokalafdeling"] = lokalafdeling
     web_session["kommune"] = kommune
@@ -3237,6 +3492,21 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
     else:
         _, _, OBSER_DIR = get_data_dirs(aar)
     rows = []
+    trend_points: Dict[str, List[Dict[str, Any]]] = {}
+
+    if str(aar) == "global":
+        range_start = datetime.date.min
+        range_end = datetime.date.max
+        trend_year = datetime.datetime.now().year
+    else:
+        year_value = int(aar)
+        range_start = datetime.date(year_value, 1, 1)
+        range_end = datetime.date(year_value, 12, 31)
+        trend_year = year_value
+
+    global_filter_value = await get_global_filter()
+    matrikel1_tag = resolve_matrikel_tags(global_filter_value, trend_year).get("matrikel1")
+
     async with SessionLocal() as session:
         users = (await session.execute(select(User).where(User.obserkode.in_(koder)))).scalars().all()
     # --- Matrix-data ---
@@ -3248,6 +3518,55 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
         elif scope == "gruppe_matrikel":
             L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
+
+            user_periods = (_load_user_matrikel_periods(u) or {}).get("matrikel1") or []
+            relevant_periods = [
+                period for period in user_periods
+                if _period_overlaps_range(period, range_start, range_end)
+            ]
+            relevant_periods.sort(key=lambda period: period.get("start_date") or "")
+
+            if matrikel1_tag and relevant_periods:
+                async with SessionLocal() as dbsession:
+                    obs_query = select(Observation).where(Observation.obserkode == u.obserkode)
+                    if str(aar) != "global":
+                        obs_query = obs_query.where(
+                            Observation.dato >= range_start,
+                            Observation.dato <= range_end,
+                        )
+                    obs_rows = (await dbsession.execute(obs_query)).scalars().all()
+
+                points: List[Dict[str, Any]] = []
+                for period in relevant_periods:
+                    period_start = _parse_iso_date(period.get("start_date"))
+                    if not period_start:
+                        continue
+                    period_end = _parse_iso_date(period.get("end_date")) or datetime.date.max
+                    points.append({"dato": period_start.strftime("%d-%m-%Y"), "count": 0})
+
+                    firsts_by_art: Dict[str, datetime.date] = {}
+                    for obs_row in obs_rows:
+                        if not obs_row.dato:
+                            continue
+                        if obs_row.dato < period_start or obs_row.dato > period_end:
+                            continue
+                        if matrikel1_tag not in (obs_row.turnoter or ""):
+                            continue
+                        art_name = _normalize_base_art_name(obs_row.artnavn)
+                        if not art_name or "sp." in art_name or "/" in art_name or " x " in art_name:
+                            continue
+                        key = art_name.casefold()
+                        previous = firsts_by_art.get(key)
+                        if previous is None or obs_row.dato < previous:
+                            firsts_by_art[key] = obs_row.dato
+
+                    running = 0
+                    for first_date in sorted(firsts_by_art.values()):
+                        running += 1
+                        points.append({"dato": first_date.strftime("%d-%m-%Y"), "count": running})
+
+                if points:
+                    trend_points[u.obserkode] = points
         else:
             return JSONResponse({"ok": False, "msg": "Ukendt scope"}, status_code=400)
         # Scoreboard-row
@@ -3319,7 +3638,8 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
         "matrix": matrix,
         "totals": totals,
         "tid_brugt": tid_brugt,
-        "antal_observationer": antal_observationer
+        "antal_observationer": antal_observationer,
+        "trend_points": trend_points,
     }
 
 # ---------------------------------------------------------
@@ -3501,10 +3821,23 @@ async def admin_update_user(payload: Dict[str, Any] = Body(...), admin: bool = D
 # ---------------------------------------------------------
 #  Startup
 # ---------------------------------------------------------
+async def ensure_user_optional_columns():
+    statements = [
+        "ALTER TABLE users ADD COLUMN matrikel1_perioder TEXT",
+        "ALTER TABLE users ADD COLUMN matrikel2_perioder TEXT",
+    ]
+    async with engine.begin() as conn:
+        for sql in statements:
+            try:
+                await conn.execute(text(sql))
+            except Exception:
+                pass
+
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await ensure_user_optional_columns()
     print("[START] DB klar. Static peger på:", WEB_DIR)
     asyncio.create_task(schedule_daily_kommune_sync())
     asyncio.create_task(schedule_daily_year_sync())

@@ -1,4 +1,4 @@
-// Version: 1.10.35 - 2026-03-02 16.10.00
+// Version: 1.11.0 - 2026-03-02 16.34.43
 // © Christian Vemmelund Helligsø
 
 
@@ -179,7 +179,10 @@ async function visSide() {
              (Array.isArray(data.rows) ? data.rows.map(r => r.obserkode) : []),
       matrix: Array.isArray(data.matrix) ? data.matrix.map(r => [...r]) : [],
       totals: Array.isArray(data.totals) ? [...data.totals] : [],
-      arter: Array.isArray(data.arter) ? [...data.arter] : []
+      arter: Array.isArray(data.arter) ? [...data.arter] : [],
+      trend_points: data && typeof data.trend_points === 'object' && data.trend_points !== null
+        ? JSON.parse(JSON.stringify(data.trend_points))
+        : {}
     };
 
     // Titel
@@ -637,6 +640,81 @@ function visScoreboardTrend(data) {
   const trendDiv = document.getElementById('scoreboard-trend');
   if (!trendDiv) return;
 
+  const trendPoints = data && typeof data.trend_points === 'object' && data.trend_points !== null
+    ? data.trend_points
+    : null;
+  const koderFromRows = Array.isArray(data.rows) ? data.rows.map(row => row.obserkode) : [];
+
+  if (trendPoints && Object.keys(trendPoints).length) {
+    const sortedKoder = sortKoderByPlacering(data);
+    const koder = sortedKoder.length ? sortedKoder : koderFromRows;
+    const allDates = new Set();
+    koder.forEach(kode => {
+      const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
+      points.forEach(point => {
+        if (point && point.dato) allDates.add(point.dato);
+      });
+    });
+
+    const sortedDates = Array.from(allDates).sort((left, right) => {
+      const [leftDay, leftMonth, leftYear] = left.split('-');
+      const [rightDay, rightMonth, rightYear] = right.split('-');
+      return new Date(`${leftYear}-${leftMonth}-${leftDay}`) - new Date(`${rightYear}-${rightMonth}-${rightDay}`);
+    });
+
+    if (!sortedDates.length || !koder.length) {
+      trendDiv.innerHTML = "";
+      return;
+    }
+
+    const datasets = koder.map((kode, index) => {
+      const rawPoints = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
+      const points = [...rawPoints].sort((left, right) => {
+        const [leftDay, leftMonth, leftYear] = String(left?.dato || '').split('-');
+        const [rightDay, rightMonth, rightYear] = String(right?.dato || '').split('-');
+        return new Date(`${leftYear}-${leftMonth}-${leftDay}`) - new Date(`${rightYear}-${rightMonth}-${rightDay}`);
+      });
+
+      const countsByDate = {};
+      points.forEach(point => {
+        if (!point?.dato) return;
+        countsByDate[point.dato] = Number(point.count || 0);
+      });
+
+      let current = 0;
+      const values = sortedDates.map(dateValue => {
+        if (Object.prototype.hasOwnProperty.call(countsByDate, dateValue)) {
+          current = countsByDate[dateValue];
+        }
+        return current;
+      });
+
+      return {
+        label: kode,
+        data: values,
+        borderColor: `hsl(${index * 60},70%,50%)`,
+        fill: false,
+        tension: 0
+      };
+    });
+
+    trendDiv.innerHTML = `<h3>Udvikling i sete arter</h3><canvas id="trendChart" height="200"></canvas>`;
+    if (typeof Chart !== "undefined") {
+      new Chart(document.getElementById('trendChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: sortedDates, datasets },
+        options: {
+          plugins: { legend: { display: true } },
+          scales: {
+            x: { title: { display: true, text: 'Dato' } },
+            y: { title: { display: true, text: 'Antal arter' }, beginAtZero: true }
+          }
+        }
+      });
+    }
+    return;
+  }
+
   const matrix = Array.isArray(data.matrix) ? data.matrix : [];
   const koder = Array.isArray(data.koder) ? data.koder : [];
   const arter = Array.isArray(data.arter) ? data.arter : [];
@@ -744,12 +822,22 @@ function buildFilteredData(selectedKoder) {
   const matrix = (masterData.matrix || []).map(r => colIdxs.map(idx => r[idx]));
   const totals = colIdxs.map(idx => (masterData.totals ? masterData.totals[idx] : null));
 
+  const trendPoints = {};
+  if (masterData.trend_points && typeof masterData.trend_points === 'object') {
+    koder.forEach(kode => {
+      if (Array.isArray(masterData.trend_points[kode])) {
+        trendPoints[kode] = [...masterData.trend_points[kode]];
+      }
+    });
+  }
+
   return {
     arter: masterData.arter ? [...masterData.arter] : [],
     rows,
     koder,
     matrix,
-    totals
+    totals,
+    trend_points: trendPoints
   };
 }
 

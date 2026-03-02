@@ -1,4 +1,4 @@
-// Version: 1.10.35 - 2026-03-02 16.10.00
+// Version: 1.11.0 - 2026-03-02 16.34.43
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -196,6 +196,23 @@ export async function hentStats() {
       </div>
       <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
         Seneste art: <span style="font-weight:500;">${data.kommune_alle?.sidste_art ?? '-'}</span> (${data.kommune_alle?.sidste_dato ?? '-'})
+      </div>
+    </div>
+    `;
+  }
+
+  if (data.matrikel2 && Number(data.matrikel2.antal_arter || 0) > 0) {
+    const matrikel2Navn = data.matrikel2.navn || 'Matrikel 2';
+    html += `
+    <div class="card obserkode-card" style="padding:1.2em 1em;width:100%;margin-top:1.5em;">
+      <div style="font-weight:bold;font-size:1.15em;margin-bottom:0.5em;display:flex;align-items:baseline;gap:0.4em;">
+        <span style="font-size:1.3em;">🏡</span> ${matrikel2Navn}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div>Arter: <b>${data.matrikel2.antal_arter ?? '-'}</b></div>
+      </div>
+      <div style="color:var(--text-muted);font-size:0.98em;margin-top:0.3em;">
+        Seneste art: <span style="font-weight:500;">${data.matrikel2.sidste_art || '-'}</span> (${data.matrikel2.sidste_dato || '-'})
       </div>
     </div>
     `;

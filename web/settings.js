@@ -1,4 +1,4 @@
-// Version: 1.10.35 - 2026-03-02 16.10.00
+// Version: 1.11.0 - 2026-03-02 16.34.43
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -13,6 +13,145 @@ fetch('/api/get_grupper')
   });
 
 document.addEventListener('DOMContentLoaded', () => {
+  const matrikelState = {
+    matrikel1_perioder: [],
+    matrikel2_perioder: []
+  };
+  let saveTimer = null;
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function normalizePeriods(periods) {
+    return (Array.isArray(periods) ? periods : [])
+      .map(period => ({
+        name: String(period?.name || "").trim(),
+        start_date: String(period?.start_date || "").trim(),
+        end_date: String(period?.end_date || "").trim()
+      }))
+      .map(period => ({
+        ...period,
+        end_date: period.end_date || null
+      }));
+  }
+
+  function readMatrikelRows(matrikelKey) {
+    const container = document.getElementById(`rows-${matrikelKey}`);
+    if (!container) return [];
+    const rows = Array.from(container.querySelectorAll('.matrikel-row'));
+    return rows.map(row => ({
+      name: row.querySelector('.matrikel-name')?.value?.trim() || "",
+      start_date: row.querySelector('.matrikel-start')?.value || "",
+      end_date: row.querySelector('.matrikel-end')?.value || null
+    }));
+  }
+
+  function scheduleSave(delayMs = 350) {
+    if (saveTimer) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => {
+      saveAllPrefs();
+    }, delayMs);
+  }
+
+  function renderMatrikelEditor() {
+    const wrap = document.getElementById('matrikelSettings');
+    if (!wrap) return;
+
+    const renderSection = (key, title, helperText) => {
+      const periods = matrikelState[key] || [];
+      const rowsHtml = periods.map((period, index) => `
+        <div class="matrikel-row" data-index="${index}" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.45em;margin-bottom:0.5em;align-items:center;">
+          <input class="matrikel-name" type="text" placeholder="Navn/adresse" value="${escapeHtml(period.name || '')}">
+          <input class="matrikel-start" type="date" value="${escapeHtml(period.start_date || '')}">
+          <input class="matrikel-end" type="date" value="${escapeHtml(period.end_date || '')}">
+          <button type="button" class="matrikel-remove" data-key="${key}" data-index="${index}" title="Fjern">✕</button>
+        </div>
+      `).join('');
+
+      return `
+        <div style="margin-top:1.15em;padding:0.85em;border:1px solid #e0e0e0;border-radius:10px;">
+          <div style="font-weight:700;margin-bottom:0.3em;">${title}</div>
+          <div style="font-size:0.9em;margin-bottom:0.65em;">${helperText}</div>
+          <div id="rows-${key}">${rowsHtml}</div>
+          <button type="button" class="matrikel-add" data-key="${key}">Tilføj periode</button>
+        </div>
+      `;
+    };
+
+    wrap.innerHTML = `
+      <h3 style="margin:0.2em 0 0.5em 0;">Matrikler</h3>
+      <div style="font-size:0.93em;margin-bottom:0.5em;">Matrikel 1 bruger grundtagget (fx #BB26). Matrikel 2 bruger tag + <b>-2</b> (fx #BB26-2).</div>
+      ${renderSection('matrikel1_perioder', 'Matrikel 1 (scoreboards)', 'Bruges i grupper/ranglister. Ny periode nulstiller aktiv progress.')}
+      ${renderSection('matrikel2_perioder', 'Matrikel 2 (privat)', 'Vises kun for dig på forsiden.')}
+    `;
+
+    wrap.querySelectorAll('.matrikel-add').forEach(button => {
+      button.addEventListener('click', () => {
+        const key = button.getAttribute('data-key');
+        const today = new Date().toISOString().slice(0, 10);
+        const existing = normalizePeriods(readMatrikelRows(key));
+        existing.push({ name: '', start_date: today, end_date: null });
+        matrikelState[key] = existing;
+        renderMatrikelEditor();
+      });
+    });
+
+    wrap.querySelectorAll('.matrikel-remove').forEach(button => {
+      button.addEventListener('click', () => {
+        const key = button.getAttribute('data-key');
+        const index = Number(button.getAttribute('data-index'));
+        const existing = normalizePeriods(readMatrikelRows(key));
+        matrikelState[key] = existing.filter((_, rowIndex) => rowIndex !== index);
+        renderMatrikelEditor();
+        scheduleSave(150);
+      });
+    });
+
+    wrap.querySelectorAll('.matrikel-name, .matrikel-start, .matrikel-end').forEach(input => {
+      input.addEventListener('change', () => {
+        ['matrikel1_perioder', 'matrikel2_perioder'].forEach(key => {
+          matrikelState[key] = normalizePeriods(readMatrikelRows(key));
+        });
+        scheduleSave();
+      });
+    });
+  }
+
+  async function saveAllPrefs() {
+    const lokalafdelingInput = document.getElementById('lokalafdeling');
+    const kommuneInput = document.getElementById('kommune');
+    ['matrikel1_perioder', 'matrikel2_perioder'].forEach(key => {
+      matrikelState[key] = normalizePeriods(readMatrikelRows(key));
+    });
+
+    const status = document.getElementById('matrikelSaveStatus');
+    if (status) status.textContent = 'Gemmer...';
+
+    try {
+      const response = await fetch('/api/set_afdeling', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lokalafdeling: lokalafdelingInput ? lokalafdelingInput.value : '',
+          kommune: kommuneInput ? kommuneInput.value : '',
+          matrikel1_perioder: matrikelState.matrikel1_perioder,
+          matrikel2_perioder: matrikelState.matrikel2_perioder
+        })
+      });
+      if (!response.ok) throw new Error('Kunne ikke gemme indstillinger');
+      if (status) status.textContent = 'Gemt';
+    } catch (error) {
+      if (status) status.textContent = 'Fejl ved gemning';
+      console.error(error);
+    }
+  }
+
   const fullSyncBtn = document.getElementById('fullSyncBtn');
   const fullSyncStatus = document.getElementById('fullSyncStatus');
   if (fullSyncBtn) {
@@ -70,6 +209,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.kommune && document.getElementById('kommune')) {
         document.getElementById('kommune').value = data.kommune;
       }
+      matrikelState.matrikel1_perioder = normalizePeriods(data.matrikel1_perioder || []);
+      matrikelState.matrikel2_perioder = normalizePeriods(data.matrikel2_perioder || []);
+      renderMatrikelEditor();
     });
 
   // --------- Gruppefunktionalitet ---------
@@ -258,22 +400,25 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.kommune && document.getElementById('kommune')) {
             document.getElementById('kommune').value = data.kommune;
           }
+          matrikelState.matrikel1_perioder = normalizePeriods(data.matrikel1_perioder || []);
+          matrikelState.matrikel2_perioder = normalizePeriods(data.matrikel2_perioder || []);
+          renderMatrikelEditor();
         });
 
       // GEM VED ÆNDRING
       const lokalafdelingInput = document.getElementById('lokalafdeling');
       const kommuneInput = document.getElementById('kommune');
+      const afdelingFormEl = document.getElementById('afdelingForm');
       function gemAfdelingKommune() {
-        fetch('/api/set_afdeling', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            lokalafdeling: lokalafdelingInput.value,
-            kommune: kommuneInput.value
-          })
-        });
+        saveAllPrefs();
       }
       if (lokalafdelingInput) lokalafdelingInput.addEventListener('change', gemAfdelingKommune);
       if (kommuneInput) kommuneInput.addEventListener('change', gemAfdelingKommune);
+      if (afdelingFormEl) {
+        afdelingFormEl.addEventListener('submit', (event) => {
+          event.preventDefault();
+          saveAllPrefs();
+        });
+      }
     });
 });
