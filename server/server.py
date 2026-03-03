@@ -210,7 +210,7 @@ def _set_user_sync_status(obserkode: str, state: str, msg: str = "", aar: Option
 
 async def _run_user_year_sync(obserkode: str, aar: int, sync_id: Optional[str] = None):
     try:
-        await fetch_and_store(obserkode, aar)
+        await fetch_and_store(obserkode, aar, sync_id=sync_id)
         _set_user_sync_status(obserkode, "done", f"Synkronisering gennemført for {obserkode} ({aar})", aar, sync_id)
     except Exception as error:
         print(f"[SYNC] Fejl i baggrundssync for {obserkode} ({aar}): {error}")
@@ -1841,7 +1841,7 @@ async def generate_global_scoreboards_all_time():
 #  DOFbasen sync (CSV -> DB -> lister -> scoreboards)
 # ---------------------------------------------------------
 
-async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
+async def fetch_and_store(obserkode: str, aar: Optional[int] = None, sync_id: Optional[str] = None):
     """
     Henter observationer fra DOFbasen (CSV), indsætter ALLE rækker i DB for det angivne år,
     og bygger derefter per-bruger lister + scoreboards for det år.
@@ -1894,6 +1894,14 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
         print(f"[ERROR] Ingen data til {obserkode}/{aar}. Skriver tomme lister.")
         await generate_user_lists(obserkode, aar)
         await generate_scoreboards_from_lists(aar)
+        if sync_id:
+            _set_user_sync_status(
+                obserkode,
+                "scoreboards_ready",
+                f"Scoreboards opdateret for {obserkode} ({aar})",
+                aar,
+                sync_id,
+            )
         await generate_user_global_lists(obserkode)
         await generate_global_scoreboards_all_time()
         return
@@ -1976,6 +1984,14 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None):
     # 7) Generér lister og scoreboards kun for det valgte år
     await generate_user_lists(obserkode, aar)
     await generate_scoreboards_from_lists(aar)
+    if sync_id:
+        _set_user_sync_status(
+            obserkode,
+            "scoreboards_ready",
+            f"Scoreboards opdateret for {obserkode} ({aar})",
+            aar,
+            sync_id,
+        )
     await generate_user_global_lists(obserkode)
     await generate_global_scoreboards_all_time()
 
