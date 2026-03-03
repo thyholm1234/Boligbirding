@@ -1,4 +1,4 @@
-// Version: 1.12.26 - 2026-03-03 02.19.09
+// Version: 1.12.27 - 2026-03-03 02.22.01
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -211,7 +211,6 @@ export function renderNavbar() {
           <button class="nav-link" type="button">Profil</button>
           <div class="dropdown-content" style="padding:10px;">
             ${linkHTML('/statistik.html', 'Statistik')}
-            ${linkHTML('/observationer.html', 'Observationer')}
             ${linkHTML('/settings.html', 'Indstillinger')}
           </div>
         </div>
