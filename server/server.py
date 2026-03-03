@@ -195,26 +195,6 @@ def ensure_obserkode_access(request: Request, obserkode: str):
 
 _sync_rate_limit_last_call: Dict[str, float] = {}
 _admin_login_last_call: Dict[str, float] = {}
-_user_sync_status: Dict[str, Dict[str, Any]] = {}
-
-def _set_user_sync_status(obserkode: str, state: str, msg: str = "", aar: Optional[int] = None, sync_id: Optional[str] = None):
-    previous = _user_sync_status.get(obserkode, {})
-    effective_sync_id = sync_id or previous.get("sync_id")
-    _user_sync_status[obserkode] = {
-        "state": state,
-        "msg": msg,
-        "aar": aar,
-        "sync_id": effective_sync_id,
-        "updated_at": datetime.datetime.now().isoformat(timespec="seconds"),
-    }
-
-async def _run_user_year_sync(obserkode: str, aar: int, sync_id: Optional[str] = None):
-    try:
-        await fetch_and_store(obserkode, aar, sync_id=sync_id)
-        _set_user_sync_status(obserkode, "done", f"Synkronisering gennemført for {obserkode} ({aar})", aar, sync_id)
-    except Exception as error:
-        print(f"[SYNC] Fejl i baggrundssync for {obserkode} ({aar}): {error}")
-        _set_user_sync_status(obserkode, "error", f"Fejl under synkronisering: {error}", aar, sync_id)
 
 def _client_host(request: Request) -> str:
     if request.client and request.client.host:
@@ -1841,7 +1821,11 @@ async def generate_global_scoreboards_all_time():
 #  DOFbasen sync (CSV -> DB -> lister -> scoreboards)
 # ---------------------------------------------------------
 
-async def fetch_and_store(obserkode: str, aar: Optional[int] = None, sync_id: Optional[str] = None):
+async def fetch_and_store(
+    obserkode: str,
+    aar: Optional[int] = None,
+    include_global_rebuild: bool = True,
+):
     """
     Henter observationer fra DOFbasen (CSV), indsætter ALLE rækker i DB for det angivne år,
     og bygger derefter per-bruger lister + scoreboards for det år.
@@ -1894,16 +1878,9 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None, sync_id: Op
         print(f"[ERROR] Ingen data til {obserkode}/{aar}. Skriver tomme lister.")
         await generate_user_lists(obserkode, aar)
         await generate_scoreboards_from_lists(aar)
-        if sync_id:
-            _set_user_sync_status(
-                obserkode,
-                "scoreboards_ready",
-                f"Scoreboards opdateret for {obserkode} ({aar})",
-                aar,
-                sync_id,
-            )
-        await generate_user_global_lists(obserkode)
-        await generate_global_scoreboards_all_time()
+        if include_global_rebuild:
+            await generate_user_global_lists(obserkode)
+            await generate_global_scoreboards_all_time()
         return
 
     # 5) (INFO) Vis hvad admin-filter ville give—men ANVEND DET IKKE på CSV -> DB
@@ -1984,16 +1961,9 @@ async def fetch_and_store(obserkode: str, aar: Optional[int] = None, sync_id: Op
     # 7) Generér lister og scoreboards kun for det valgte år
     await generate_user_lists(obserkode, aar)
     await generate_scoreboards_from_lists(aar)
-    if sync_id:
-        _set_user_sync_status(
-            obserkode,
-            "scoreboards_ready",
-            f"Scoreboards opdateret for {obserkode} ({aar})",
-            aar,
-            sync_id,
-        )
-    await generate_user_global_lists(obserkode)
-    await generate_global_scoreboards_all_time()
+    if include_global_rebuild:
+        await generate_user_global_lists(obserkode)
+        await generate_global_scoreboards_all_time()
 
 async def fetch_and_store_sites_for_kommune(kommune_id: int, kommune_name: Optional[str] = None):
     url = f"https://statistik.dofbasen.dk/sites/group_{kommune_id}.json"
@@ -3290,7 +3260,7 @@ async def admin_rebuild_scoreboards_from_db(request: Request):
     }
 
 @app.post("/api/sync_mine_observationer")
-async def sync_mine_observationer(request: Request, aar: Optional[int] = None, background_tasks: BackgroundTasks = None):
+async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     """
     Synkroniserer observationer for den aktuelle bruger (kræver login).
     """
@@ -3301,25 +3271,13 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None, b
     enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
-    sync_id = secrets.token_hex(8)
-    _set_user_sync_status(obserkode, "running", f"Synkroniserer {obserkode} ({aar})...", aar, sync_id)
-    if background_tasks is not None:
-        background_tasks.add_task(_run_user_year_sync, obserkode, aar, sync_id)
-    else:
-        asyncio.create_task(_run_user_year_sync(obserkode, aar, sync_id))
-    return {"ok": True, "msg": f"Synkronisering startet for {obserkode} ({aar})", "aar": aar, "sync_id": sync_id}
-
-@app.get("/api/sync_mine_status")
-async def sync_mine_status(request: Request):
-    session = request.session
-    obserkode = session.get("obserkode")
-    if not obserkode:
-        raise HTTPException(status_code=401, detail="Ikke logget ind")
-
-    status = _user_sync_status.get(obserkode)
-    if not status:
-        return {"ok": True, "state": "idle", "msg": "Ingen aktiv synkronisering"}
-    return {"ok": True, **status}
+    await fetch_and_store(obserkode, aar, include_global_rebuild=False)
+    return {
+        "ok": True,
+        "state": "done",
+        "aar": aar,
+        "msg": f"Synkronisering og scoreboards gennemført for {obserkode} ({aar})"
+    }
 
 @app.post("/api/full_sync_me")
 async def full_sync_me(request: Request):
