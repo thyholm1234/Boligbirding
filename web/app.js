@@ -1,4 +1,4 @@
-// Version: 1.12.21 - 2026-03-03 01.51.37
+// Version: 1.12.22 - 2026-03-03 01.57.47
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -33,21 +33,29 @@ const syncBtn = document.getElementById('sync-btn');
 if (syncBtn) {
   syncBtn.onclick = async function() {
     const btn = this;
+    let syncCompleted = false;
     btn.disabled = true;
     btn.textContent = "Synkroniserer...";
     try {
       const res = await fetch('/api/sync_mine_observationer', { method: 'POST', credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
-        btn.textContent = "✅ Synkroniseret!";
-        await hentStats();
+        syncCompleted = true;
+        btn.textContent = "✅ Færdig!";
+        try {
+          await hentStats();
+        } catch (_) {
+          // Sync er gennemført; ignorér evt. fejl ved efterfølgende refresh
+        }
       } else {
         btn.textContent = "Fejl i sync";
-        alert(data.msg || "Der opstod en fejl under synkronisering.");
+        alert(data.msg || data.detail || "Der opstod en fejl under synkronisering.");
       }
     } catch (e) {
-      btn.textContent = "Fejl i sync";
-      alert("Der opstod en fejl under synkronisering.");
+      if (!syncCompleted) {
+        btn.textContent = "Fejl i sync";
+        alert("Der opstod en fejl under synkronisering.");
+      }
     }
     setTimeout(() => {
       btn.textContent = "🔄 Synkronisér observationer";
