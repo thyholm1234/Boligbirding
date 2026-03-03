@@ -1,4 +1,4 @@
-// Version: 1.12.12 - 2026-03-03 01.08.18
+// Version: 1.12.13 - 2026-03-03 01.12.55
 // © Christian Vemmelund Helligsø
 
 
@@ -1189,7 +1189,7 @@ function visScoreboardTrend(data) {
   const today = new Date();
   const selectedAarRaw = String(data?.scope_year || '');
 
-  const getDailyAxisLabels = (rawDmyDates) => {
+  const getDailyAxisLabels = (rawDmyDates, firstPositiveGlobalDate = null) => {
     const validDates = (rawDmyDates || [])
       .map(parseDmyToDate)
       .filter(Boolean)
@@ -1205,7 +1205,9 @@ function visScoreboardTrend(data) {
       const selectedYearEnd = new Date(selectedYear, 11, 31);
       endDate = selectedYear < today.getFullYear() ? selectedYearEnd : today;
     } else if (selectedAarRaw === 'global') {
-      startDate = new Date(startDate.getTime());
+      startDate = firstPositiveGlobalDate
+        ? new Date(firstPositiveGlobalDate.getTime())
+        : new Date(startDate.getTime());
       startDate.setDate(startDate.getDate() - 1);
     }
 
@@ -1225,12 +1227,28 @@ function visScoreboardTrend(data) {
   if (trendPoints && Object.keys(trendPoints).length) {
     const sortedKoder = sortKoderByPlacering(data);
     const koder = sortedKoder.length ? sortedKoder : koderFromRows;
+
+    let firstPositiveGlobalDate = null;
+    if (selectedAarRaw === 'global') {
+      koder.forEach(kode => {
+        const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
+        points.forEach(point => {
+          if (!point?.dato) return;
+          if (Number(point.count || 0) < 1) return;
+          const pointDate = parseDmyToDate(point.dato);
+          if (!pointDate) return;
+          if (!firstPositiveGlobalDate || pointDate < firstPositiveGlobalDate) {
+            firstPositiveGlobalDate = pointDate;
+          }
+        });
+      });
+    }
+
     const allDates = new Set();
     koder.forEach(kode => {
       const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
       points.forEach(point => {
         if (!point || !point.dato) return;
-        if (selectedAarRaw === 'global' && Number(point.count || 0) < 1) return;
         allDates.add(point.dato);
       });
     });
@@ -1243,7 +1261,7 @@ function visScoreboardTrend(data) {
       }
     }
 
-    const sortedDates = getDailyAxisLabels(Array.from(allDates));
+    const sortedDates = getDailyAxisLabels(Array.from(allDates), firstPositiveGlobalDate);
 
     if (!sortedDates.length || !koder.length) {
       trendDiv.innerHTML = "";
