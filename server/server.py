@@ -2400,6 +2400,12 @@ async def admin_logout(request: Request):
     session.clear()
     return {"ok": True}
 
+@app.post("/api/logout")
+async def logout(request: Request):
+    session = request.session
+    session.clear()
+    return {"ok": True}
+
 @app.get("/api/obser_is_admin")
 async def obser_is_admin(request: Request):
     """
@@ -3976,7 +3982,14 @@ async def delete_my_account(request: Request):
     changed = False
     for gruppe in grupper:
         medlemmer = gruppe.get("obserkoder", [])
-        nye_medlemmer = [kode for kode in medlemmer if kode != safe_kode]
+        nye_medlemmer = []
+        for kode in medlemmer:
+            try:
+                normalized_member = normalize_obserkode(kode)
+            except Exception:
+                normalized_member = str(kode or "").strip().upper()
+            if normalized_member != safe_kode:
+                nye_medlemmer.append(kode)
         if len(nye_medlemmer) != len(medlemmer):
             gruppe["obserkoder"] = nye_medlemmer
             changed = True

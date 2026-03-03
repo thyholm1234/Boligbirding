@@ -1,4 +1,4 @@
-<!-- Version: 1.12.32 - 2026-03-03 13.40.21 -->
+<!-- Version: 1.12.33 - 2026-03-03 13.41.12 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Indstillinger</title>
-  <link rel="stylesheet" href="style.css?v=1.12.32">
+  <link rel="stylesheet" href="style.css?v=1.12.33">
 </head>
 <body>
   <div style="max-width:340px;margin:60px auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
@@ -15,6 +15,10 @@
     <div style="margin:0 0 1.25em 0;">
       <button id="fullSyncBtn" type="button" style="width:100%;">Kør fuld synkronisering</button>
       <div id="fullSyncStatus" style="margin-top:0.6em;font-size:0.95em;"></div>
+    </div>
+    <div style="margin:0 0 1.25em 0;">
+      <button id="logoutBtn" type="button" style="width:100%;">Log ud</button>
+      <div id="logoutStatus" style="margin-top:0.6em;font-size:0.95em;"></div>
     </div>
     <form id="afdelingForm">
       <label for="lokalafdeling" style="font-weight:bold;">Primær lokalafdeling:</label>
@@ -59,6 +63,6 @@
   <div id="grupper"></div>
 </div>
 
-<script type="module" src="settings.js?v=1.12.32"></script>
+<script type="module" src="settings.js?v=1.12.33"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// Version: 1.12.32 - 2026-03-03 13.40.21
+// Version: 1.12.33 - 2026-03-03 13.41.12
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -415,6 +415,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } finally {
         fullSyncBtn.disabled = false;
+      }
+    });
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  const logoutStatus = document.getElementById('logoutStatus');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      logoutBtn.disabled = true;
+      if (logoutStatus) logoutStatus.textContent = 'Logger ud...';
+      try {
+        const res = await fetch('/api/logout', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.detail || data.msg || 'Kunne ikke logge ud');
+        }
+        window.location.href = '/login.html';
+      } catch (error) {
+        if (logoutStatus) logoutStatus.textContent = `Fejl: ${error.message || error}`;
+        logoutBtn.disabled = false;
       }
     });
   }
