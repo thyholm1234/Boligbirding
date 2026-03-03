@@ -1,4 +1,4 @@
-<!-- Version: 1.12.19 - 2026-03-03 01.46.36 -->
+<!-- Version: 1.12.20 - 2026-03-03 01.49.57 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,25 +6,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Statistik</title>
-  <link rel="stylesheet" href="style.css?v=1.12.19">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.19"></script>
+  <link rel="stylesheet" href="style.css?v=1.12.20">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.20"></script>
 </head>
 <body>
   <div id="statistics-content">
     <h1>Statistik</h1>
     
-    <div id="search-container" class="card" style="margin-bottom: 1.5em; padding: 1em;">
-      <div style="display: flex; gap: 0.5em; align-items: center;">
-        <input type="text" id="obserkode-input" placeholder="Søg efter observatør..." style="flex: 1; padding: 0.5em; border: 1px solid var(--border); border-radius: 0.25em;">
-        <button id="search-btn" style="padding: 0.5em 1em; background: var(--primary); color: white; border: none; border-radius: 0.25em; cursor: pointer;">Søg</button>
+    <div id="search-container" class="stats-search-grid">
+      <div class="stats-search-item">
+        <input type="text" id="obserkode-input" class="stats-search-input" placeholder="Søg efter observatør...">
       </div>
-      <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.75em;">
-        <input type="text" id="compare-obserkode-input" placeholder="Sammenlign med obserkode..." style="flex: 1; padding: 0.5em; border: 1px solid var(--border); border-radius: 0.25em;">
-        <button id="compare-btn" style="padding: 0.5em 1em;">Sammenlign</button>
-        <button id="clear-compare-btn" style="padding: 0.5em 1em;">Fjern</button>
+      <div class="stats-search-item">
+        <button id="search-btn" class="stats-search-btn">Søg</button>
       </div>
-      <div id="compare-status" class="muted" style="margin-top: 0.5em;"></div>
+      <div class="stats-search-item">
+        <input type="text" id="compare-obserkode-input" class="stats-search-input" placeholder="Sammenlign med obserkode...">
+      </div>
+      <div class="stats-search-item">
+        <button id="compare-btn" class="stats-search-btn">Sammenlign</button>
+      </div>
+      <div class="stats-search-item">
+        <button id="clear-compare-btn" class="stats-search-btn">Fjern</button>
+      </div>
     </div>
+    <div id="compare-status" class="muted stats-search-status"></div>
 
     <div id="profile-header" class="card profile-card"></div>
 
@@ -80,6 +86,6 @@
   </div>
   </div>
 
-  <script type="module" src="./statistik.js?v=1.12.19"></script>
+  <script type="module" src="./statistik.js?v=1.12.20"></script>
 </body>
 </html>
