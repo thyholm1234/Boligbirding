@@ -1,4 +1,4 @@
-// Version: 1.12.11 - 2026-03-03 01.06.39
+// Version: 1.12.12 - 2026-03-03 01.08.18
 // © Christian Vemmelund Helligsø
 
 
@@ -1204,6 +1204,9 @@ function visScoreboardTrend(data) {
       startDate = new Date(selectedYear, 0, 1);
       const selectedYearEnd = new Date(selectedYear, 11, 31);
       endDate = selectedYear < today.getFullYear() ? selectedYearEnd : today;
+    } else if (selectedAarRaw === 'global') {
+      startDate = new Date(startDate.getTime());
+      startDate.setDate(startDate.getDate() - 1);
     }
 
     if (startDate > endDate) return [];
@@ -1226,7 +1229,9 @@ function visScoreboardTrend(data) {
     koder.forEach(kode => {
       const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
       points.forEach(point => {
-        if (point && point.dato) allDates.add(point.dato);
+        if (!point || !point.dato) return;
+        if (selectedAarRaw === 'global' && Number(point.count || 0) < 1) return;
+        allDates.add(point.dato);
       });
     });
 
