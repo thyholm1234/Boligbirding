@@ -1,4 +1,4 @@
-// Version: 1.12.10 - 2026-03-03 01.03.01
+// Version: 1.12.11 - 2026-03-03 01.06.39
 // © Christian Vemmelund Helligsø
 
 
@@ -538,11 +538,22 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
 
   let startDate = new Date(chartYear, 0, 1);
   if (selectedIsGlobal) {
-    const pointDates = points
+    const firstPositiveDates = points
+      .filter(point => Number(point?.count || 0) >= 1)
       .map(point => parseDmyToDate(point?.dato))
       .filter(Boolean)
       .sort((a, b) => a - b);
-    if (pointDates.length) startDate = pointDates[0];
+
+    if (firstPositiveDates.length) {
+      startDate = new Date(firstPositiveDates[0].getTime());
+      startDate.setDate(startDate.getDate() - 1);
+    } else {
+      const pointDates = points
+        .map(point => parseDmyToDate(point?.dato))
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+      if (pointDates.length) startDate = pointDates[0];
+    }
   }
   const yearEndDate = new Date(chartYear, 11, 31);
   const endDate = selectedIsGlobal ? today : (chartYear < today.getFullYear() ? yearEndDate : today);
