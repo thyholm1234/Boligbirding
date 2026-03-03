@@ -1,4 +1,4 @@
-// Version: 1.12.29 - 2026-03-03 12.18.08
+// Version: 1.12.31 - 2026-03-03 13.38.09
 // © Christian Vemmelund Helligsø
 
 // -----------------------------------------------------
@@ -27,6 +27,18 @@ function linkHTML(href, label) {
     href = 'scoreboard.html' + href;
   }
   return `<a href="${href}" class="nav-link">${label}</a>`;
+}
+
+function renderSiteFootnote() {
+  if (document.getElementById('site-footnote')) return;
+  const year = new Date().getFullYear();
+  document.body.insertAdjacentHTML('beforeend', `
+    <footer id="site-footnote" class="site-footnote" role="contentinfo">
+      <span>© ${year} Christian Vemmelund Helligsø</span>
+      <span aria-hidden="true">·</span>
+      <a href="/gdpr.html">Privatliv & GDPR</a>
+    </footer>
+  `);
 }
 
 // -----------------------------------------------------
@@ -223,6 +235,7 @@ export function renderNavbar() {
 
   // Indsæt i DOM
   document.body.insertAdjacentHTML('afterbegin', navHtml);
+  renderSiteFootnote();
 
   // Fyld lokalafdelinger med det samme (statisk liste)
   addAfdelingerLinks(AFDELINGER);

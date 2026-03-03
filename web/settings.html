@@ -1,4 +1,4 @@
-<!-- Version: 1.12.29 - 2026-03-03 12.18.08 -->
+<!-- Version: 1.12.31 - 2026-03-03 13.38.09 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Indstillinger</title>
-  <link rel="stylesheet" href="style.css?v=1.12.29">
+  <link rel="stylesheet" href="style.css?v=1.12.31">
 </head>
 <body>
   <div style="max-width:340px;margin:60px auto;padding:2em 2em 1.5em 2em;background:var(--card-bg);border-radius:12px;box-shadow:var(--card-shadow)">
@@ -39,6 +39,12 @@
     </form>
     <div id="matrikelSettings" style="margin-top:1.5em;"></div>
     <div id="matrikelSaveStatus" style="margin-top:0.6em;font-size:0.92em;"></div>
+    <div style="margin-top:1.4em;padding:0.9em;border:1px solid #b71c1c;border-radius:10px;background:var(--card-bg);">
+      <div style="font-weight:700;color:#b71c1c;margin-bottom:0.35em;">Slet konto og alle data</div>
+      <div class="muted" style="font-size:0.9em;margin-bottom:0.65em;">Dette sletter din konto, alle indstillinger og alle observationer permanent.</div>
+      <button id="deleteAccountBtn" type="button" style="width:100%;background:#b71c1c;border-color:#8d1717;">Slet konto permanent</button>
+      <div id="deleteAccountStatus" style="margin-top:0.55em;font-size:0.92em;"></div>
+    </div>
   </div>
 
   <!-- Gruppe-funktionalitet -->
@@ -53,6 +59,6 @@
   <div id="grupper"></div>
 </div>
 
-<script type="module" src="settings.js?v=1.12.29"></script>
+<script type="module" src="settings.js?v=1.12.31"></script>
 </body>
 </html>

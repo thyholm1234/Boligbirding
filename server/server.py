@@ -7,6 +7,7 @@ import datetime
 import secrets
 import math
 import hashlib
+import shutil
 import requests
 import pandas as pd
 from dotenv import load_dotenv
@@ -233,6 +234,16 @@ def get_user_dir(aar: int, obserkode: str) -> str:
 def get_global_user_dir(obserkode: str) -> str:
     base = os.path.join(SERVER_DIR, "data", "global", "obser")
     return os.path.join(base, normalize_obserkode(obserkode))
+
+def remove_all_user_data_dirs(obserkode: str):
+    safe_kode = normalize_obserkode(obserkode)
+    data_root = os.path.join(SERVER_DIR, "data")
+    if not os.path.isdir(data_root):
+        return
+    for year_dir in os.listdir(data_root):
+        user_dir = os.path.join(data_root, year_dir, "obser", safe_kode)
+        if os.path.isdir(user_dir):
+            shutil.rmtree(user_dir, ignore_errors=True)
 
 def safe_output(value: str) -> str:
     return escape(str(value or ""), quote=True)
@@ -3903,6 +3914,41 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
     web_session["lokalafdeling"] = lokalafdeling
     web_session["kommune"] = kommune
     return {"ok": True}
+
+@app.post("/api/delete_my_account")
+async def delete_my_account(request: Request):
+    web_session = request.session
+    obserkode = web_session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+
+    safe_kode = normalize_obserkode(obserkode)
+
+    async with SessionLocal() as dbsession:
+        user = (await dbsession.execute(select(User).where(User.obserkode == safe_kode))).scalar_one_or_none()
+        ok = (await dbsession.execute(select(Obserkode).where(Obserkode.kode == safe_kode))).scalar_one_or_none()
+        if not user and not ok:
+            raise HTTPException(status_code=404, detail="Bruger ikke fundet")
+
+        await dbsession.execute(Observation.__table__.delete().where(Observation.obserkode == safe_kode))
+        await dbsession.execute(User.__table__.delete().where(User.obserkode == safe_kode))
+        await dbsession.execute(Obserkode.__table__.delete().where(Obserkode.kode == safe_kode))
+        await dbsession.commit()
+
+    grupper = load_grupper()
+    changed = False
+    for gruppe in grupper:
+        medlemmer = gruppe.get("obserkoder", [])
+        nye_medlemmer = [kode for kode in medlemmer if kode != safe_kode]
+        if len(nye_medlemmer) != len(medlemmer):
+            gruppe["obserkoder"] = nye_medlemmer
+            changed = True
+    if changed:
+        save_grupper(grupper)
+
+    remove_all_user_data_dirs(safe_kode)
+    web_session.clear()
+    return {"ok": True, "msg": "Konto og alle brugerdata er slettet"}
 
 # ---------------------------------------------------------
 #  API: Matrix (oversigt)

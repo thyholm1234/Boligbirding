@@ -1,4 +1,4 @@
-/* Version: 1.12.29 - 2026-03-03 12.18.08 */
+/* Version: 1.12.31 - 2026-03-03 13.38.09 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -158,6 +158,29 @@ input[type="submit"]:hover { background: var(--btn-hover); border-color: var(--p
   transition: color 0.2s;
 }
 .theme-toggle:hover { color: var(--accent); }
+
+.site-footnote {
+  margin: 2.2em 0 0.8em 0;
+  padding-top: 0.9em;
+  border-top: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.9em;
+  text-align: center;
+  display: flex;
+  gap: 0.45em;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.site-footnote a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.site-footnote a:hover {
+  text-decoration: underline;
+}
 
 /* --- Chart --- */
 #chart-container {

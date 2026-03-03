@@ -1,4 +1,4 @@
-// Version: 1.12.29 - 2026-03-03 12.18.08
+// Version: 1.12.31 - 2026-03-03 13.38.09
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -415,6 +415,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } finally {
         fullSyncBtn.disabled = false;
+      }
+    });
+  }
+
+  const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+  const deleteAccountStatus = document.getElementById('deleteAccountStatus');
+  if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener('click', async () => {
+      const firstConfirm = confirm('Er du sikker på, at du vil slette din konto og alle data? Dette kan ikke fortrydes.');
+      if (!firstConfirm) return;
+
+      const typedConfirm = prompt('Skriv SLET MIN KONTO for at bekræfte permanent sletning:');
+      if (typedConfirm !== 'SLET MIN KONTO') {
+        if (deleteAccountStatus) deleteAccountStatus.textContent = 'Sletning afbrudt.';
+        return;
+      }
+
+      deleteAccountBtn.disabled = true;
+      if (deleteAccountStatus) deleteAccountStatus.textContent = 'Sletter konto og data...';
+
+      try {
+        const res = await fetch('/api/delete_my_account', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.detail || data.msg || 'Kunne ikke slette konto');
+        }
+        if (deleteAccountStatus) deleteAccountStatus.textContent = 'Konto slettet. Du bliver sendt til login...';
+        setTimeout(() => {
+          window.location.href = '/login.html';
+        }, 700);
+      } catch (error) {
+        if (deleteAccountStatus) deleteAccountStatus.textContent = `Fejl: ${error.message || error}`;
+        deleteAccountBtn.disabled = false;
       }
     });
   }
