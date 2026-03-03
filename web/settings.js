@@ -1,4 +1,4 @@
-// Version: 1.12.28 - 2026-03-03 11.56.41
+// Version: 1.12.29 - 2026-03-03 12.18.08
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div id="optInModalHelper" class="muted" style="margin-bottom:0.6em;"></div>
           <div id="optInModalList" style="display:flex;flex-direction:column;gap:0.45em;overflow:auto;max-height:52vh;padding-right:0.2em;"></div>
           <div id="optInModalStatus" class="muted" style="margin-top:0.7em;min-height:1.2em;"></div>
-          <div style="display:flex;gap:0.6em;justify-content:flex-end;margin-top:0.9em;padding-top:0.6em;border-top:1px solid var(--border);">
+          <div style="display:flex;gap:0.6em;justify-content:flex-end;margin-top:0.9em;padding-top:0.6em;border-top:1px solid var(--card-border);">
             <button type="button" id="optInModalCancel">Luk</button>
             <button type="button" id="optInModalSave">Gem</button>
           </div>
@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <option value="">Vælg kommune...</option>
             ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
-          <div style="margin-bottom:0.9em;padding:0.8em;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);">
+          <div style="margin-bottom:0.9em;padding:0.8em;border:1px solid var(--card-border);border-radius:10px;background:var(--card-bg);">
             <div style="font-weight:700;margin-bottom:0.35em;">Lokalafdelinger på scoreboards (maks. 3)</div>
             <button type="button" id="openLokalOptInModal" style="width:100%;margin:0.2em 0 0.35em 0;">Vælg lokalafdelinger</button>
             <div id="lokalafdelingerOptInSummary" class="muted" style="margin-bottom:0.35em;font-size:0.9em;">Ingen valgt endnu</div>
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </select>
           </div>
 
-          <div style="margin-bottom:0.8em;padding:0.8em;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);">
+          <div style="margin-bottom:0.8em;padding:0.8em;border:1px solid var(--card-border);border-radius:10px;background:var(--card-bg);">
             <div style="font-weight:700;margin-bottom:0.35em;">Kommuner på scoreboards (maks. 5)</div>
             <button type="button" id="openKommuneOptInModal" style="width:100%;margin:0.2em 0 0.35em 0;">Vælg kommuner</button>
             <div id="kommunerOptInSummary" class="muted" style="margin-bottom:0.35em;font-size:0.9em;">Ingen valgt endnu</div>
