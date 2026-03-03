@@ -195,6 +195,23 @@ def ensure_obserkode_access(request: Request, obserkode: str):
 
 _sync_rate_limit_last_call: Dict[str, float] = {}
 _admin_login_last_call: Dict[str, float] = {}
+_user_sync_status: Dict[str, Dict[str, Any]] = {}
+
+def _set_user_sync_status(obserkode: str, state: str, msg: str = "", aar: Optional[int] = None):
+    _user_sync_status[obserkode] = {
+        "state": state,
+        "msg": msg,
+        "aar": aar,
+        "updated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+    }
+
+async def _run_user_year_sync(obserkode: str, aar: int):
+    try:
+        await fetch_and_store(obserkode, aar)
+        _set_user_sync_status(obserkode, "done", f"Synkronisering gennemført for {obserkode} ({aar})", aar)
+    except Exception as error:
+        print(f"[SYNC] Fejl i baggrundssync for {obserkode} ({aar}): {error}")
+        _set_user_sync_status(obserkode, "error", f"Fejl under synkronisering: {error}", aar)
 
 def _client_host(request: Request) -> str:
     if request.client and request.client.host:
@@ -3254,7 +3271,7 @@ async def admin_rebuild_scoreboards_from_db(request: Request):
     }
 
 @app.post("/api/sync_mine_observationer")
-async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
+async def sync_mine_observationer(request: Request, aar: Optional[int] = None, background_tasks: BackgroundTasks = None):
     """
     Synkroniserer observationer for den aktuelle bruger (kræver login).
     """
@@ -3265,8 +3282,24 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
-    await fetch_and_store(obserkode, aar)
-    return {"ok": True, "msg": f"Synkronisering gennemført for {obserkode} ({aar})"}
+    _set_user_sync_status(obserkode, "running", f"Synkroniserer {obserkode} ({aar})...", aar)
+    if background_tasks is not None:
+        background_tasks.add_task(_run_user_year_sync, obserkode, aar)
+    else:
+        asyncio.create_task(_run_user_year_sync(obserkode, aar))
+    return {"ok": True, "msg": f"Synkronisering startet for {obserkode} ({aar})"}
+
+@app.get("/api/sync_mine_status")
+async def sync_mine_status(request: Request):
+    session = request.session
+    obserkode = session.get("obserkode")
+    if not obserkode:
+        raise HTTPException(status_code=401, detail="Ikke logget ind")
+
+    status = _user_sync_status.get(obserkode)
+    if not status:
+        return {"ok": True, "state": "idle", "msg": "Ingen aktiv synkronisering"}
+    return {"ok": True, **status}
 
 @app.post("/api/full_sync_me")
 async def full_sync_me(request: Request):

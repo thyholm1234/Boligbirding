@@ -1,4 +1,4 @@
-// Version: 1.12.22 - 2026-03-03 01.57.47
+// Version: 1.12.23 - 2026-03-03 02.07.51
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -30,37 +30,67 @@ window.addEventListener('orientationchange', () => {
 
 // Synkroniser-knap funktionalitet
 const syncBtn = document.getElementById('sync-btn');
+
+async function waitForSyncCompletion(btn) {
+  const pollDelayMs = 1500;
+  const maxWaitMs = 5 * 60 * 1000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < maxWaitMs) {
+    try {
+      const res = await fetch('/api/sync_mine_status', { credentials: 'include' });
+      const data = await res.json();
+      const state = String(data?.state || 'idle');
+
+      if (state === 'running') {
+        btn.textContent = data?.msg || 'Synkroniserer...';
+      } else if (state === 'done' || state === 'idle') {
+        btn.textContent = '✅ Færdig!';
+        try {
+          await hentStats();
+        } catch (_) {
+          // Ignorer refresh-fejl her
+        }
+        return 'done';
+      } else if (state === 'error') {
+        btn.textContent = 'Fejl i sync';
+        alert(data?.msg || 'Der opstod en fejl under synkronisering.');
+        return 'error';
+      }
+    } catch (_) {
+      // Fortsæt polling
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+  }
+
+  btn.textContent = '⏳ Sync fortsætter...';
+  return 'timeout';
+}
+
 if (syncBtn) {
   syncBtn.onclick = async function() {
     const btn = this;
-    let syncCompleted = false;
     btn.disabled = true;
     btn.textContent = "Synkroniserer...";
     try {
       const res = await fetch('/api/sync_mine_observationer', { method: 'POST', credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
-        syncCompleted = true;
-        btn.textContent = "✅ Færdig!";
-        try {
-          await hentStats();
-        } catch (_) {
-          // Sync er gennemført; ignorér evt. fejl ved efterfølgende refresh
-        }
+        btn.textContent = data.msg ? `⏳ ${data.msg}` : '⏳ Synkronisering startet...';
+        await waitForSyncCompletion(btn);
       } else {
         btn.textContent = "Fejl i sync";
         alert(data.msg || data.detail || "Der opstod en fejl under synkronisering.");
       }
     } catch (e) {
-      if (!syncCompleted) {
-        btn.textContent = "Fejl i sync";
-        alert("Der opstod en fejl under synkronisering.");
-      }
+      btn.textContent = "Fejl i sync";
+      alert("Der opstod en fejl under synkronisering.");
     }
     setTimeout(() => {
       btn.textContent = "🔄 Synkronisér observationer";
       btn.disabled = false;
-    }, 1800);
+    }, 1000);
   };
 }
 
