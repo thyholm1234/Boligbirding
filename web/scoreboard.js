@@ -1,4 +1,4 @@
-// Version: 1.12.16 - 2026-03-03 01.23.22
+// Version: 1.12.17 - 2026-03-03 01.27.13
 // © Christian Vemmelund Helligsø
 
 
@@ -1197,10 +1197,11 @@ function visScoreboardBlockers(data) {
 
   let blockersCountRow = `<tr>${sortedKoder.map(k => `<td><b>Blockers:</b> ${blockers[k].length}</td>`).join("")}</tr>`;
   let blockersListRow = `<tr>${sortedKoder.map(k => {
-    return `<td>${blockers[k].length ? blockers[k].join('<br>') : '<span style="color:#888">Ingen</span>'}</td>`;
+    const lines = blockers[k].map(art => renderSpeciesLabelHtml(art)).join('<br>');
+    return `<td>${blockers[k].length ? lines : '<span style="color:#888">Ingen</span>'}</td>`;
   }).join("")}</tr>`;
   let latestRow = `<tr>${sortedKoder.map(k => {
-    const lines = latestCrossings[k].map(x => `${x.dato}: ${x.art}`).join('<br>');
+    const lines = latestCrossings[k].map(x => `${x.dato}: ${renderSpeciesLabelHtml(x.art)}`).join('<br>');
     return `<td><b>Seneste 5 kryds:</b><br>${lines}</td>`;
   }).join("")}</tr>`;
 
