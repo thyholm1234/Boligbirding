@@ -1,4 +1,4 @@
-// Version: 1.12.9 - 2026-03-03 00.58.41
+// Version: 1.12.10 - 2026-03-03 01.03.01
 // © Christian Vemmelund Helligsø
 
 
@@ -107,11 +107,24 @@ function parseDmyLabelParts(label) {
 
 function createDailyXAxisOptions(labels) {
   const parsed = (labels || []).map(parseDmyLabelParts).filter(Boolean);
+  const spanDays = Math.max(1, parsed.length);
+  const spanYearsApprox = spanDays / 365.25;
   const years = parsed.map(p => p.year);
   const minYear = years.length ? Math.min(...years) : new Date().getFullYear();
   const maxYear = years.length ? Math.max(...years) : minYear;
-  const spanYears = maxYear - minYear + 1;
-  const overFiveYears = spanYears > 5;
+  const overFiveYears = spanYearsApprox > 5;
+
+  const gridRules = {
+    showDaily: spanYearsApprox <= 1,
+    showWeekly: spanYearsApprox > 1 && spanYearsApprox <= 2,
+    showMonthly: spanYearsApprox <= 5,
+    showYearly: true,
+  };
+
+  const isWeekBoundary = (parts) => {
+    const date = new Date(parts.year, parts.month - 1, parts.day);
+    return date.getDay() === 1;
+  };
 
   return {
     title: { display: true, text: 'Dato' },
@@ -141,14 +154,19 @@ function createDailyXAxisOptions(labels) {
         const label = (typeof idx === 'number') ? labels[idx] : null;
         const parts = parseDmyLabelParts(label);
         if (!parts) return 'rgba(0,0,0,0.08)';
-        if (overFiveYears) {
-          if (parts.day === 1 && parts.month === 1 && parts.year % 5 === 0) return 'rgba(0,0,0,0.35)';
-          if (parts.day === 1 && parts.month === 1) return 'rgba(0,0,0,0.18)';
-          return 'rgba(0,0,0,0.04)';
+
+        const isYearBoundary = parts.day === 1 && parts.month === 1;
+        const isMonthBoundary = parts.day === 1;
+        const isWeekLine = isWeekBoundary(parts);
+
+        if (gridRules.showYearly && isYearBoundary) {
+          if (overFiveYears && parts.year % 5 === 0) return 'rgba(0,0,0,0.35)';
+          return overFiveYears ? 'rgba(0,0,0,0.20)' : 'rgba(0,0,0,0.30)';
         }
-        if (parts.day === 1 && parts.month === 1) return 'rgba(0,0,0,0.3)';
-        if (parts.day === 1) return 'rgba(0,0,0,0.16)';
-        return 'rgba(0,0,0,0.04)';
+        if (gridRules.showMonthly && isMonthBoundary) return 'rgba(0,0,0,0.16)';
+        if (gridRules.showWeekly && isWeekLine) return 'rgba(0,0,0,0.10)';
+        if (gridRules.showDaily) return 'rgba(0,0,0,0.04)';
+        return 'rgba(0,0,0,0)';
       }
     }
   };
