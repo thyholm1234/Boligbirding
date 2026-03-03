@@ -4105,18 +4105,14 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
     if str(aar) == "global":
         range_start = datetime.date.min
         range_end = datetime.date.max
-        trend_year = datetime.datetime.now().year
     else:
         year_value = int(aar)
         range_start = datetime.date(year_value, 1, 1)
         range_end = datetime.date(year_value, 12, 31)
-        trend_year = year_value
     today = datetime.date.today()
     visible_end = min(range_end, today)
 
     global_filter_value = await get_global_filter()
-    matrikel1_tag = resolve_matrikel_tags(global_filter_value, trend_year).get("matrikel1")
-    matrikel1_tags = [matrikel1_tag, f"{matrikel1_tag}-1"] if matrikel1_tag else []
 
     async with SessionLocal() as session:
         users = (await session.execute(select(User).where(User.obserkode.in_(koder)))).scalars().all()
@@ -4137,7 +4133,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
             ]
             relevant_periods.sort(key=lambda period: period.get("start_date") or "")
 
-            if matrikel1_tags and relevant_periods:
+            if relevant_periods:
                 async with SessionLocal() as dbsession:
                     obs_query = select(Observation).where(Observation.obserkode == u.obserkode)
                     if str(aar) != "global":
@@ -4166,7 +4162,7 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
                             continue
                         if obs_row.dato < period_start or obs_row.dato > period_end:
                             continue
-                        if not _note_has_any_tag(obs_row.turnoter, matrikel1_tags):
+                        if not _observation_has_matrikel_tag(obs_row, global_filter_value, 1):
                             continue
                         art_name = _normalize_base_art_name(obs_row.artnavn)
                         if not art_name or "sp." in art_name or "/" in art_name or " x " in art_name:

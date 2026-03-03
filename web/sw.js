@@ -1,7 +1,7 @@
-// Version: 1.12.13 - 2026-03-03 01.12.55
+// Version: 1.12.14 - 2026-03-03 01.14.28
 // © Christian Vemmelund Helligsø
 
-const CACHE_NAME = 'boligbirding-v1.12.13';
+const CACHE_NAME = 'boligbirding-v1.12.14';
 const PRECACHE_URLS = [
   '/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png'
