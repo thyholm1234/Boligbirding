@@ -1,4 +1,4 @@
-// Version: 1.12.23 - 2026-03-03 02.07.51
+// Version: 1.12.24 - 2026-03-03 02.11.19
 // © Christian Vemmelund Helligsø
 
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
@@ -31,20 +31,27 @@ window.addEventListener('orientationchange', () => {
 // Synkroniser-knap funktionalitet
 const syncBtn = document.getElementById('sync-btn');
 
-async function waitForSyncCompletion(btn) {
+const DEFAULT_SYNC_BUTTON_LABEL = '🔄 Synkronisér observationer';
+
+async function waitForSyncCompletion(btn, expectedSyncId = null) {
   const pollDelayMs = 1500;
-  const maxWaitMs = 5 * 60 * 1000;
+  const maxWaitMs = 20 * 60 * 1000;
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < maxWaitMs) {
     try {
-      const res = await fetch('/api/sync_mine_status', { credentials: 'include' });
+      const res = await fetch('/api/sync_mine_status', { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error('Statuskald fejlede');
+      }
       const data = await res.json();
       const state = String(data?.state || 'idle');
+      const syncId = data?.sync_id || null;
+      const isSameSync = !expectedSyncId || (syncId && syncId === expectedSyncId);
 
       if (state === 'running') {
         btn.textContent = data?.msg || 'Synkroniserer...';
-      } else if (state === 'done' || state === 'idle') {
+      } else if (state === 'done' && isSameSync) {
         btn.textContent = '✅ Færdig!';
         try {
           await hentStats();
@@ -52,10 +59,13 @@ async function waitForSyncCompletion(btn) {
           // Ignorer refresh-fejl her
         }
         return 'done';
-      } else if (state === 'error') {
+      } else if (state === 'error' && isSameSync) {
         btn.textContent = 'Fejl i sync';
         alert(data?.msg || 'Der opstod en fejl under synkronisering.');
         return 'error';
+      } else if (state === 'idle' && !expectedSyncId) {
+        btn.textContent = DEFAULT_SYNC_BUTTON_LABEL;
+        return 'idle';
       }
     } catch (_) {
       // Fortsæt polling
@@ -76,9 +86,9 @@ if (syncBtn) {
     try {
       const res = await fetch('/api/sync_mine_observationer', { method: 'POST', credentials: 'include' });
       const data = await res.json();
-      if (data.ok) {
+      if (res.ok && data.ok) {
         btn.textContent = data.msg ? `⏳ ${data.msg}` : '⏳ Synkronisering startet...';
-        await waitForSyncCompletion(btn);
+        await waitForSyncCompletion(btn, data.sync_id || null);
       } else {
         btn.textContent = "Fejl i sync";
         alert(data.msg || data.detail || "Der opstod en fejl under synkronisering.");
@@ -88,20 +98,24 @@ if (syncBtn) {
       alert("Der opstod en fejl under synkronisering.");
     }
     setTimeout(() => {
-      btn.textContent = "🔄 Synkronisér observationer";
+      btn.textContent = DEFAULT_SYNC_BUTTON_LABEL;
       btn.disabled = false;
-    }, 1000);
+    }, 1500);
   };
+
+  waitForSyncCompletion(syncBtn).catch(() => {
+    // Ignorer fejl ved initial status-check
+  });
 }
 
 // Hent og vis brugerens stats
 export async function hentStats() {
-  const res = await fetch('/api/user_scoreboard', { credentials: 'include' });
+  const res = await fetch('/api/user_scoreboard', { credentials: 'include', cache: 'no-store' });
   const data = await res.json();
   let html = "";
   const selfObserkode = data.self_obserkode || '';
   const selfNavn = data.self_navn || selfObserkode;
-  const yearRes = await fetch('/api/get_year', { credentials: 'include' });
+  const yearRes = await fetch('/api/get_year', { credentials: 'include', cache: 'no-store' });
   const yearData = await yearRes.json();
   const selectedYear = Number(yearData?.year) || new Date().getFullYear();
 
@@ -159,7 +173,7 @@ export async function hentStats() {
   // Hvis ikke navnet findes i scoreboard-data, hent fra brugerpræferencer
   if (!lokalafdelingNavn) {
     try {
-      const prefsRes = await fetch('/api/get_userprefs', { credentials: 'include' });
+      const prefsRes = await fetch('/api/get_userprefs', { credentials: 'include', cache: 'no-store' });
       if (prefsRes.ok) {
         const prefs = await prefsRes.json();
         lokalafdelingNavn = prefs.lokalafdeling || "Lokalafdeling";
@@ -198,7 +212,7 @@ export async function hentStats() {
 
   if (!kommuneId || !kommuneNavn) {
     try {
-      const prefsRes = await fetch('/api/get_userprefs', { credentials: 'include' });
+      const prefsRes = await fetch('/api/get_userprefs', { credentials: 'include', cache: 'no-store' });
       if (prefsRes.ok) {
         const prefs = await prefsRes.json();
         kommuneId = kommuneId || prefs.kommune;
@@ -210,7 +224,7 @@ export async function hentStats() {
 
   if (kommuneId && !kommuneNavn) {
     try {
-      const kommunerRes = await fetch('/api/afdelinger');
+      const kommunerRes = await fetch('/api/afdelinger', { cache: 'no-store' });
       if (kommunerRes.ok) {
         const kommunerData = await kommunerRes.json();
         const match = (kommunerData.kommuner || []).find(k => k.id === String(kommuneId));

@@ -197,21 +197,24 @@ _sync_rate_limit_last_call: Dict[str, float] = {}
 _admin_login_last_call: Dict[str, float] = {}
 _user_sync_status: Dict[str, Dict[str, Any]] = {}
 
-def _set_user_sync_status(obserkode: str, state: str, msg: str = "", aar: Optional[int] = None):
+def _set_user_sync_status(obserkode: str, state: str, msg: str = "", aar: Optional[int] = None, sync_id: Optional[str] = None):
+    previous = _user_sync_status.get(obserkode, {})
+    effective_sync_id = sync_id or previous.get("sync_id")
     _user_sync_status[obserkode] = {
         "state": state,
         "msg": msg,
         "aar": aar,
+        "sync_id": effective_sync_id,
         "updated_at": datetime.datetime.now().isoformat(timespec="seconds"),
     }
 
-async def _run_user_year_sync(obserkode: str, aar: int):
+async def _run_user_year_sync(obserkode: str, aar: int, sync_id: Optional[str] = None):
     try:
         await fetch_and_store(obserkode, aar)
-        _set_user_sync_status(obserkode, "done", f"Synkronisering gennemført for {obserkode} ({aar})", aar)
+        _set_user_sync_status(obserkode, "done", f"Synkronisering gennemført for {obserkode} ({aar})", aar, sync_id)
     except Exception as error:
         print(f"[SYNC] Fejl i baggrundssync for {obserkode} ({aar}): {error}")
-        _set_user_sync_status(obserkode, "error", f"Fejl under synkronisering: {error}", aar)
+        _set_user_sync_status(obserkode, "error", f"Fejl under synkronisering: {error}", aar, sync_id)
 
 def _client_host(request: Request) -> str:
     if request.client and request.client.host:
@@ -3282,12 +3285,13 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None, b
     enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
-    _set_user_sync_status(obserkode, "running", f"Synkroniserer {obserkode} ({aar})...", aar)
+    sync_id = secrets.token_hex(8)
+    _set_user_sync_status(obserkode, "running", f"Synkroniserer {obserkode} ({aar})...", aar, sync_id)
     if background_tasks is not None:
-        background_tasks.add_task(_run_user_year_sync, obserkode, aar)
+        background_tasks.add_task(_run_user_year_sync, obserkode, aar, sync_id)
     else:
-        asyncio.create_task(_run_user_year_sync(obserkode, aar))
-    return {"ok": True, "msg": f"Synkronisering startet for {obserkode} ({aar})"}
+        asyncio.create_task(_run_user_year_sync(obserkode, aar, sync_id))
+    return {"ok": True, "msg": f"Synkronisering startet for {obserkode} ({aar})", "aar": aar, "sync_id": sync_id}
 
 @app.get("/api/sync_mine_status")
 async def sync_mine_status(request: Request):
