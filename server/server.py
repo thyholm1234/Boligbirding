@@ -2963,6 +2963,18 @@ async def statistik_data(obserkode: str):
 
     raw_filter = await get_global_filter()
     excluded_keys = _get_excluded_species_keys()
+
+    # Fallback: hvis matrikel-listen ikke er bygget (fx manglende perioder),
+    # udled den direkte fra observationer med matrikel-1 tag.
+    if not matrikel_list:
+        tagged_global_m1 = [
+            row for row in (obs_rows or [])
+            if _observation_has_matrikel_tag(row, raw_filter, 1)
+        ]
+        fallback_matrikel_list = _firsts_from_obs(tagged_global_m1, excluded_keys=excluded_keys)
+        if fallback_matrikel_list:
+            matrikel_list = _sort_list_by_date(fallback_matrikel_list)
+
     matrikel_indexes = _collect_matrikel_indexes_from_observations(obs_rows, raw_filter)
     if not matrikel_indexes:
         matrikel_indexes = [1]
@@ -3018,6 +3030,31 @@ async def statistik_data(obserkode: str):
                 "year": year,
                 "matrikler": per_index,
             })
+
+    # Fallback for grafer: brug beregnede årstal fra observationer,
+    # hvis filbaseret matrikel-udtræk ikke gav nogen værdier.
+    if not any(Number > 0 for Number in matrikel_by_year.values()):
+        derived_matrikel_by_year: Dict[int, int] = {}
+        for row in matrikel_year_rows:
+            year_value = int(row.get("year"))
+            count_value = int((row.get("matrikler") or {}).get("1", {}).get("count") or 0)
+            if count_value > 0:
+                derived_matrikel_by_year[year_value] = count_value
+
+        if derived_matrikel_by_year:
+            matrikel_by_year = derived_matrikel_by_year
+            matrikel_years = []
+            for row in matrikel_year_rows:
+                year_value = int(row.get("year"))
+                cell = (row.get("matrikler") or {}).get("1", {})
+                count_value = int(cell.get("count") or 0)
+                if count_value <= 0:
+                    continue
+                matrikel_years.append({
+                    "year": year_value,
+                    "count": count_value,
+                    "rank": cell.get("rank")
+                })
 
     all_years = sorted(set(year_dirs) | set(obs_by_year.keys()) | set(matrikel_by_year.keys()))
 
