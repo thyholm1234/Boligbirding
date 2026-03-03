@@ -1,4 +1,4 @@
-// Version: 1.12.17 - 2026-03-03 01.27.13
+// Version: 1.12.18 - 2026-03-03 01.44.24
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -534,13 +534,16 @@ async function renderKommuneOverview() {
     return;
   }
 
+  const primaryKommuneId = String(userScoreboardData?.kommune_id || '');
+
   const hasSelection = validRows.some(r => String(r.kommune_id) === String(kommuneOverviewSelection));
   if (!hasSelection) {
-    kommuneOverviewSelection = String(validRows[0].kommune_id);
+    const primaryRow = validRows.find(r => String(r.kommune_id) === primaryKommuneId);
+    kommuneOverviewSelection = String((primaryRow || validRows[0]).kommune_id);
   }
 
   select.innerHTML = validRows
-    .map((row, index) => `<option value="${String(row.kommune_id)}">${row.kommune_navn}${index === 0 ? ' (primær)' : ''}</option>`)
+    .map((row) => `<option value="${String(row.kommune_id)}">${row.kommune_navn}${String(row.kommune_id) === primaryKommuneId ? ' (primær)' : ''}</option>`)
     .join('');
   select.value = String(kommuneOverviewSelection);
   select.onchange = () => {
@@ -570,7 +573,6 @@ async function renderKommuneOverview() {
   const rowHtml = (label, row, scope, yearValue = null) => {
     const count = Number(row?.antal_arter || 0);
     const rank = row?.placering ? `#${row.placering}` : '-';
-    const sidst = row?.sidste_art ? `${row.sidste_art}${row?.sidste_dato ? ` (${row.sidste_dato})` : ''}` : '-';
     const params = new URLSearchParams({
       scope,
       kommune: String(selected.kommune_id),
@@ -585,7 +587,6 @@ async function renderKommuneOverview() {
         <td>${label}</td>
         <td>${count > 0 ? formatNumber(count) : '0'}</td>
         <td>${rank}</td>
-        <td>${sidst}</td>
         <td><a href="${link}">Se listen</a></td>
       </tr>
     `;
@@ -602,7 +603,6 @@ async function renderKommuneOverview() {
           <th>År</th>
           <th>Arter</th>
           <th>Placering</th>
-          <th>Sidste art</th>
           <th>Liste</th>
         </tr>
       </thead>

@@ -3596,7 +3596,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         async with SessionLocal() as dbsession:
             user_for_overview = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         opted_kommuner = _user_opted_kommuner(user_for_overview)
-        if kommune_id and kommune_id not in opted_kommuner:
+        if kommune_id:
             opted_kommuner = [kommune_id, *[value for value in opted_kommuner if value != kommune_id]]
         opted_kommuner = opted_kommuner[:5]
 
