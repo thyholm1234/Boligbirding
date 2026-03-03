@@ -1,4 +1,4 @@
-// Version: 1.12.20 - 2026-03-03 01.49.57
+// Version: 1.12.21 - 2026-03-03 01.51.37
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -14,7 +14,9 @@ const chartInstances = {};
 let primaryStatData = null;
 let compareStatData = null;
 let userScoreboardData = null;
+let lokalafdelingOverviewSelection = null;
 let kommuneOverviewSelection = null;
+const lokalafdelingYearRowCache = new Map();
 const kommuneYearRowCache = new Map();
 
 function normalizeCode(value) {
@@ -511,6 +513,141 @@ async function fetchKommuneYearRow(kommuneId, yearValue) {
   }
 }
 
+async function fetchLokalafdelingYearRow(lokalafdelingNavn, yearValue) {
+  const cacheKey = `${String(lokalafdelingNavn)}|${String(yearValue)}`;
+  if (lokalafdelingYearRowCache.has(cacheKey)) return lokalafdelingYearRowCache.get(cacheKey);
+
+  try {
+    const res = await fetch('/api/scoreboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: 'lokal_alle',
+        afdeling: String(lokalafdelingNavn),
+        aar: yearValue
+      })
+    });
+    if (!res.ok) {
+      lokalafdelingYearRowCache.set(cacheKey, null);
+      return null;
+    }
+    const payload = await res.json();
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const selfCode = normalizeCode(userScoreboardData?.self_obserkode || primaryStatData?.user?.obserkode);
+    const row = rows.find(item => normalizeCode(item?.obserkode) === selfCode) || null;
+    lokalafdelingYearRowCache.set(cacheKey, row);
+    return row;
+  } catch (_) {
+    lokalafdelingYearRowCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+async function renderLokalafdelingOverview() {
+  const card = document.getElementById('lokalafdeling-overview-card');
+  const select = document.getElementById('lokalafdeling-overview-select');
+  const content = document.getElementById('lokalafdeling-overview-content');
+  if (!card || !select || !content || !primaryStatData) return;
+
+  const viewedCode = normalizeCode(primaryStatData?.user?.obserkode);
+  const selfCode = normalizeCode(userScoreboardData?.self_obserkode);
+  const rows = Array.isArray(userScoreboardData?.lokalafdelinger_overblik) ? userScoreboardData.lokalafdelinger_overblik : [];
+
+  if (!viewedCode || !selfCode || viewedCode !== selfCode || !rows.length) {
+    card.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+
+  const validRows = rows.filter(r => r && r.lokalafdeling_navn);
+  if (!validRows.length) {
+    card.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+
+  const primaryLokalafdelingNavn = String(userScoreboardData?.lokalafdeling_navn || '');
+
+  const hasSelection = validRows.some(r => String(r.lokalafdeling_navn) === String(lokalafdelingOverviewSelection));
+  if (!hasSelection) {
+    const primaryRow = validRows.find(r => String(r.lokalafdeling_navn) === primaryLokalafdelingNavn);
+    lokalafdelingOverviewSelection = String((primaryRow || validRows[0]).lokalafdeling_navn);
+  }
+
+  select.innerHTML = validRows
+    .map((row) => `<option value="${String(row.lokalafdeling_navn)}">${row.lokalafdeling_navn}${String(row.lokalafdeling_navn) === primaryLokalafdelingNavn ? ' (primær)' : ''}</option>`)
+    .join('');
+  select.value = String(lokalafdelingOverviewSelection);
+  select.onchange = () => {
+    lokalafdelingOverviewSelection = String(select.value || '');
+    void renderLokalafdelingOverview();
+  };
+
+  const selected = validRows.find(r => String(r.lokalafdeling_navn) === String(lokalafdelingOverviewSelection)) || validRows[0];
+  const years = Array.isArray(primaryStatData?.years)
+    ? primaryStatData.years
+      .map(item => Number(item?.year))
+      .filter(Number.isFinite)
+      .sort((a, b) => b - a)
+    : [];
+
+  content.innerHTML = '<div class="muted">Henter lokalafdeling-data...</div>';
+
+  const yearRows = await Promise.all(
+    years.map(async year => ({
+      year,
+      row: await fetchLokalafdelingYearRow(selected.lokalafdeling_navn, year)
+    }))
+  );
+
+  const totalRow = selected?.alle || null;
+
+  const rowHtml = (label, row, scope, yearValue = null) => {
+    const count = Number(row?.antal_arter || 0);
+    const rank = row?.placering ? `#${row.placering}` : '-';
+    const rowStyle = String(label) === 'Total' ? ' style="font-weight:700;"' : '';
+    const params = new URLSearchParams({
+      scope,
+      afdeling: String(selected.lokalafdeling_navn)
+    });
+    if (yearValue !== null && yearValue !== undefined) {
+      params.set('aar', String(yearValue));
+    }
+    const link = `scoreboard.html?${params.toString()}`;
+    return `
+      <tr${rowStyle}>
+        <td>${label}</td>
+        <td>${count > 0 ? formatNumber(count) : '0'}</td>
+        <td>${rank}</td>
+        <td><a href="${link}">Se listen</a></td>
+      </tr>
+    `;
+  };
+
+  const yearRowsHtml = yearRows
+    .map(item => rowHtml(String(item.year), item.row, 'lokal_alle', item.year))
+    .join('');
+
+  content.innerHTML = `
+    <table class="profile-table">
+      <thead>
+        <tr>
+          <th>År</th>
+          <th>Arter</th>
+          <th>Placering</th>
+          <th>Liste</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowHtml('Total', totalRow, 'lokal_alle', 'global')}
+        ${yearRowsHtml}
+      </tbody>
+    </table>
+  `;
+
+  card.style.display = 'block';
+}
+
 async function renderKommuneOverview() {
   const card = document.getElementById('kommune-overview-card');
   const select = document.getElementById('kommune-overview-select');
@@ -719,6 +856,7 @@ function renderStatistik() {
     'Observationer'
   );
 
+  void renderLokalafdelingOverview();
   void renderKommuneOverview();
 }
 
@@ -849,6 +987,7 @@ initSearch();
 initComparison();
 
 loadUserScoreboardData().then(() => {
+  void renderLokalafdelingOverview();
   void renderKommuneOverview();
 });
 

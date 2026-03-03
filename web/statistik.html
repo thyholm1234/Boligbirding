@@ -1,4 +1,4 @@
-<!-- Version: 1.12.20 - 2026-03-03 01.49.57 -->
+<!-- Version: 1.12.21 - 2026-03-03 01.51.37 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,8 +6,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Statistik</title>
-  <link rel="stylesheet" href="style.css?v=1.12.20">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.20"></script>
+  <link rel="stylesheet" href="style.css?v=1.12.21">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.21"></script>
 </head>
 <body>
   <div id="statistics-content">
@@ -75,6 +75,14 @@
         <canvas id="chart-obs" height="200"></canvas>
       </div>
     </div>
+    <div class="card profile-card" id="lokalafdeling-overview-card" style="display:none;">
+      <h3>Lokalafdeling oversigt</h3>
+      <div style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap;margin-bottom:0.75em;">
+        <label for="lokalafdeling-overview-select"><b>Lokalafdeling:</b></label>
+        <select id="lokalafdeling-overview-select" style="min-width:220px;"></select>
+      </div>
+      <div id="lokalafdeling-overview-content"></div>
+    </div>
     <div class="card profile-card" id="kommune-overview-card" style="display:none;">
       <h3>Kommune oversigt</h3>
       <div style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap;margin-bottom:0.75em;">
@@ -86,6 +94,6 @@
   </div>
   </div>
 
-  <script type="module" src="./statistik.js?v=1.12.20"></script>
+  <script type="module" src="./statistik.js?v=1.12.21"></script>
 </body>
 </html>

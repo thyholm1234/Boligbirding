@@ -3526,6 +3526,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
                 session["lokalafdeling"] = lokalafdeling
                 print("[DEBUG] Lokalafdeling hentet fra database:", lokalafdeling)
     if lokalafdeling:
+        result["lokalafdeling_navn"] = lokalafdeling
         try:
             filename = f"{lokalafdeling.replace(' ', '_')}.json"
             path = os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle", filename)
@@ -3548,8 +3549,45 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
             result["lokalafdeling_matrikel"] = None
     else:
         print("[DEBUG] Ingen lokalafdeling sat i session eller database.")
+        result["lokalafdeling_navn"] = None
         result["lokalafdeling_alle"] = None
         result["lokalafdeling_matrikel"] = None
+
+    # Lokalafdeling-overblik for alle valgte lokalafdelinger (primær først)
+    try:
+        async with SessionLocal() as dbsession:
+            user_for_overview = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
+        opted_lokalafdelinger = _user_opted_lokalafdelinger(user_for_overview)
+        if lokalafdeling:
+            opted_lokalafdelinger = [lokalafdeling, *[value for value in opted_lokalafdelinger if value != lokalafdeling]]
+        opted_lokalafdelinger = opted_lokalafdelinger[:5]
+
+        lokalafdelinger_overblik = []
+        for opted_name in opted_lokalafdelinger:
+            filename = f"{opted_name.replace(' ', '_')}.json"
+
+            alle_row = None
+            matrikel_row = None
+            try:
+                with open(os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle", filename), encoding="utf-8") as f:
+                    alle_row = get_row(json.load(f))
+            except Exception:
+                alle_row = None
+            try:
+                with open(os.path.join(SCOREBOARD_DIR, "lokalafdeling_matrikel", filename), encoding="utf-8") as f:
+                    matrikel_row = get_row(json.load(f))
+            except Exception:
+                matrikel_row = None
+
+            lokalafdelinger_overblik.append({
+                "lokalafdeling_navn": str(opted_name),
+                "alle": alle_row,
+                "matrikel": matrikel_row,
+            })
+        result["lokalafdelinger_overblik"] = lokalafdelinger_overblik
+    except Exception as error:
+        print("[DEBUG] lokalafdelinger_overblik fejl:", error)
+        result["lokalafdelinger_overblik"] = []
 
     # Kommune (hent fra session eller database)
     kommune_id = _normalize_single_kommune(session.get("kommune"))
