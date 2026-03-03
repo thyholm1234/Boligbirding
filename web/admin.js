@@ -1,4 +1,4 @@
-// Version: 1.12.14 - 2026-03-03 01.14.28
+// Version: 1.12.16 - 2026-03-03 01.23.22
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -22,8 +22,18 @@ function escapeHtml(text) {
 }
 
 async function hentUdelukkedeArter() {
-    const res = await fetch('/api/admin/excluded_species');
+    const [res, stylesRes] = await Promise.all([
+        fetch('/api/admin/excluded_species'),
+        fetch('/api/species_styles')
+    ]);
     const data = await res.json();
+    const styleData = await stylesRes.json().catch(() => ({}));
+    const styleMapRaw = styleData && typeof styleData.styles === 'object' && styleData.styles !== null
+        ? styleData.styles
+        : {};
+    const styleMap = new Map(
+        Object.entries(styleMapRaw).map(([name, kind]) => [String(name || '').toLocaleLowerCase(), String(kind || 'normal').toLowerCase()])
+    );
     const arter = Array.isArray(data.species) ? data.species : [];
     const tbody = document.getElementById('excludedSpeciesTableBody');
     const bulkEl = document.getElementById('excludedSpeciesBulk');
@@ -35,15 +45,22 @@ async function hentUdelukkedeArter() {
     if (!arter.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="2" class="muted" style="padding:0.45em;">Ingen arter tilføjet.</td>
+                <td colspan="3" class="muted" style="padding:0.45em;">Ingen arter tilføjet.</td>
             </tr>
         `;
         return;
     }
 
+    const kindLabel = (kind) => {
+        if (kind === 'su') return 'su';
+        if (kind === 'subart') return 'subart';
+        return 'normal';
+    };
+
     tbody.innerHTML = arter.map(art => `
         <tr>
-            <td style="padding:0.45em;">${escapeHtml(art)}</td>
+            <td style="padding:0.45em;"><span class="species-name species-name--${escapeHtml(styleMap.get(String(art || '').toLocaleLowerCase()) || 'normal')}">${escapeHtml(art)}</span></td>
+            <td style="padding:0.45em;">${escapeHtml(kindLabel(styleMap.get(String(art || '').toLocaleLowerCase()) || 'normal'))}</td>
             <td style="padding:0.45em;">
                 <button type="button" class="remove-excluded-species" data-art="${escapeHtml(art)}">Fjern</button>
             </td>

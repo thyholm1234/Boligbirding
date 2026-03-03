@@ -1,4 +1,4 @@
-<!-- Version: 1.12.14 - 2026-03-03 01.14.28 -->
+<!-- Version: 1.12.16 - 2026-03-03 01.23.22 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin</title>
-    <link rel="stylesheet" href="style.css?v=1.12.14">
+    <link rel="stylesheet" href="style.css?v=1.12.16">
     <script type="module">
         import { renderNavbar, initNavbar, initMobileNavbar } from './navbar.js';
         renderNavbar();
@@ -33,9 +33,10 @@
         <div style="margin-top:2em; margin-left:0; margin-right:auto; max-width:620px;">
             <h2>Arter der ikke skal fremgå som godkendte</h2>
             <div style="display:flex;gap:0.6em;flex-wrap:wrap;margin-bottom:0.8em;">
-                <button type="button" id="syncExcludedSpeciesBtn">Sync fra DOFbasen ([...])</button>
+                <button type="button" id="syncExcludedSpeciesBtn">Sync artsliste (DOFbasen)</button>
                 <button type="button" id="saveExcludedSpeciesBtn">Gem liste</button>
             </div>
+            <div class="muted" style="margin-bottom:0.6em;">Farver: <span class="species-name species-name--su">su</span> · <span class="species-name species-name--subart">subart</span> · normal</div>
             <label for="excludedSpeciesBulk" class="muted" style="display:block;margin-bottom:0.35em;">En art pr. linje (kan redigeres manuelt):</label>
             <textarea id="excludedSpeciesBulk" rows="10" style="width:100%;margin-bottom:0.8em;"></textarea>
             <form id="excludedSpeciesForm" style="display:flex;gap:0.6em;flex-wrap:wrap;margin-bottom:0.8em;">
@@ -47,6 +48,7 @@
                 <thead>
                     <tr>
                         <th style="text-align:left; padding:0.45em;">Art</th>
+                        <th style="text-align:left; padding:0.45em; width:110px;">Type</th>
                         <th style="text-align:left; padding:0.45em; width:120px;">Handling</th>
                     </tr>
                 </thead>
@@ -84,6 +86,6 @@
             <div id="adminUserStatus" class="muted" style="margin-top:0.8em;"></div>
         </div>
     </div>
-    <script src="admin.js?v=1.12.14"></script>
+    <script src="admin.js?v=1.12.16"></script>
 </body>
 </html>

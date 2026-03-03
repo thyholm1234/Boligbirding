@@ -1,4 +1,4 @@
-// Version: 1.12.14 - 2026-03-03 01.14.28
+// Version: 1.12.16 - 2026-03-03 01.23.22
 // © Christian Vemmelund Helligsø
 
 
@@ -14,6 +14,43 @@ let firstsSortMode = "alphabetical"; // "alphabetical" | "newest" | "oldest"
 let cachedGlobalYear = null;
 let selfObserkode = null;
 let kommuneNameMap = null;
+let speciesStyleMap = null;
+
+function escapeHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function ensureSpeciesStyleMap() {
+  if (speciesStyleMap) return speciesStyleMap;
+  speciesStyleMap = new Map();
+  try {
+    const res = await fetch('/api/species_styles');
+    if (!res.ok) return speciesStyleMap;
+    const data = await res.json();
+    const styles = data && typeof data.styles === 'object' && data.styles !== null ? data.styles : {};
+    Object.entries(styles).forEach(([name, kind]) => {
+      const key = String(name || '').trim().toLocaleLowerCase();
+      if (!key) return;
+      const normalizedKind = String(kind || 'normal').toLowerCase();
+      if (normalizedKind !== 'su' && normalizedKind !== 'subart') return;
+      speciesStyleMap.set(key, normalizedKind);
+    });
+  } catch (_) {
+    return speciesStyleMap;
+  }
+  return speciesStyleMap;
+}
+
+function renderSpeciesLabelHtml(name) {
+  const safeName = escapeHtml(name);
+  const kind = speciesStyleMap?.get(String(name || '').trim().toLocaleLowerCase()) || 'normal';
+  return `<span class="species-name species-name--${kind}">${safeName}</span>`;
+}
 
 // Snapshot af originale data pr. scope/gruppe (til robust filtrering)
 let masterData = null;            // { rows, koder, matrix, totals, arter }
@@ -385,6 +422,7 @@ async function hentData(params) {
 // ---------- Siderender ----------
 async function visSide() {
   const params = getParams();
+  await ensureSpeciesStyleMap();
   const data = await hentData(params);
 
   const container = document.getElementById("main");
@@ -973,7 +1011,7 @@ function renderFirsts(firsts, sortMode, scope) {
   const hideLokalitet = scope === "user_matrikel";
   const cards = sorted.map(f => `
     <div class="user-card">
-      <strong>${f.artnavn}</strong><br>
+      <strong>${renderSpeciesLabelHtml(f.artnavn)}</strong><br>
       ${!hideLokalitet ? `Lokalitet: ${f.lokalitet}<br>` : ""}
       Dato: ${f.dato}
     </div>
@@ -1026,7 +1064,7 @@ function visScoreboardMatrix(data) {
     // Fjern farveklasser i single obserkode mode
     if (plainClass) rowClass = "";
 
-    html += `<tr class="${rowClass}"><td>${i + 1}</td><td>${arter[i]}</td>`;
+    html += `<tr class="${rowClass}"><td>${i + 1}</td><td>${renderSpeciesLabelHtml(arter[i])}</td>`;
     sortedKoder.forEach(k => {
       const origIdx = koder.indexOf(k);
       const val = (origIdx >= 0 && matrix[i]) ? (matrix[i][origIdx] || "") : "";

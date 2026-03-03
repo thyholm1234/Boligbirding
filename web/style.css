@@ -1,4 +1,4 @@
-/* Version: 1.12.14 - 2026-03-03 01.14.28 */
+/* Version: 1.12.16 - 2026-03-03 01.23.22 */
 /* © Christian Vemmelund Helligsø */
 /* --- Fonts & Base --- */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500&display=swap');
@@ -90,6 +90,18 @@ h2, h3 {
 }
 
 .muted { color: var(--text-muted); font-size: 0.95em; }
+
+.species-name {
+  color: inherit;
+}
+
+.species-name--su {
+  color: #c62828;
+}
+
+.species-name--subart {
+  color: #2e7d32;
+}
 
 button,
 input[type="button"],

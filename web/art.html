@@ -1,4 +1,4 @@
-<!-- Version: 1.12.14 - 2026-03-03 01.14.28 -->
+<!-- Version: 1.12.16 - 2026-03-03 01.23.22 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -6,8 +6,8 @@
   <meta charset="utf-8" />
   <title>Ankomstgraf for fugle</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="style.css?v=1.12.14">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.14"></script>
+  <link rel="stylesheet" href="style.css?v=1.12.16">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js?v=1.12.16"></script>
   <script type="module">
     import { renderNavbar, initNavbar, initMobileNavbar } from './navbar.js';
     renderNavbar();
@@ -44,6 +44,35 @@
     let chart = null, turidChart = null, sidsteFundChart = null;
     let currentScope = "matrikel";
     let preselectedArt = null;
+    let speciesStyleMap = new Map();
+
+    async function ensureSpeciesStyleMap() {
+      if (speciesStyleMap.size) return speciesStyleMap;
+      try {
+        const res = await fetch('/api/species_styles');
+        if (!res.ok) return speciesStyleMap;
+        const data = await res.json();
+        const styles = data && typeof data.styles === 'object' && data.styles !== null ? data.styles : {};
+        speciesStyleMap = new Map(
+          Object.entries(styles).map(([name, kind]) => [
+            String(name || '').trim().toLocaleLowerCase(),
+            String(kind || 'normal').toLowerCase()
+          ])
+        );
+      } catch (_) {
+        return speciesStyleMap;
+      }
+      return speciesStyleMap;
+    }
+
+    function applySelectedArtStyle(artnavn) {
+      const dropdown = document.getElementById('artDropdown');
+      if (!dropdown) return;
+      dropdown.classList.remove('species-name--su', 'species-name--subart');
+      const kind = speciesStyleMap.get(String(artnavn || '').trim().toLocaleLowerCase()) || 'normal';
+      if (kind === 'su') dropdown.classList.add('species-name--su');
+      else if (kind === 'subart') dropdown.classList.add('species-name--subart');
+    }
 
     function normalizeScope(value) {
       const v = (value || "").toLowerCase();
@@ -74,6 +103,7 @@
     }
 
     async function hentArter() {
+      await ensureSpeciesStyleMap();
       const res = await fetch(`/api/arter?scope=${encodeURIComponent(currentScope)}`);
       const arter = await res.json();
       const dropdown = document.getElementById('artDropdown');
@@ -85,6 +115,7 @@
           dropdown.value = arter[0];
           preselectedArt = arter[0];
         }
+        applySelectedArtStyle(dropdown.value);
         updateUrlParams();
         hentArtData(dropdown.value);
       }
@@ -390,6 +421,7 @@
 
     document.getElementById('artDropdown').addEventListener('change', e => {
       preselectedArt = e.target.value;
+      applySelectedArtStyle(preselectedArt);
       updateUrlParams();
       hentArtData(e.target.value);
     });

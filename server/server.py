@@ -2314,6 +2314,26 @@ async def schedule_daily_year_sync():
         except Exception as exc:
             print(f"[SCHEDULE] Daily year sync failed: {exc}")
 
+async def schedule_daily_species_sync():
+    while True:
+        now = datetime.datetime.now()
+        target = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        if target <= now:
+            target = target + datetime.timedelta(days=1)
+        sleep_seconds = max(0, int((target - now).total_seconds()))
+        print(f"[SCHEDULE] Next species sync at {target.isoformat()} (in {sleep_seconds}s)")
+        await asyncio.sleep(sleep_seconds)
+        try:
+            print("[SCHEDULE] Running daily species sync...")
+            result = await asyncio.to_thread(_sync_species_styles_and_excluded_from_dof)
+            print(
+                "[SCHEDULE] Daily species sync done: "
+                f"excluded={result.get('excluded_total_count', 0)}, "
+                f"styles={result.get('styles_total_count', 0)}"
+            )
+        except Exception as exc:
+            print(f"[SCHEDULE] Daily species sync failed: {exc}")
+
 
 # ---------------------------------------------------------
 #  API: Admin
@@ -3911,6 +3931,7 @@ async def get_matrix():
 # --- GRUPPEMODEL (i memory eller database, her som fil for demo) ---
 GRUPPEFIL = os.path.join(SERVER_DIR, "grupper.json")
 EXCLUDED_SPECIES_FILE = os.path.join(SERVER_DIR, "excluded_species.json")
+SPECIES_STYLES_FILE = os.path.join(SERVER_DIR, "species_styles.json")
 
 def load_grupper():
     if not os.path.exists(GRUPPEFIL):
@@ -3961,26 +3982,147 @@ def save_excluded_species(species: List[str]):
     with open(EXCLUDED_SPECIES_FILE, "w", encoding="utf-8") as f:
         json.dump(cleaned, f, ensure_ascii=False, indent=2)
 
-def _extract_bracket_species_from_dof_html(html_text: str) -> List[str]:
+def load_species_styles() -> Dict[str, str]:
+    if not os.path.exists(SPECIES_STYLES_FILE):
+        return {}
+    try:
+        with open(SPECIES_STYLES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    allowed = {"normal", "su", "subart"}
+    result: Dict[str, str] = {}
+    seen: set = set()
+    for raw_name, raw_kind in data.items():
+        name = _normalize_species_name(raw_name)
+        if not name:
+            continue
+        kind = str(raw_kind or "normal").strip().lower()
+        if kind not in allowed:
+            kind = "normal"
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result[name] = kind
+    return dict(sorted(result.items(), key=lambda kv: kv[0].casefold()))
+
+def save_species_styles(styles: Dict[str, str]):
+    if not isinstance(styles, dict):
+        styles = {}
+    allowed = {"normal", "su", "subart"}
+    cleaned: Dict[str, str] = {}
+    seen: set = set()
+    for raw_name, raw_kind in styles.items():
+        name = _normalize_species_name(raw_name)
+        if not name:
+            continue
+        kind = str(raw_kind or "normal").strip().lower()
+        if kind not in allowed:
+            kind = "normal"
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned[name] = kind
+
+    payload = dict(sorted(cleaned.items(), key=lambda kv: kv[0].casefold()))
+    with open(SPECIES_STYLES_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+def _merge_species_style_kind(current: str, incoming: str) -> str:
+    rank = {"normal": 0, "subart": 1, "su": 2}
+    c = incoming if incoming in rank else "normal"
+    p = current if current in rank else "normal"
+    return c if rank[c] >= rank[p] else p
+
+def _extract_species_entries_from_dof_html(html_text: str) -> Dict[str, Dict[str, Any]]:
     rows = re.findall(r"<tr[^>]*>.*?</tr>", html_text or "", flags=re.IGNORECASE | re.DOTALL)
-    found = {}
+    found: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         tds = re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.IGNORECASE | re.DOTALL)
         if len(tds) < 3:
             continue
         species_cell = tds[2]
+        cell_lower = species_cell.lower()
+
+        species_kind = "normal"
+        if "class=\"su\"" in cell_lower or "class='su'" in cell_lower:
+            species_kind = "su"
+        elif "class=\"subart\"" in cell_lower or "class='subart'" in cell_lower:
+            species_kind = "subart"
+
         text = re.sub(r"<[^>]+>", "", species_cell)
         text = unescape(text).replace("\xa0", " ")
         text = _normalize_species_name(text)
-        if not (text.startswith("[") and text.endswith("]")):
-            continue
-        name = _normalize_species_name(text[1:-1])
+
+        is_bracket = text.startswith("[") and text.endswith("]")
+        name = _normalize_species_name(text[1:-1] if is_bracket else text)
         if not name:
             continue
+
         key = name.casefold()
         if key not in found:
-            found[key] = name
-    return sorted(found.values(), key=lambda x: x.casefold())
+            found[key] = {
+                "name": name,
+                "kind": species_kind,
+                "is_bracket": is_bracket,
+            }
+            continue
+
+        previous_kind = found[key].get("kind", "normal")
+        found[key]["kind"] = _merge_species_style_kind(previous_kind, species_kind)
+        if is_bracket:
+            found[key]["is_bracket"] = True
+
+    return found
+
+def _sync_species_styles_and_excluded_from_dof() -> Dict[str, Any]:
+    url = "https://dofbasen.dk/opslag/artdata.php"
+    response = requests.get(url, timeout=25)
+    response.raise_for_status()
+
+    entries = _extract_species_entries_from_dof_html(response.text)
+    if not entries:
+        raise RuntimeError("Fandt ingen arter i DOFbasens artsliste")
+
+    fetched_styles = {
+        entry["name"]: entry.get("kind", "normal")
+        for entry in entries.values()
+        if entry.get("name")
+    }
+    existing_styles = load_species_styles()
+    merged_styles = dict(existing_styles)
+    for name, kind in fetched_styles.items():
+        existing_kind = merged_styles.get(name, "normal")
+        merged_styles[name] = _merge_species_style_kind(existing_kind, kind)
+    save_species_styles(merged_styles)
+
+    fetched_brackets = sorted({
+        entry["name"]
+        for entry in entries.values()
+        if entry.get("is_bracket") and entry.get("name")
+    }, key=lambda value: value.casefold())
+    if not fetched_brackets:
+        raise RuntimeError("Fandt ingen arter i klammer i DOFbasens artsliste")
+
+    existing_excluded = load_excluded_species()
+    save_excluded_species(existing_excluded + fetched_brackets)
+    saved_excluded = load_excluded_species()
+
+    su_count = sum(1 for kind in merged_styles.values() if kind == "su")
+    subart_count = sum(1 for kind in merged_styles.values() if kind == "subart")
+
+    return {
+        "fetched_bracket_count": len(fetched_brackets),
+        "excluded_total_count": len(saved_excluded),
+        "styles_total_count": len(merged_styles),
+        "su_count": su_count,
+        "subart_count": subart_count,
+    }
 
 def find_gruppe(grupper, navn):
     for g in grupper:
@@ -4277,6 +4419,10 @@ async def admin_get_grupper(request: Request, admin: bool = Depends(require_admi
 async def admin_get_excluded_species(admin: bool = Depends(require_admin)):
     return {"species": load_excluded_species()}
 
+@app.get("/api/species_styles")
+async def get_species_styles():
+    return {"styles": load_species_styles()}
+
 @app.post("/api/admin/excluded_species")
 async def admin_add_excluded_species(payload: Dict[str, Any] = Body(...), admin: bool = Depends(require_admin)):
     artnavn = _normalize_species_name(payload.get("artnavn", ""))
@@ -4314,28 +4460,23 @@ async def admin_save_excluded_species(payload: Dict[str, Any] = Body(...), admin
 
 @app.post("/api/admin/excluded_species/sync")
 async def admin_sync_excluded_species_from_dof(admin: bool = Depends(require_admin)):
-    url = "https://dofbasen.dk/opslag/artdata.php"
     try:
-        response = requests.get(url, timeout=25)
-        response.raise_for_status()
+        result = await asyncio.to_thread(_sync_species_styles_and_excluded_from_dof)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Kunne ikke hente artsliste fra DOFbasen: {exc}")
 
-    fetched_species = _extract_bracket_species_from_dof_html(response.text)
-    if not fetched_species:
-        raise HTTPException(status_code=502, detail="Fandt ingen arter i klammer i DOFbasens artsliste")
-
-    existing = load_excluded_species()
-    merged = existing + fetched_species
-    save_excluded_species(merged)
-    saved = load_excluded_species()
-
     return {
         "ok": True,
-        "msg": f"Sync fuldført: {len(fetched_species)} arter fundet i klammer. Liste indeholder nu {len(saved)} arter.",
-        "species": saved,
-        "fetched_count": len(fetched_species),
-        "total_count": len(saved)
+        "msg": (
+            "Sync fuldført: "
+            f"{result['fetched_bracket_count']} klamme-arter, "
+            f"{result['su_count']} su-arter, "
+            f"{result['subart_count']} subarter."
+        ),
+        "species": load_excluded_species(),
+        "fetched_count": result["fetched_bracket_count"],
+        "total_count": result["excluded_total_count"],
+        "styles_count": result["styles_total_count"],
     }
 
 @app.post("/api/admin/slet_gruppe")
@@ -4462,6 +4603,7 @@ async def startup():
     print("[START] DB klar. Static peger på:", WEB_DIR)
     asyncio.create_task(schedule_daily_kommune_sync())
     asyncio.create_task(schedule_daily_year_sync())
+    asyncio.create_task(schedule_daily_species_sync())
 
 
 @app.post("/api/full_sync_all")
