@@ -1,4 +1,4 @@
-// Version: 1.12.27 - 2026-03-03 02.22.01
+// Version: 1.12.28 - 2026-03-03 11.56.41
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -122,9 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
       option.selected = false;
     });
     if (statusEl) {
-      statusEl.textContent = `Du kan højst vælge ${maxCount}.`;
+      statusEl.textContent = `Du kan vælge op til ${maxCount}.`;
       setTimeout(() => {
-        if (statusEl.textContent === `Du kan højst vælge ${maxCount}.`) statusEl.textContent = '';
+        if (statusEl.textContent === `Du kan vælge op til ${maxCount}.`) statusEl.textContent = '';
       }, 2200);
     }
   }
@@ -174,8 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div id="optInModalList" style="display:flex;flex-direction:column;gap:0.45em;overflow:auto;max-height:52vh;padding-right:0.2em;"></div>
           <div id="optInModalStatus" class="muted" style="margin-top:0.7em;min-height:1.2em;"></div>
           <div style="display:flex;gap:0.6em;justify-content:flex-end;margin-top:0.9em;padding-top:0.6em;border-top:1px solid var(--border);">
-            <button type="button" id="optInModalCancel">Annuller</button>
-            <button type="button" id="optInModalSave">Gem valg</button>
+            <button type="button" id="optInModalCancel">Luk</button>
+            <button type="button" id="optInModalSave">Gem</button>
           </div>
         </div>
       </div>
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modal || !title || !helper || !list || !status || !cancelBtn || !saveBtn || !sourceSelect) return;
 
     title.textContent = config.title;
-    helper.textContent = `Vælg op til ${config.maxCount}.`;
+    helper.textContent = `Vælg op til ${config.maxCount}. Du kan altid ændre det senere.`;
 
     const initialSelected = new Set(getSelectedValues(sourceSelect));
     const primaryValue = String(config.primaryValue || '').trim();
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         status.textContent = '';
         return true;
       }
-      status.textContent = `Du kan højst vælge ${config.maxCount}.`;
+      status.textContent = `Du kan vælge op til ${config.maxCount}.`;
       return false;
     };
 
@@ -277,9 +277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderSection = (key) => {
       const index = matrikelIndexFromKey(key);
       const periods = matrikelState.periodMap[key] || [];
-      const title = index === 1 ? 'Matrikel 1 (scoreboards)' : `Matrikel ${index} (privat)`;
+      const title = index === 1 ? 'Matrikel 1 (scoreboards)' : `Matrikel ${index} (kun dig)`;
       const helperText = index === 1
-        ? 'Bruges i grupper/ranglister. Ny periode nulstiller aktiv progress.'
+        ? 'Bruges i grupper og ranglister. En ny periode nulstiller din aktive fremgang.'
         : 'Vises kun for dig.';
       const rowsHtml = periods.length
         ? periods.map((period, index) => `
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error('Kunne ikke gemme indstillinger');
       if (status) status.textContent = 'Gemt';
     } catch (error) {
-      if (status) status.textContent = 'Fejl ved gemning';
+      if (status) status.textContent = 'Kunne ikke gemme';
       console.error(error);
     }
   }
@@ -398,16 +398,16 @@ document.addEventListener('DOMContentLoaded', () => {
     fullSyncBtn.addEventListener('click', async () => {
       fullSyncBtn.disabled = true;
       if (fullSyncStatus) {
-        fullSyncStatus.textContent = 'Starter fuld sync...';
+        fullSyncStatus.textContent = 'Starter fuld synkronisering...';
       }
       try {
         const res = await fetch('/api/full_sync_me', { method: 'POST' });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          throw new Error(data.detail || data.msg || 'Kunne ikke starte fuld sync');
+          throw new Error(data.detail || data.msg || 'Kunne ikke starte synkronisering');
         }
         if (fullSyncStatus) {
-          fullSyncStatus.textContent = data.msg || 'Fuld sync er startet.';
+          fullSyncStatus.textContent = data.msg || 'Synkronisering er startet.';
         }
       } catch (err) {
         if (fullSyncStatus) {
@@ -479,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button data-idx="${idx}" class="fjernGruppeBtn" style="background:none;border:none;color:#b71c1c;cursor:pointer;">✕</button>
           </div>
           <form class="addObserkodeForm" data-idx="${idx}" style="margin-top:1em;">
-            <input type="text" placeholder="Tilføj obserkode" class="obserkodeInput" style="width:60%;margin-right:1em;">
+            <input type="text" placeholder="Indtast obserkode" class="obserkodeInput" style="width:60%;margin-right:1em;">
             <button type="submit">Tilføj</button>
           </form>
           <div style="margin-top:0.7em;">
@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = this.dataset.idx;
         const a = Math.floor(Math.random() * 10) + 1;
         const b = Math.floor(Math.random() * 10) + 1;
-        const svar = prompt(`Bekræft sletning af gruppen "${grupper[idx].navn}".\nHvad er ${a} + ${b}?`);
+        const svar = prompt(`Bekræft at du vil slette gruppen "${grupper[idx].navn}".\nHvad er ${a} + ${b}?`);
         if (svar !== null && Number(svar) === a + b) {
           fetch('/api/delete_gruppe', {
             method: 'POST',
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const kode = grupper[idx].obserkoder[kodeidx];
         const a = Math.floor(Math.random() * 10) + 1;
         const b = Math.floor(Math.random() * 10) + 1;
-        const svar = prompt(`Bekræft sletning af medlemmet "${kode}".\nHvad er ${a} + ${b}?`);
+        const svar = prompt(`Bekræft at du vil fjerne medlemmet "${kode}".\nHvad er ${a} + ${b}?`);
         if (svar !== null && Number(svar) === a + b) {
           fetch('/api/remove_gruppemedlem', {
             method: 'POST',
@@ -626,31 +626,37 @@ document.addEventListener('DOMContentLoaded', () => {
       const afdelingForm = document.getElementById('afdelingForm');
       if (afdelingForm) {
         afdelingForm.innerHTML = `
-          <label for="lokalafdeling">Lokalafdeling:</label>
+          <label for="lokalafdeling">Primær lokalafdeling:</label>
           <select id="lokalafdeling" name="lokalafdeling" style="width:100%;margin-bottom:1em;">
-            <option value="">Vælg...</option>
+            <option value="">Vælg lokalafdeling...</option>
             ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
           </select>
-          <label for="kommune">Kommune:</label>
+          <label for="kommune">Primær kommune:</label>
           <select id="kommune" name="kommune" style="width:100%;margin-bottom:1em;">
-            <option value="">Vælg...</option>
+            <option value="">Vælg kommune...</option>
             ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
           </select>
-          <label style="font-weight:600;">Opt-in lokalafdelinger (max 3):</label>
-          <button type="button" id="openLokalOptInModal" style="width:100%;margin:0.35em 0 0.35em 0;">Vælg lokalafdelinger</button>
-          <div id="lokalafdelingerOptInSummary" class="muted" style="margin-bottom:0.45em;font-size:0.9em;">Ingen valgt</div>
-          <select id="lokalafdelingerOptIn" name="lokalafdelingerOptIn" multiple size="6" style="display:none;">
-            ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
-          </select>
-          <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke lokalafdelinger du vil optræde på scoreboards i.</div>
+          <div style="margin-bottom:0.9em;padding:0.8em;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);">
+            <div style="font-weight:700;margin-bottom:0.35em;">Lokalafdelinger på scoreboards (maks. 3)</div>
+            <button type="button" id="openLokalOptInModal" style="width:100%;margin:0.2em 0 0.35em 0;">Vælg lokalafdelinger</button>
+            <div id="lokalafdelingerOptInSummary" class="muted" style="margin-bottom:0.35em;font-size:0.9em;">Ingen valgt endnu</div>
+            <div class="muted" style="margin-bottom:0.25em;font-size:0.9em;">F.eks.: DOF Vestjylland, DOF Østjylland, DOF Nordvestjylland</div>
+            <div class="muted" style="font-size:0.9em;">Vælg de lokalafdelinger, hvor du gerne vil være synlig på scoreboards.</div>
+            <select id="lokalafdelingerOptIn" name="lokalafdelingerOptIn" multiple size="6" style="display:none;">
+              ${data.lokalafdelinger.map(navn => `<option value="${navn}">${navn}</option>`).join("")}
+            </select>
+          </div>
 
-          <label style="font-weight:600;">Opt-in kommuner (max 5):</label>
-          <button type="button" id="openKommuneOptInModal" style="width:100%;margin:0.35em 0 0.35em 0;">Vælg kommuner</button>
-          <div id="kommunerOptInSummary" class="muted" style="margin-bottom:0.45em;font-size:0.9em;">Ingen valgt</div>
-          <select id="kommunerOptIn" name="kommunerOptIn" multiple size="8" style="display:none;">
-            ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
-          </select>
-          <div class="muted" style="margin-bottom:0.8em;font-size:0.9em;">Vælg hvilke kommuner du vil optræde på scoreboards i.</div>
+          <div style="margin-bottom:0.8em;padding:0.8em;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);">
+            <div style="font-weight:700;margin-bottom:0.35em;">Kommuner på scoreboards (maks. 5)</div>
+            <button type="button" id="openKommuneOptInModal" style="width:100%;margin:0.2em 0 0.35em 0;">Vælg kommuner</button>
+            <div id="kommunerOptInSummary" class="muted" style="margin-bottom:0.35em;font-size:0.9em;">Ingen valgt endnu</div>
+            <div class="muted" style="margin-bottom:0.25em;font-size:0.9em;">F.eks.: Silkeborg, Struer, Thisted, Århus</div>
+            <div class="muted" style="font-size:0.9em;">Vælg de kommuner, hvor du gerne vil være synlig på scoreboards.</div>
+            <select id="kommunerOptIn" name="kommunerOptIn" multiple size="8" style="display:none;">
+              ${data.kommuner.map(kommune => `<option value="${kommune.id}">${kommune.navn}</option>`).join("")}
+            </select>
+          </div>
         `;
       }
 
@@ -670,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Array.from(lokalOpt.options).forEach(option => {
               option.selected = selectedLokal.includes(option.value);
             });
-            updateOptInSummary(lokalOpt, 'lokalafdelingerOptInSummary', 'Ingen valgt');
+            updateOptInSummary(lokalOpt, 'lokalafdelingerOptInSummary', 'Ingen valgt endnu');
           }
           const kommuneOpt = document.getElementById('kommunerOptIn');
           if (kommuneOpt) {
@@ -679,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
               option.selected = selectedKommuner.includes(String(option.value));
             });
             ensurePrimaryKommuneSelected();
-            updateOptInSummary(kommuneOpt, 'kommunerOptInSummary', 'Ingen valgt');
+            updateOptInSummary(kommuneOpt, 'kommunerOptInSummary', 'Ingen valgt endnu');
           }
           const fallbackIndexes = Object.keys(data.matrikel_perioder || {})
             .map(key => matrikelIndexFromKey(key))
@@ -710,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (kommuneInput) {
         kommuneInput.addEventListener('change', () => {
           ensurePrimaryKommuneSelected();
-          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt');
+          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt endnu');
           gemAfdelingKommune();
         });
       }
@@ -719,10 +725,10 @@ document.addEventListener('DOMContentLoaded', () => {
         openLokalOptInModalBtn.addEventListener('click', () => {
           openOptInModal({
             selectId: 'lokalafdelingerOptIn',
-            title: 'Opt-in lokalafdelinger',
+            title: 'Vælg lokalafdelinger til scoreboards',
             summaryId: 'lokalafdelingerOptInSummary',
             maxCount: 3,
-            emptyText: 'Ingen valgt',
+            emptyText: 'Ingen valgt endnu',
             lockPrimary: false,
             primaryValue: null
           });
@@ -733,10 +739,10 @@ document.addEventListener('DOMContentLoaded', () => {
         openKommuneOptInModalBtn.addEventListener('click', () => {
           openOptInModal({
             selectId: 'kommunerOptIn',
-            title: 'Opt-in kommuner',
+            title: 'Vælg kommuner til scoreboards',
             summaryId: 'kommunerOptInSummary',
             maxCount: 5,
-            emptyText: 'Ingen valgt',
+            emptyText: 'Ingen valgt endnu',
             lockPrimary: true,
             primaryValue: kommuneInput ? kommuneInput.value : ''
           });
@@ -746,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (lokalafdelingerOptInInput) {
         lokalafdelingerOptInInput.addEventListener('change', () => {
           enforceMultiSelectLimit(lokalafdelingerOptInInput, 3, document.getElementById('matrikelSaveStatus'));
-          updateOptInSummary(lokalafdelingerOptInInput, 'lokalafdelingerOptInSummary', 'Ingen valgt');
+          updateOptInSummary(lokalafdelingerOptInInput, 'lokalafdelingerOptInSummary', 'Ingen valgt endnu');
           gemAfdelingKommune();
         });
       }
@@ -754,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         kommunerOptInInput.addEventListener('change', () => {
           enforceMultiSelectLimit(kommunerOptInInput, 5, document.getElementById('matrikelSaveStatus'));
           ensurePrimaryKommuneSelected();
-          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt');
+          updateOptInSummary(kommunerOptInInput, 'kommunerOptInSummary', 'Ingen valgt endnu');
           gemAfdelingKommune();
         });
       }
