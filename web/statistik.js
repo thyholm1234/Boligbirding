@@ -1,4 +1,4 @@
-// Version: 1.12.18 - 2026-03-03 01.44.24
+// Version: 1.12.19 - 2026-03-03 01.46.36
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -53,7 +53,7 @@ function renderYearList(targetId, years, user, scope, totalCount = 0, totalRank 
   const totalRankText = totalRank ? `#${totalRank}` : '-';
   const totalRow = hasTotal
     ? `
-      <tr>
+      <tr style="font-weight:700;">
         <td><b>Total</b></td>
         <td><a href="${totalLink}">Se listen</a></td>
         <td><b>${formatNumber(totalCount)}</b></td>
@@ -203,7 +203,7 @@ function renderMatrikelYearList(targetId, data, user, compareData = null, compar
 
   const totalRow = hasTotal
     ? `
-      <tr>
+      <tr style="font-weight:700;">
         <td><b>Total</b></td>
         <td><a href="${totalLink}">Se listen</a></td>
         ${buildPrimaryCountCells(totalPrimaryMap)}
@@ -573,6 +573,7 @@ async function renderKommuneOverview() {
   const rowHtml = (label, row, scope, yearValue = null) => {
     const count = Number(row?.antal_arter || 0);
     const rank = row?.placering ? `#${row.placering}` : '-';
+    const rowStyle = String(label) === 'Total' ? ' style="font-weight:700;"' : '';
     const params = new URLSearchParams({
       scope,
       kommune: String(selected.kommune_id),
@@ -583,7 +584,7 @@ async function renderKommuneOverview() {
     }
     const link = `scoreboard.html?${params.toString()}`;
     return `
-      <tr>
+      <tr${rowStyle}>
         <td>${label}</td>
         <td>${count > 0 ? formatNumber(count) : '0'}</td>
         <td>${rank}</td>
