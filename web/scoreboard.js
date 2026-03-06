@@ -1,4 +1,4 @@
-// Version: 1.13.2 - 2026-03-06 21.31.37
+// Version: 1.13.3 - 2026-03-06 21.33.04
 // © Christian Vemmelund Helligsø
 
 
@@ -165,11 +165,15 @@ function createDailyXAxisOptions(labels) {
   };
 
   const shouldShowYear = (year, day, month) => {
+    if (day !== 1 || month !== 1) return false;
+    
+    const displayMaxYear = (maxYear === currentYear) ? null : maxYear;
+    
     if (overFiveYears) {
-      return (day === 1 && month === 1) && (year % 5 === 0 || year === minYear || year === maxYear);
+      return year % 5 === 0 || year === minYear || year === displayMaxYear;
     }
     if (spanYearsApprox > 1) {
-      return (day === 1 && month === 1) && (year === minYear || year === maxYear);
+      return year === minYear || year === displayMaxYear;
     }
     return year === minYear;
   };
