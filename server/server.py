@@ -4502,6 +4502,39 @@ async def gruppe_scoreboard(request: Request, data: dict = Body(...)):
     for u in users:
         if scope == "gruppe_alle":
             L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "global.json")) or []
+            
+            # Generate trend_points for gruppe_alle
+            async with SessionLocal() as dbsession:
+                obs_query = select(Observation).where(Observation.obserkode == u.obserkode)
+                if str(aar) != "global":
+                    obs_query = obs_query.where(
+                        Observation.dato >= range_start,
+                        Observation.dato <= visible_end,
+                    )
+                obs_rows = (await dbsession.execute(obs_query)).scalars().all()
+            
+            firsts_by_art: Dict[str, datetime.date] = {}
+            for obs_row in obs_rows:
+                if not obs_row.dato:
+                    continue
+                if obs_row.dato > visible_end:
+                    continue
+                art_name = _normalize_base_art_name(obs_row.artnavn)
+                if not art_name or "sp." in art_name or "/" in art_name or " x " in art_name:
+                    continue
+                key = art_name.casefold()
+                previous = firsts_by_art.get(key)
+                if previous is None or obs_row.dato < previous:
+                    firsts_by_art[key] = obs_row.dato
+            
+            points: List[Dict[str, Any]] = []
+            running = 0
+            for first_date in sorted(firsts_by_art.values()):
+                running += 1
+                points.append({"dato": first_date.strftime("%d-%m-%Y"), "count": running})
+            
+            if points:
+                trend_points[u.obserkode] = points
         elif scope == "gruppe_matrikel":
             L = _load_json(os.path.join(OBSER_DIR, u.obserkode, "matrikelarter.json")) or []
 
