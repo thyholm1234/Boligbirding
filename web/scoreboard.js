@@ -1,4 +1,4 @@
-// Version: 1.12.39 - 2026-03-06 21.16.31
+// Version: 1.13.0 - 2026-03-06 21.28.05
 // © Christian Vemmelund Helligsø
 
 
@@ -149,6 +149,7 @@ function createDailyXAxisOptions(labels) {
   const years = parsed.map(p => p.year);
   const minYear = years.length ? Math.min(...years) : new Date().getFullYear();
   const maxYear = years.length ? Math.max(...years) : minYear;
+  const currentYear = new Date().getFullYear();
   const overFiveYears = spanYearsApprox > 5;
 
   const gridRules = {
@@ -163,6 +164,16 @@ function createDailyXAxisOptions(labels) {
     return date.getDay() === 1;
   };
 
+  const shouldShowYear = (year) => {
+    if (overFiveYears) {
+      return year % 5 === 0 || year === minYear || year === maxYear;
+    }
+    if (spanYearsApprox > 1) {
+      return year === minYear || year === maxYear || (year < currentYear && year === minYear);
+    }
+    return true;
+  };
+
   return {
     title: { display: true, text: 'Dato' },
     ticks: {
@@ -174,13 +185,13 @@ function createDailyXAxisOptions(labels) {
         const parts = parseDmyLabelParts(label);
         if (!parts) return '';
         if (overFiveYears) {
-          if (parts.day === 1 && parts.month === 1 && (parts.year % 5 === 0 || parts.year === minYear || parts.year === maxYear)) {
+          if (parts.day === 1 && parts.month === 1 && shouldShowYear(parts.year)) {
             return String(parts.year);
           }
           return '';
         }
         if (parts.day !== 1) return '';
-        const monthNames = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+        const monthNames = ['jan', 'feb', 'mar', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
         const monthName = monthNames[Math.max(0, Math.min(11, parts.month - 1))];
         return parts.month === 1 ? `${monthName} ${parts.year}` : monthName;
       }
