@@ -1,4 +1,4 @@
-// Version: 1.13.0 - 2026-03-06 21.28.05
+// Version: 1.13.1 - 2026-03-06 21.29.52
 // © Christian Vemmelund Helligsø
 
 
@@ -613,7 +613,11 @@ function renderUserTrendChart(targetId, trendPoints, labelText, selectedYearValu
     }
   }
   const yearEndDate = new Date(chartYear, 11, 31);
-  const endDate = selectedIsGlobal ? today : (chartYear < today.getFullYear() ? yearEndDate : today);
+  const endDate = selectedIsGlobal 
+    ? today 
+    : (chartYear < today.getFullYear() 
+        ? yearEndDate 
+        : (chartYear === today.getFullYear() ? today : yearEndDate));
 
   if (startDate > endDate) {
     target.innerHTML = "";
