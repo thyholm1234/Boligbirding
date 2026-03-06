@@ -1,4 +1,4 @@
-// Version: 1.13.3 - 2026-03-06 21.33.04
+// Version: 1.13.4 - 2026-03-06 21.36.59
 // © Christian Vemmelund Helligsø
 
 
@@ -1292,10 +1292,13 @@ function visScoreboardTrend(data) {
       startDate = new Date(selectedYear, 0, 1);
       const selectedYearEnd = new Date(selectedYear, 11, 31);
       endDate = selectedYear < today.getFullYear() ? selectedYearEnd : today;
-    } else if (selectedAarRaw === 'global') {
+    } else if (selectedAarRaw === 'global' || firstPositiveGlobalDate) {
       startDate = firstPositiveGlobalDate
         ? new Date(firstPositiveGlobalDate.getTime())
         : new Date(startDate.getTime());
+      startDate.setDate(startDate.getDate() - 1);
+    } else {
+      startDate = new Date(startDate.getTime());
       startDate.setDate(startDate.getDate() - 1);
     }
 
@@ -1317,7 +1320,7 @@ function visScoreboardTrend(data) {
     const koder = sortedKoder.length ? sortedKoder : koderFromRows;
 
     let firstPositiveGlobalDate = null;
-    if (selectedAarRaw === 'global') {
+    if (selectedAarRaw === 'global' || !selectedAarRaw) {
       koder.forEach(kode => {
         const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
         points.forEach(point => {
