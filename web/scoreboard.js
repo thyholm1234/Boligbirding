@@ -1,4 +1,4 @@
-// Version: 1.13.6 - 2026-03-06 21.43.37
+// Version: 1.13.7 - 2026-03-06 21.45.51
 // © Christian Vemmelund Helligsø
 
 
@@ -1402,12 +1402,14 @@ function visScoreboardTrend(data) {
         countsByDate[point.dato] = Number(point.count || 0);
       });
 
-      let current = 0;
+      // Find first actual observation to avoid leading zero line
+      let current = null;
       const values = sortedDates.map(dateValue => {
         if (Object.prototype.hasOwnProperty.call(countsByDate, dateValue)) {
           current = countsByDate[dateValue];
         }
-        return current;
+        // Only return value if we've found a real observation
+        return current !== null ? current : null;
       });
 
       return {
