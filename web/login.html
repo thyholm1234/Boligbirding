@@ -1,4 +1,4 @@
-<!-- Version: 1.12.36 - 2026-03-06 21.05.03 -->
+<!-- Version: 1.12.37 - 2026-03-06 21.11.42 -->
 <!-- © Christian Vemmelund Helligsø -->
 <!DOCTYPE html>
 <html lang="da">
@@ -9,7 +9,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#2b7a78" />
   <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
-  <link rel="stylesheet" href="style.css?v=1.12.36">
+  <link rel="stylesheet" href="style.css?v=1.12.37">
   <style>
     body {
       background: #f4f8f9;
@@ -159,7 +159,7 @@
     // Registrér service worker når siden er loadet
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=1.12.36')
+        navigator.serviceWorker.register('/sw.js?v=1.12.37')
           .then(reg => console.log('Service Worker registreret:', reg.scope))
           .catch(err => console.error('SW registrering fejlede:', err));
       });

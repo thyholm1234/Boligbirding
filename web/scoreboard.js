@@ -1,4 +1,4 @@
-// Version: 1.12.36 - 2026-03-06 21.05.03
+// Version: 1.12.37 - 2026-03-06 21.11.42
 // © Christian Vemmelund Helligsø
 
 
@@ -547,6 +547,12 @@ function buildUserYearOptions(selectedValue) {
   return options.join("\n");
 }
 
+function buildUserGlobalYearOptions(selectedValue, availableYears) {
+  const selected = String(selectedValue || new Date().getFullYear());
+  const years = Array.isArray(availableYears) && availableYears.length ? availableYears : [new Date().getFullYear()];
+  return years.map(year => `<option value="${year}" ${selected === String(year) ? "selected" : ""}>${year}</option>`).join("\n");
+}
+
 function buildUserMatrikelOptions(selectedIndex, availableIndexes) {
   const selected = Number(selectedIndex) || 1;
   const normalized = Array.isArray(availableIndexes)
@@ -858,6 +864,9 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
       .filter(v => Number.isInteger(v) && v >= 1)
       .sort((a, b) => a - b)
     : [];
+  const availableYears = Array.isArray(data.available_years)
+    ? data.available_years.filter(v => Number.isInteger(v))
+    : [];
   const periodOptions = showPersonalMatrikelControls && Array.isArray(data.period_options) ? data.period_options : [];
   const selectedPeriodName = showPersonalMatrikelControls ? (data.selected_period_name || "") : "";
   const activePeriodName = showPersonalMatrikelControls ? (data.active_period_name || "") : "";
@@ -865,6 +874,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const trendPointsForGraph = (showPersonalMatrikelControls && Array.isArray(data.trend_points))
     ? data.trend_points
     : buildTrendPointsFromFirsts(firsts);
+  const showYearSelector = (apiScope === 'user_global' && availableYears.length > 0);
 
   // Render
   const container = document.getElementById("main");
@@ -902,10 +912,10 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     </select>
   ` : "";
 
-  const yearControlHtml = showPersonalMatrikelControls ? `
+  const yearControlHtml = (showPersonalMatrikelControls || showYearSelector) ? `
     <label for="userYearSelect">År:</label>
     <select id="userYearSelect" style="padding:0.4em 0.6em;">
-      ${buildUserYearOptions(aar)}
+      ${showYearSelector ? buildUserGlobalYearOptions(aar, availableYears) : buildUserYearOptions(aar)}
     </select>
   ` : "";
 
@@ -923,7 +933,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     : "";
 
   let html = `
-    ${showPersonalMatrikelControls ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${matrikelControlHtml}${yearControlHtml}${periodControlHtml}</div>` : ""}
+    ${(showPersonalMatrikelControls || showYearSelector) ? `<div style="display:flex;flex-wrap:wrap;gap:0.5em;align-items:center;margin-bottom:0.8em;">${matrikelControlHtml}${yearControlHtml}${periodControlHtml}</div>` : ""}
     ${showPersonalMatrikelControls && selectedPeriodName ? `<div style="font-size:0.95em;color:var(--text-muted);margin-bottom:0.8em;">Valgt periode: <b>${selectedPeriodName}</b>${activePeriodName && activePeriodName !== selectedPeriodName ? ` (Aktuel: ${activePeriodName})` : ""}</div>` : ""}
     ${showPersonalTrend ? `<div id="userTrendWrap"></div>` : ""}
     <div style="display:flex;flex-wrap:wrap;gap:0.4em;margin:0.8em 0 1em;">
@@ -953,7 +963,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
     };
   }
 
-  const userYearSelect = showPersonalMatrikelControls ? document.getElementById('userYearSelect') : null;
+  const userYearSelect = (showPersonalMatrikelControls || showYearSelector) ? document.getElementById('userYearSelect') : null;
   if (userYearSelect) {
     userYearSelect.onchange = () => {
       const nextParams = { ...parentParams, aar: userYearSelect.value };

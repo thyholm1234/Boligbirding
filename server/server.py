@@ -235,6 +235,27 @@ def get_global_user_dir(obserkode: str) -> str:
     base = os.path.join(SERVER_DIR, "data", "global", "obser")
     return os.path.join(base, normalize_obserkode(obserkode))
 
+def get_available_years_for_user(obserkode: str) -> List[int]:
+    """Return sorted list of years where user has data."""
+    safe_kode = normalize_obserkode(obserkode)
+    data_root = os.path.join(SERVER_DIR, "data")
+    if not os.path.isdir(data_root):
+        return []
+    years = []
+    for year_dir in os.listdir(data_root):
+        if year_dir == "global" or year_dir == "kommune":
+            continue
+        try:
+            year_int = int(year_dir)
+        except ValueError:
+            continue
+        user_dir = os.path.join(data_root, year_dir, "obser", safe_kode)
+        if os.path.isdir(user_dir):
+            global_file = os.path.join(user_dir, "global.json")
+            if os.path.exists(global_file):
+                years.append(year_int)
+    return sorted(years, reverse=True)
+
 def remove_all_user_data_dirs(obserkode: str):
     safe_kode = normalize_obserkode(obserkode)
     data_root = os.path.join(SERVER_DIR, "data")
@@ -3582,7 +3603,9 @@ async def api_obser(request: Request):
         firsts = await _ensure_firsts_obsid(data.get("alle", []))
         return {"firsts": firsts}
     if key == "firsts":
-        return {key: await _ensure_firsts_obsid(data)}
+        enriched_firsts = await _ensure_firsts_obsid(data)
+        available_years = get_available_years_for_user(obserkode) if scope == "user_global" else []
+        return {key: enriched_firsts, "available_years": available_years}
     return {key: data}
 
 @app.get("/api/user_scoreboard")
