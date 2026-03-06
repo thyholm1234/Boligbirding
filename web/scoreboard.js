@@ -1,4 +1,4 @@
-// Version: 1.12.35 - 2026-03-06 20.30.30
+// Version: 1.12.36 - 2026-03-06 21.05.03
 // © Christian Vemmelund Helligsø
 
 
@@ -484,7 +484,9 @@ async function visSide() {
       card.onclick = async function () {
         const kode = this.getAttribute('data-obserkode');
         const navn = this.querySelector('strong').innerText;
-        firstsSortMode = "alphabetical";
+        const currentYear = new Date().getFullYear();
+        const scopeYear = lastScoreboardParams?.aar || cachedGlobalYear || currentYear;
+        firstsSortMode = (String(scopeYear) === String(currentYear)) ? "newest" : "alphabetical";
         await visUserFirsts(kode, navn, firstsSortMode, lastScoreboardParams);
       };
     });
@@ -1566,7 +1568,9 @@ function filtrerScoreboardPåKoder(valgteKoder, params) {
     card.onclick = async function () {
       const kode = this.getAttribute('data-obserkode');
       const navn = this.querySelector('strong').innerText;
-      firstsSortMode = "alphabetical";
+      const currentYear = new Date().getFullYear();
+      const scopeYear = params?.aar || cachedGlobalYear || currentYear;
+      firstsSortMode = (String(scopeYear) === String(currentYear)) ? "newest" : "alphabetical";
       await visUserFirsts(kode, navn, firstsSortMode, params);
     };
   });
