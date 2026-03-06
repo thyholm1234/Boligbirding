@@ -1,4 +1,4 @@
-// Version: 1.13.5 - 2026-03-06 21.40.18
+// Version: 1.13.6 - 2026-03-06 21.43.37
 // © Christian Vemmelund Helligsø
 
 
@@ -1320,20 +1320,19 @@ function visScoreboardTrend(data) {
     const koder = sortedKoder.length ? sortedKoder : koderFromRows;
 
     let firstPositiveGlobalDate = null;
-    if (selectedAarRaw === 'global' || !selectedAarRaw) {
-      koder.forEach(kode => {
-        const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
-        points.forEach(point => {
-          if (!point?.dato) return;
-          if (Number(point.count || 0) < 1) return;
-          const pointDate = parseDmyToDate(point.dato);
-          if (!pointDate) return;
-          if (!firstPositiveGlobalDate || pointDate < firstPositiveGlobalDate) {
-            firstPositiveGlobalDate = pointDate;
-          }
-        });
+    // Always search for first positive observation for trend_points
+    koder.forEach(kode => {
+      const points = Array.isArray(trendPoints[kode]) ? trendPoints[kode] : [];
+      points.forEach(point => {
+        if (!point?.dato) return;
+        if (Number(point.count || 0) < 1) return;
+        const pointDate = parseDmyToDate(point.dato);
+        if (!pointDate) return;
+        if (!firstPositiveGlobalDate || pointDate < firstPositiveGlobalDate) {
+          firstPositiveGlobalDate = pointDate;
+        }
       });
-    }
+    });
 
     const allDates = new Set();
     koder.forEach(kode => {
