@@ -1,4 +1,4 @@
-// Version: 1.12.38 - 2026-03-06 21.14.06
+// Version: 1.12.39 - 2026-03-06 21.16.31
 // © Christian Vemmelund Helligsø
 
 
@@ -874,7 +874,7 @@ async function visUserFirsts(obserkode, navn, sortMode = firstsSortMode, parentP
   const trendPointsForGraph = (showPersonalMatrikelControls && Array.isArray(data.trend_points))
     ? data.trend_points
     : buildTrendPointsFromFirsts(firsts);
-  const showYearSelector = (apiScope === 'user_global' && availableYears.length > 0);
+  const showYearSelector = (apiScope === 'user_global' && String(aar) !== 'global' && availableYears.length > 0);
 
   // Render
   const container = document.getElementById("main");
