@@ -1,4 +1,4 @@
-// Version: 1.13.1 - 2026-03-06 21.29.52
+// Version: 1.13.2 - 2026-03-06 21.31.37
 // © Christian Vemmelund Helligsø
 
 
@@ -164,14 +164,14 @@ function createDailyXAxisOptions(labels) {
     return date.getDay() === 1;
   };
 
-  const shouldShowYear = (year) => {
+  const shouldShowYear = (year, day, month) => {
     if (overFiveYears) {
-      return year % 5 === 0 || year === minYear || year === maxYear;
+      return (day === 1 && month === 1) && (year % 5 === 0 || year === minYear || year === maxYear);
     }
     if (spanYearsApprox > 1) {
-      return year === minYear || year === maxYear || (year < currentYear && year === minYear);
+      return (day === 1 && month === 1) && (year === minYear || year === maxYear);
     }
-    return true;
+    return year === minYear;
   };
 
   return {
@@ -185,7 +185,7 @@ function createDailyXAxisOptions(labels) {
         const parts = parseDmyLabelParts(label);
         if (!parts) return '';
         if (overFiveYears) {
-          if (parts.day === 1 && parts.month === 1 && shouldShowYear(parts.year)) {
+          if (shouldShowYear(parts.year, parts.day, parts.month)) {
             return String(parts.year);
           }
           return '';
@@ -193,7 +193,7 @@ function createDailyXAxisOptions(labels) {
         if (parts.day !== 1) return '';
         const monthNames = ['jan', 'feb', 'mar', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
         const monthName = monthNames[Math.max(0, Math.min(11, parts.month - 1))];
-        return parts.month === 1 ? `${monthName} ${parts.year}` : monthName;
+        return parts.month === 1 && shouldShowYear(parts.year, parts.day, parts.month) ? `${monthName} ${parts.year}` : monthName;
       }
     },
     grid: {
