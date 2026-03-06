@@ -13,7 +13,7 @@ import pandas as pd
 from dotenv import load_dotenv
 import re
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from collections import defaultdict
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Body, Query, Depends
@@ -720,18 +720,31 @@ def _firsts_from_obs(obs_iter: List[Observation], excluded_keys: Optional[set] =
         if navn.casefold() in blocked:
             continue
         key = navn.casefold()
-        if key not in firsts or o.dato < firsts[key]["dato"]:
+        has_obsid = bool(str(o.obsid or "").strip())
+        existing = firsts.get(key)
+        should_replace = (
+            existing is None
+            or o.dato < existing["dato"]
+            or (
+                o.dato == existing["dato"]
+                and not str(existing.get("obsid") or "").strip()
+                and has_obsid
+            )
+        )
+        if should_replace:
             firsts[key] = {
                 "artnavn": safe_output(navn),
                 "lokalitet": safe_output(o.loknavn or ""),
-                "dato": o.dato
+                "dato": o.dato,
+                "obsid": safe_output(o.obsid or "")
             }
     return sorted(
         (
             {
                 "artnavn": v["artnavn"],
                 "lokalitet": v["lokalitet"],
-                "dato": v["dato"].strftime("%d-%m-%Y")
+                "dato": v["dato"].strftime("%d-%m-%Y"),
+                "obsid": v.get("obsid", "")
             }
             for v in firsts.values()
         ),
@@ -3452,6 +3465,66 @@ async def api_obser(request: Request):
     obserkode = params.get("obserkode")
     if not obserkode:
         return JSONResponse({"error": "Obserkode mangler"}, status_code=400)
+
+    async def _ensure_firsts_obsid(rows: Any) -> List[Dict[str, Any]]:
+        if not isinstance(rows, list) or not rows:
+            return []
+
+        normalized_rows = [row for row in rows if isinstance(row, dict)]
+        missing = [row for row in normalized_rows if not str(row.get("obsid") or "").strip()]
+        if not missing:
+            return normalized_rows
+
+        dates: set = set()
+        for row in missing:
+            parsed = _parse_ddmmyyyy(row.get("dato"))
+            if parsed != datetime.datetime.min:
+                dates.add(parsed.date())
+        if not dates:
+            return normalized_rows
+
+        async with SessionLocal() as session:
+            candidates = (await session.execute(
+                select(Observation).where(
+                    Observation.obserkode == obserkode,
+                    Observation.dato.in_(sorted(dates)),
+                )
+            )).scalars().all()
+
+        obsid_by_exact: Dict[Tuple[str, str, str], str] = {}
+        obsid_by_art: Dict[Tuple[str, str], str] = {}
+        for obs in candidates:
+            if not obs.obsid or not obs.dato:
+                continue
+            dato_key = obs.dato.strftime("%d-%m-%Y")
+            art_key = _normalize_base_art_name(obs.artnavn or "").casefold()
+            lok_key = safe_output(obs.loknavn or "").strip().casefold()
+            obsid = safe_output(obs.obsid)
+            if not obsid:
+                continue
+            obsid_by_exact.setdefault((dato_key, art_key, lok_key), obsid)
+            obsid_by_art.setdefault((dato_key, art_key), obsid)
+
+        enriched: List[Dict[str, Any]] = []
+        for row in normalized_rows:
+            existing = str(row.get("obsid") or "").strip()
+            if existing:
+                enriched.append(row)
+                continue
+
+            dato_key = str(row.get("dato") or "")
+            art_key = _normalize_base_art_name(row.get("artnavn") or "").casefold()
+            lok_key = safe_output(row.get("lokalitet") or "").strip().casefold()
+            obsid = obsid_by_exact.get((dato_key, art_key, lok_key)) or obsid_by_art.get((dato_key, art_key))
+            if obsid:
+                copy_row = dict(row)
+                copy_row["obsid"] = obsid
+                enriched.append(copy_row)
+            else:
+                enriched.append(row)
+
+        return enriched
+
     if str(aar) == "global":
         userdir = os.path.join(SERVER_DIR, "data", "global", "obser", obserkode)
     else:
@@ -3498,13 +3571,18 @@ async def api_obser(request: Request):
         data = json.load(f)
     if scope == "user_lokalafdeling":
         afdeling = params.get("afdeling")
-        return {"firsts": data.get(afdeling, {}).get("alle", [])}
+        firsts = await _ensure_firsts_obsid(data.get(afdeling, {}).get("alle", []))
+        return {"firsts": firsts}
     if scope in ("user_kommune_alle", "user_kommune_matrikel"):
         if not data:
             return {"firsts": []}
         if scope == "user_kommune_matrikel":
-            return {"firsts": data.get("matrikel", [])}
-        return {"firsts": data.get("alle", [])}
+            firsts = await _ensure_firsts_obsid(data.get("matrikel", []))
+            return {"firsts": firsts}
+        firsts = await _ensure_firsts_obsid(data.get("alle", []))
+        return {"firsts": firsts}
+    if key == "firsts":
+        return {key: await _ensure_firsts_obsid(data)}
     return {key: data}
 
 @app.get("/api/user_scoreboard")

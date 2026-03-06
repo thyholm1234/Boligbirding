@@ -1,4 +1,4 @@
-// Version: 1.12.33 - 2026-03-03 13.41.12
+// Version: 1.12.35 - 2026-03-06 20.30.30
 // © Christian Vemmelund Helligsø
 
 
@@ -1009,15 +1009,33 @@ function renderFirsts(firsts, sortMode, scope) {
     sorted.sort((a, b) => parseDmyToTime(a.dato) - parseDmyToTime(b.dato));
   }
   const hideLokalitet = scope === "user_matrikel";
-  const cards = sorted.map(f => `
-    <div class="user-card">
-      <strong>${renderSpeciesLabelHtml(f.artnavn)}</strong><br>
-      ${!hideLokalitet ? `Lokalitet: ${f.lokalitet}<br>` : ""}
-      Dato: ${f.dato}
-    </div>
-  `).join("");
+  const buildObsLink = (obsid) => {
+    const cleanObsid = String(obsid || '').trim();
+    if (!cleanObsid) return '';
+    return `https://dofbasen.dk/popobs.php?obsid=${encodeURIComponent(cleanObsid)}&summering=tur&obs=obs`;
+  };
+  const cards = sorted.map(f => {
+    const obsLink = buildObsLink(f.obsid);
+    return `
+      <div class="user-card user-card-compact${obsLink ? ' user-card--has-link' : ''}"${obsLink ? ` data-obs-link="${escapeHtml(obsLink)}"` : ''}>
+        <div><strong>${renderSpeciesLabelHtml(f.artnavn)}</strong></div>
+        ${!hideLokalitet ? `<div>Lokalitet: ${escapeHtml(f.lokalitet)}</div>` : ""}
+        <div>Dato: ${escapeHtml(f.dato)}</div>
+      </div>
+    `;
+  }).join("");
   const target = document.getElementById("firstsCards");
-  if (target) target.innerHTML = cards;
+  if (target) {
+    target.innerHTML = cards;
+    target.querySelectorAll('.user-card--has-link').forEach(card => {
+      card.onclick = () => {
+        const obsLink = card.getAttribute('data-obs-link');
+        if (obsLink) {
+          window.open(obsLink, '_blank', 'noopener,noreferrer');
+        }
+      };
+    });
+  }
 }
 
 // ---------- Matrix / Blockers / Trend ----------
