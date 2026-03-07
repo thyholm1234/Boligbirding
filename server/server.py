@@ -260,6 +260,42 @@ def remove_all_user_data_dirs(obserkode: str):
 def safe_output(value: str) -> str:
     return escape(str(value or ""), quote=True)
 
+def _extract_observer_name_from_html(html: str) -> str:
+    content = str(html or "")
+    if not content:
+        return ""
+
+    marker = 'Navn</acronym>:</td><td valign="top">'
+    idx = content.find(marker)
+    if idx != -1:
+        start = idx + len(marker)
+        end = content.find("</td>", start)
+        if end != -1:
+            return unescape(content[start:end].strip())
+
+    match = re.search(r"Navn(?:</acronym>)?\s*:\s*</td>\s*<td[^>]*>(.*?)</td>", content, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return ""
+
+    value = re.sub(r"<[^>]+>", "", match.group(1) or "").strip()
+    return unescape(value)
+
+def fetch_observer_name_from_dof(obserkode: str, timeout_seconds: int = 10) -> str:
+    try:
+        safe_kode = normalize_obserkode(obserkode)
+    except Exception:
+        return ""
+
+    try:
+        navn_res = requests.get(f"https://dofbasen.dk/popobser.php?obserkode={safe_kode}", timeout=timeout_seconds)
+    except Exception:
+        return ""
+
+    if navn_res.status_code != 200:
+        return ""
+
+    return _extract_observer_name_from_html(navn_res.text)
+
 def sanitize_text(s):
     """Tillad kun bogstaver, tal og mellemrum."""
     return re.sub(r'[^a-zA-ZæøåÆØÅ0-9 ]', '', str(s or ''))
@@ -3946,19 +3982,7 @@ async def validate_login(data: Dict[str, Any] = Body(...), request: Request = No
         return {"ok": False, "error": str(e)}
 
     # Hent navn
-    navn = ""
-    try:
-        navn_res = requests.get(f"https://dofbasen.dk/popobser.php?obserkode={obserkode}", timeout=10)
-        if navn_res.status_code == 200:
-            html = navn_res.text
-            idx = html.find("Navn</acronym>:</td><td valign=\"top\">")
-            if idx != -1:
-                start = idx + len("Navn</acronym>:</td><td valign=\"top\">")
-                end = html.find("</td>", start)
-                if end != -1:
-                    navn = html[start:end].strip()
-    except Exception:
-        navn = ""
+    navn = fetch_observer_name_from_dof(obserkode)
 
     # Gem/Opdater bruger
     async with SessionLocal() as session:
@@ -4759,6 +4783,67 @@ async def admin_slet_gruppe(request: Request, data: dict = Body(...), admin: boo
     grupper = [g for g in grupper if g["navn"] != navn]
     save_grupper(grupper)
     return {"ok": True, "msg": f"Gruppe '{navn}' slettet"}
+
+
+@app.post("/api/admin/sync_all_user_names")
+async def admin_sync_all_user_names(request: Request, admin: bool = Depends(require_admin)):
+    enforce_sync_rate_limit(request, 30)
+
+    async with SessionLocal() as session:
+        users = (await session.execute(select(User))).scalars().all()
+        user_by_code: Dict[str, User] = {}
+        for user in users:
+            code = (user.obserkode or "").strip().upper()
+            if SAFE_OBSERKODE_RE.fullmatch(code):
+                user_by_code[code] = user
+
+        all_codes = set(user_by_code.keys())
+        obserkoder = (await session.execute(select(Obserkode.kode))).scalars().all()
+        for raw_code in obserkoder:
+            code = (raw_code or "").strip().upper()
+            if SAFE_OBSERKODE_RE.fullmatch(code):
+                all_codes.add(code)
+
+        updated = 0
+        created = 0
+        unchanged = 0
+        missing = 0
+
+        for code in sorted(all_codes):
+            fetched_name = await asyncio.to_thread(fetch_observer_name_from_dof, code)
+            if not fetched_name:
+                missing += 1
+                continue
+
+            user = user_by_code.get(code)
+            if not user:
+                user = User(obserkode=code, navn=fetched_name, lokalafdeling=None)
+                session.add(user)
+                user_by_code[code] = user
+                created += 1
+                continue
+
+            if (user.navn or "").strip() != fetched_name:
+                user.navn = fetched_name
+                updated += 1
+            else:
+                unchanged += 1
+
+        await session.commit()
+
+    return {
+        "ok": True,
+        "users": len(all_codes),
+        "updated": updated,
+        "created": created,
+        "unchanged": unchanged,
+        "missing": missing,
+        "msg": (
+            "Navne-sync fuldført: "
+            f"{updated} opdateret, {created} oprettet, "
+            f"{unchanged} uændret, {missing} uden navn."
+        ),
+    }
 
 
 @app.post("/api/admin/full_sync_user")

@@ -1,4 +1,4 @@
-// Version: 1.13.7 - 2026-03-06 21.45.51
+// Version: 1.13.8 - 2026-03-07 08.52.01
 // © Christian Vemmelund Helligsø
 async function getApiMessage(res, fallback) {
     let data = null;
@@ -396,6 +396,25 @@ if (syncPreviousYearsBtn) {
         } catch (e) {
             btn.textContent = "Fejl!";
             setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1800);
+        }
+    };
+}
+
+const syncAllUserNamesBtn = document.getElementById('syncAllUserNamesBtn');
+if (syncAllUserNamesBtn) {
+    syncAllUserNamesBtn.onclick = async function() {
+        const btn = this;
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Synkroniserer navne...";
+        try {
+            const res = await fetch('/api/admin/sync_all_user_names', { method: 'POST' });
+            const msg = await getApiMessage(res, res.ok ? '✓ Navne synkroniseret' : 'Fejl!');
+            btn.textContent = res.ok ? msg : `Fejl: ${msg}`;
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3500);
+        } catch (e) {
+            btn.textContent = 'Fejl!';
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
         }
     };
 }
