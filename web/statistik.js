@@ -1,4 +1,4 @@
-// Version: 1.13.9 - 2026-03-07 12.46.15
+// Version: 1.13.11 - 2026-03-07 13.45.14
 // © Christian Vemmelund Helligsø
 import { renderNavbar, initNavbar, initMobileNavbar, addGruppeLinks } from './navbar.js';
 
@@ -600,7 +600,7 @@ async function renderLokalafdelingOverview() {
     }))
   );
 
-  const totalRow = selected?.alle || null;
+  const totalRow = selected?.alle_total || selected?.alle || null;
 
   const rowHtml = (label, row, scope, yearValue = null) => {
     const count = Number(row?.antal_arter || 0);
@@ -705,7 +705,7 @@ async function renderKommuneOverview() {
     }))
   );
 
-  const totalRow = selected?.alle || null;
+  const totalRow = selected?.alle_total || selected?.alle || null;
 
   const rowHtml = (label, row, scope, yearValue = null) => {
     const count = Number(row?.antal_arter || 0);

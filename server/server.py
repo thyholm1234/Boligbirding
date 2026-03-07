@@ -1120,10 +1120,9 @@ async def generate_user_global_lists(obserkode: str):
         json.dump(matrikel2_historik, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: matrikel2arter.json ({len(matrikel2_list)} arter, filter='{filt}-2')")
 
-    # Lokalafdeling – kun brugerens egen afdeling
+    # Lokalafdeling – alle afdelinger (all-time)
     la_dict: Dict[str, Dict[str, Any]] = {}
-    if user and user.lokalafdeling:
-        afdeling = user.lokalafdeling
+    for afdeling in AFDELINGER:
         la_obs = [o for o in obs if (o.afdeling or "").strip() == afdeling]
         la_dict[afdeling] = {
             "alle": _firsts_from_obs(la_obs, excluded_keys=excluded_keys),
@@ -1176,6 +1175,42 @@ async def generate_user_global_lists(obserkode: str):
     with open(os.path.join(user_dir, "kommune.json"), "w", encoding="utf-8") as f:
         json.dump(kommune_payload, f, ensure_ascii=False, indent=2)
     print(f"[LISTS] {obserkode}/global: kommune.json")
+
+
+_prefs_scoreboard_rebuild_lock = asyncio.Lock()
+
+
+async def _rebuild_scoreboards_after_optin_change(obserkode: str):
+    try:
+        safe_obserkode = normalize_obserkode(obserkode)
+    except ValueError:
+        return
+
+    async with _prefs_scoreboard_rebuild_lock:
+        try:
+            years = await get_available_years_for_user(safe_obserkode)
+            if not years:
+                current_year = await get_global_year()
+                years = [current_year]
+
+            normalized_years: List[int] = []
+            for year_value in years:
+                try:
+                    parsed_year = int(year_value)
+                except Exception:
+                    continue
+                if parsed_year > 0:
+                    normalized_years.append(parsed_year)
+            years = sorted(set(normalized_years))
+
+            for year in years:
+                await generate_scoreboards_from_lists(year)
+
+            await generate_user_global_lists(safe_obserkode)
+            await generate_global_scoreboards_all_time()
+            print(f"[PREFS] Scoreboards genopbygget for {safe_obserkode}: years={years} + global")
+        except Exception as error:
+            print(f"[PREFS] Kunne ikke genopbygge scoreboards for {safe_obserkode}: {error}")
 
 # ---------------------------------------------------------
 #  Artsdata
@@ -3658,6 +3693,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
         aar = await get_global_year()
     print("[DEBUG] År:", aar)
     _, SCOREBOARD_DIR, OBSER_DIR = get_data_dirs(aar)
+    GLOBAL_SCOREBOARD_DIR = os.path.join(SERVER_DIR, "data", "global", "scoreboards")
     print("[DEBUG] SCOREBOARD_DIR:", SCOREBOARD_DIR)
 
     def get_row(rows):
@@ -3765,12 +3801,18 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
             filename = f"{opted_name.replace(' ', '_')}.json"
 
             alle_row = None
+            alle_total_row = None
             matrikel_row = None
             try:
                 with open(os.path.join(SCOREBOARD_DIR, "lokalafdeling_alle", filename), encoding="utf-8") as f:
                     alle_row = get_row(json.load(f))
             except Exception:
                 alle_row = None
+            try:
+                with open(os.path.join(GLOBAL_SCOREBOARD_DIR, "lokalafdeling_alle", filename), encoding="utf-8") as f:
+                    alle_total_row = get_row(json.load(f))
+            except Exception:
+                alle_total_row = None
             try:
                 with open(os.path.join(SCOREBOARD_DIR, "lokalafdeling_matrikel", filename), encoding="utf-8") as f:
                     matrikel_row = get_row(json.load(f))
@@ -3780,6 +3822,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
             lokalafdelinger_overblik.append({
                 "lokalafdeling_navn": str(opted_name),
                 "alle": alle_row,
+                "alle_total": alle_total_row,
                 "matrikel": matrikel_row,
             })
         result["lokalafdelinger_overblik"] = lokalafdelinger_overblik
@@ -3842,12 +3885,18 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
             filename = f"{_kommune_slug(kommune_name)}.json"
 
             alle_row = None
+            alle_total_row = None
             matrikel_row = None
             try:
                 with open(os.path.join(SCOREBOARD_DIR, "kommune_alle", filename), encoding="utf-8") as f:
                     alle_row = get_row(json.load(f))
             except Exception:
                 alle_row = None
+            try:
+                with open(os.path.join(GLOBAL_SCOREBOARD_DIR, "kommune_alle", filename), encoding="utf-8") as f:
+                    alle_total_row = get_row(json.load(f))
+            except Exception:
+                alle_total_row = None
             try:
                 with open(os.path.join(SCOREBOARD_DIR, "kommune_matrikel", filename), encoding="utf-8") as f:
                     matrikel_row = get_row(json.load(f))
@@ -3858,6 +3907,7 @@ async def user_scoreboard(request: Request, aar: int = Query(None)):
                 "kommune_id": str(opted_id),
                 "kommune_navn": kommune_name,
                 "alle": alle_row,
+                "alle_total": alle_total_row,
                 "matrikel": matrikel_row,
             })
         result["kommuner_overblik"] = kommuner_overblik
@@ -4044,6 +4094,12 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
         user = (await dbsession.execute(select(User).where(User.obserkode == obserkode))).scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="Bruger ikke fundet")
+
+        prev_lokalafdeling = str(getattr(user, "lokalafdeling", "") or "").strip() or None
+        prev_kommune = _normalize_single_kommune(getattr(user, "kommune", None))
+        prev_lokalafdelinger = _user_opted_lokalafdelinger(user)
+        prev_kommuner = _user_opted_kommuner(user)
+
         user.lokalafdeling = (lokalafdeling or None)
         user.kommune = (kommune or None)
 
@@ -4074,9 +4130,25 @@ async def set_afdeling_kommune(data: Dict[str, Any] = Body(...), request: Reques
 
         if has_dynamic or has_m1 or has_m2:
             user.matrikel_perioder_json = json.dumps(current_map, ensure_ascii=False)
+
+        new_lokalafdeling = str(getattr(user, "lokalafdeling", "") or "").strip() or None
+        new_kommune = _normalize_single_kommune(getattr(user, "kommune", None))
+        new_lokalafdelinger = _user_opted_lokalafdelinger(user)
+        new_kommuner = _user_opted_kommuner(user)
+        needs_scoreboard_refresh = (
+            prev_lokalafdeling != new_lokalafdeling
+            or prev_kommune != new_kommune
+            or prev_lokalafdelinger != new_lokalafdelinger
+            or prev_kommuner != new_kommuner
+        )
+
         await dbsession.commit()
     web_session["lokalafdeling"] = lokalafdeling
     web_session["kommune"] = kommune
+
+    if needs_scoreboard_refresh:
+        asyncio.create_task(_rebuild_scoreboards_after_optin_change(obserkode))
+
     return {"ok": True}
 
 @app.post("/api/delete_my_account")
