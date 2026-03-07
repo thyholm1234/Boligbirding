@@ -715,9 +715,9 @@ def _normalize_single_kommune(value: Any) -> Optional[str]:
 def _user_opted_lokalafdelinger(user: Optional[User]) -> List[str]:
     if not user:
         return []
-    from_json = _normalize_lokalafdelinger(_load_json_string_list(getattr(user, "lokalafdelinger_json", None)))
-    if from_json:
-        return from_json
+    raw_json = getattr(user, "lokalafdelinger_json", None)
+    if raw_json is not None and str(raw_json).strip() != "":
+        return _normalize_lokalafdelinger(_load_json_string_list(raw_json))
     fallback = str(getattr(user, "lokalafdeling", "") or "").strip()
     return _normalize_lokalafdelinger([fallback]) if fallback else []
 
@@ -3462,9 +3462,12 @@ async def api_scoreboard(request: Request):
     else:
         _, SCOREBOARD_DIR, _ = get_data_dirs(aar)
 
-    def filter_nonempty(rows):
-        # Fjern brugere med 0 arter
-        return [r for r in rows if r.get("antal_arter", 0) > 0]
+    def rows_for_scope(rows, current_scope: str):
+        # Behold 0-arter for tilmeldingsstyrede lister (lokalafdeling/kommune),
+        # men filtrér fortsat nationale lister for 0-arter.
+        if current_scope in ("global_alle", "global_matrikel"):
+            return [r for r in rows if r.get("antal_arter", 0) > 0]
+        return rows
 
     # Lokalafdeling
     if scope in ("lokal_alle", "lokal_matrikel"):
@@ -3478,7 +3481,7 @@ async def api_scoreboard(request: Request):
             return JSONResponse({"rows": []})
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        return {"rows": filter_nonempty(rows)}
+        return {"rows": rows_for_scope(rows, scope)}
 
     # Global
     if scope in ("global_alle", "global_matrikel"):
@@ -3488,7 +3491,7 @@ async def api_scoreboard(request: Request):
             return JSONResponse({"rows": []})
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        return {"rows": filter_nonempty(rows)}
+        return {"rows": rows_for_scope(rows, scope)}
 
     # Kommune
     if scope in ("kommune_alle", "kommune_matrikel"):
@@ -3503,7 +3506,7 @@ async def api_scoreboard(request: Request):
             return JSONResponse({"rows": []})
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
-        return {"rows": filter_nonempty(rows)}
+        return {"rows": rows_for_scope(rows, scope)}
 
     return JSONResponse({"error": "Ukendt scope"}, status_code=400)
 
