@@ -1640,9 +1640,10 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
                 user_obs = obs_by_user.get(u.obserkode, [])
                 kommune_obs = [o for o in user_obs if _parse_int(o.loknr) in site_numbers]
 
-                firsts_all = _firsts_from_obs_rows(kommune_obs)
-                a_all, art_all, dato_all = _score_from_firsts(firsts_all)
-                if a_all > 0:
+                is_opted = _user_in_kommune(u, kommune_id)
+                if is_opted:
+                    firsts_all = _firsts_from_obs_rows(kommune_obs)
+                    a_all, art_all, dato_all = _score_from_firsts(firsts_all)
                     rows_alle.append({
                         "navn": safe_output(u.navn or u.obserkode),
                         "obserkode": u.obserkode,
@@ -1651,7 +1652,7 @@ async def generate_kommune_scoreboards(aar: int, users: List[User]):
                         "sidste_dato": safe_output(dato_all),
                     })
 
-                if _user_in_kommune(u, kommune_id):
+                if is_opted:
                     tagged_matrikel_obs = [
                         row for row in kommune_obs
                         if _observation_has_matrikel_tag(row, raw_filter, 1)
@@ -1855,9 +1856,11 @@ async def generate_global_scoreboards_all_time():
             user_obs = obs_by_user.get(u.obserkode, [])
             kommune_obs = [row for row in user_obs if _parse_int(row.loknr) in site_set]
 
-            firsts_all = _firsts_from_obs_rows_global(kommune_obs)
-            a1, art1, dato1 = _score_from_firsts_global(firsts_all)
-            if a1 > 0:
+            opted_kommuner = _user_opted_kommuner(u)
+            is_opted = str(kommune_id) in opted_kommuner
+            if is_opted:
+                firsts_all = _firsts_from_obs_rows_global(kommune_obs)
+                a1, art1, dato1 = _score_from_firsts_global(firsts_all)
                 rows_alle.append({
                     "navn": u.navn or u.obserkode,
                     "obserkode": u.obserkode,
@@ -1866,8 +1869,7 @@ async def generate_global_scoreboards_all_time():
                     "sidste_dato": dato1,
                 })
 
-            opted_kommuner = _user_opted_kommuner(u)
-            if str(kommune_id) in opted_kommuner:
+            if is_opted:
                 tagged_matrikel_obs = [
                     row for row in kommune_obs
                     if _observation_has_matrikel_tag(row, raw_filter, 1)
