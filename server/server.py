@@ -1399,6 +1399,7 @@ async def artdata_post(payload: Dict[str, Any] = Body(...)):
 #  Scoreboards (fra listerne)
 # ---------------------------------------------------------
 def _finalize(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows = [r for r in rows if r.get("antal_arter", 0) > 0]
     rows.sort(key=lambda x: x["antal_arter"], reverse=True)
     for i, r in enumerate(rows, 1):
         r["placering"] = i
@@ -3423,7 +3424,7 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
-    await fetch_and_store(obserkode, aar, include_global_rebuild=False)
+    await fetch_and_store(obserkode, aar, include_global_rebuild=True)
     return {
         "ok": True,
         "state": "done",
