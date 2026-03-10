@@ -2075,6 +2075,16 @@ async def fetch_and_store(
         await generate_user_global_lists(obserkode)
         await generate_global_scoreboards_all_time()
 
+
+async def _background_global_rebuild(obserkode: str):
+    """Kør global rebuild i baggrunden (kald via asyncio.create_task)."""
+    try:
+        await generate_user_global_lists(obserkode)
+        await generate_global_scoreboards_all_time()
+        print(f"[BG] Global rebuild færdig for {obserkode}")
+    except Exception as e:
+        print(f"[BG] Global rebuild fejlede for {obserkode}: {e}")
+
 async def fetch_and_store_sites_for_kommune(kommune_id: int, kommune_name: Optional[str] = None):
     url = f"https://statistik.dofbasen.dk/sites/group_{kommune_id}.json"
     try:
@@ -3325,7 +3335,8 @@ async def sync_obserkode_api(request: Request, kode: Optional[str] = None, aar: 
             session.add(Obserkode(kode=resolved_kode))
             await session.commit()
     # kør sync nu
-    await fetch_and_store(resolved_kode, aar)
+    await fetch_and_store(resolved_kode, aar, include_global_rebuild=False)
+    asyncio.create_task(_background_global_rebuild(resolved_kode))
     return {"msg": f"Sync kørt for {resolved_kode}", "aar": aar or (await get_global_year())}
 
 @app.post("/api/sync_all")
@@ -3348,13 +3359,25 @@ async def admin_sync_all_current_year(request: Request):
             for k in (await session.execute(select(Obserkode))).scalars().all()
             if SAFE_OBSERKODE_RE.fullmatch((k.kode or "").strip().upper())
         ]
-    for kode in koder:
-        await fetch_and_store(kode, aar)
+
+    async def _run_sync_all_year():
+        try:
+            for kode in koder:
+                await fetch_and_store(kode, aar, include_global_rebuild=False)
+            # Én samlet global rebuild til sidst
+            for kode in koder:
+                await generate_user_global_lists(kode)
+            await generate_global_scoreboards_all_time()
+            print(f"[SYNC-ALL-YEAR] Færdig for {len(koder)} brugere ({aar})")
+        except Exception as e:
+            print(f"[SYNC-ALL-YEAR] Fejl: {e}")
+
+    asyncio.create_task(_run_sync_all_year())
     return {
         "ok": True,
         "year": aar,
         "users": len(koder),
-        "msg": f"Synkronisering for alle brugere er gennemført for {aar} (ikke full sync)"
+        "msg": f"Synkronisering startet for {len(koder)} brugere ({aar})"
     }
 
 @app.post("/api/admin/sync_all_previous_years")
@@ -3362,10 +3385,10 @@ async def admin_sync_all_previous_years(request: Request):
     if not request.session.get("is_admin"):
         raise HTTPException(status_code=403, detail="Kun admin kan køre sync for alle")
     enforce_sync_rate_limit(request, 30)
-    await daily_update_all_jsons()
+    asyncio.create_task(daily_update_all_jsons())
     return {
         "ok": True,
-        "msg": "Synkronisering gennemført med gammel metode (alle historiske data genopbygget)."
+        "msg": "Fuld synkronisering for alle brugere er startet i baggrunden."
     }
 
 @app.post("/api/admin/rebuild_scoreboards_from_db")
@@ -3424,7 +3447,8 @@ async def sync_mine_observationer(request: Request, aar: Optional[int] = None):
     enforce_sync_rate_limit(request, 30)
     if aar is None:
         aar = await get_global_year()
-    await fetch_and_store(obserkode, aar, include_global_rebuild=True)
+    await fetch_and_store(obserkode, aar, include_global_rebuild=False)
+    asyncio.create_task(_background_global_rebuild(obserkode))
     return {
         "ok": True,
         "state": "done",
